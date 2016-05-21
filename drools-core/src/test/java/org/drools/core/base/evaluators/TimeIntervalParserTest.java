@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,121 +21,94 @@ import static org.junit.Assert.*;
 
 public class TimeIntervalParserTest {
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse() {
         String input = "2d10h49m10s789ms";
         long expected = 211750789;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 1, result.length );
-        assertEquals( expected, result[0].longValue() );
+        assertEquals( expected, result[0] );
     }
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse2() {
         String input = "10h49m789ms";
         long expected = 10 * 3600000 + 49 * 60000 + 789;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 1, result.length );
-        assertEquals( expected, result[0].longValue() );
+        assertEquals( expected, result[0] );
     }
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse3() {
         // ms are optional
         String input = " 10h49m789 , 12h ";
         long expected1 = 10 * 3600000 + 49 * 60000 + 789;
         long expected2 = 12 * 3600000;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 2, result.length );
-        assertEquals( expected1, result[0].longValue() );
-        assertEquals( expected2, result[1].longValue() );
+        assertEquals( expected1, result[0] );
+        assertEquals( expected2, result[1] );
     }
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse4() {
         // raw ms without the unit declared
         String input = " 15957, 3500000 ";
         long expected1 = 15957;
         long expected2 = 3500000;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 2, result.length );
-        assertEquals( expected1, result[0].longValue() );
-        assertEquals( expected2, result[1].longValue() );
+        assertEquals( expected1, result[0] );
+        assertEquals( expected2, result[1] );
     }
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse5() {
         // empty input
         String input = "";
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 0, result.length );
     }
     
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse6() {
         // null input
         String input = null;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 0, result.length );
     }
     
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse7() {
         // empty input
         String input = "  ";
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 0, result.length );
     }
     
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse8() {
         // raw ms without the unit declared
         String input = " -15957, 3500000 ";
         long expected1 = -15957;
         long expected2 = 3500000;
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 2, result.length );
-        assertEquals( expected1, result[0].longValue() );
-        assertEquals( expected2, result[1].longValue() );
+        assertEquals( expected1, result[0] );
+        assertEquals( expected2, result[1] );
     }
 
-    /**
-     * Test method for {@link org.kie.base.evaluators.TimeIntervalParser#parse(java.lang.String)}.
-     */
     @Test
     public void testParse9() {
         // ms are optional
         String input = " -10h49m789 , -8h ";
         long expected1 = -( 10 * 3600000 + 49 * 60000 + 789 );
         long expected2 = -( 8 * 3600000 );
-        Long[] result = new TimeIntervalParser().parse( input );
+        long[] result = TimeIntervalParser.parse( input );
         assertEquals( 2, result.length );
-        assertEquals( expected1, result[0].longValue() );
-        assertEquals( expected2, result[1].longValue() );
+        assertEquals( expected1, result[0] );
+        assertEquals( expected2, result[1] );
     }
 
 }

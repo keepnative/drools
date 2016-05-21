@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -41,8 +41,8 @@ public class GuidedDTTemplateDataProvider
         if ( rowData == null ) {
             throw new NullPointerException( "rowData cannot be null" );
         }
-        //rowData does not contain the Analysis column, columns does
-        if ( rowData.size() != columns.size() - 1 ) {
+
+        if ( rowData.size() != columns.size() ) {
             throw new IllegalArgumentException( "rowData contains a different number of columns to those provided" );
         }
 

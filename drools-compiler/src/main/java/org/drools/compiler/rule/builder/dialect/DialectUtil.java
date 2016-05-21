@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl;
@@ -65,12 +80,6 @@ public final class DialectUtil {
 
     /**
      * Takes a given name and makes sure that its legal and doesn't already exist. If the file exists it increases counter appender untill it is unique.
-     * <p/>
-     *
-     * @param packageName
-     * @param name
-     * @param ext
-     * @return
      */
     public static String getUniqueLegalName(final String packageName,
                                             final String name,
@@ -149,7 +158,7 @@ public final class DialectUtil {
             switch (block.getType()) {
                 case MODIFY:
                 case UPDATE:
-                case RETRACT:
+                case DELETE:
                     rewriteDescr(context,
                             originalCode,
                             mvel,
@@ -167,7 +176,7 @@ public final class DialectUtil {
                             (JavaInterfacePointsDescr) block);
                     break;
                 case INSERT:
-                    parseInsertDescr(context, block, consequence);
+                    parseInsertDescr(context, block);
                 default:
                     consequence.append(originalCode.substring(block.getStart() - 1, lastAdded));
             }
@@ -192,14 +201,6 @@ public final class DialectUtil {
     /**
      * This code is not currently used, it's commented out in method caller. This is because we couldn't
      * get this to work and will have to wait until MVEL supports genercs (mdp).
-     *
-     * @param context
-     * @param descrs
-     * @param parentBlock
-     * @param originalCode
-     * @param bindings
-     * @param parentVars
-     * @param offset
      */
     public static void setContainerBlockInputs(RuleBuildContext context,
                                                 List<JavaBlockDescr> descrs,
@@ -299,7 +300,7 @@ public final class DialectUtil {
         String mvelCode = macroProcessor.parse(consequence.toString());
 
 
-        Map<String, Class<?>> inputs = (Map<String, Class<?>>) getInputs(context, mvelCode, bindings, parentVars);
+        Map<String, Class<?>> inputs = getInputs(context, mvelCode, bindings, parentVars);
         inputs.putAll(parentVars);
         parentBlock.setInputs(inputs);
 
@@ -392,8 +393,6 @@ public final class DialectUtil {
         MVELAnalysisResult mvelAnalysis = null;
         try {
             mvelAnalysis = (MVELAnalysisResult) mvel.analyzeBlock(context,
-                    context.getRuleDescr(),
-                    null,
                     code,
                     bindings,
                     parentVars,
@@ -448,13 +447,6 @@ public final class DialectUtil {
                                         JavaBlockDescr block,
                                         int offset) {
 
-        addWhiteSpaces(originalCode, consequence, consequence.length(), block.getEnd() - offset);
-    }
-
-    private static void stripElseDescr(String originalCode,
-                                       StringBuilder consequence,
-                                       JavaElseBlockDescr block,
-                                       int offset) {
         addWhiteSpaces(originalCode, consequence, consequence.length(), block.getEnd() - offset);
     }
 
@@ -527,8 +519,6 @@ public final class DialectUtil {
         }
 
         MVELAnalysisResult mvelAnalysis = ( MVELAnalysisResult ) mvel.analyzeBlock( context,
-                                                                                   context.getRuleDescr(),
-                                                                                   mvel.getInterceptors(),
                                                                                    d.getTargetExpression(),
                                                                                    bindings,
                                                                                    localTypes,
@@ -591,10 +581,10 @@ public final class DialectUtil {
                 rewriteModifyDescr(context, d, originalBlock, consequence, declr, obj);
                 break;
             case UPDATE:
-                rewriteUpdateDescr(context, d, originalBlock, consequence, declr, obj);
+                rewriteUpdateDescr(context, d, consequence, declr, obj);
                 break;
-            case RETRACT:
-                rewriteRetractDescr( context, d, originalBlock, consequence, declr, obj );
+            case DELETE:
+                rewriteDeleteDescr( context, d, consequence, declr, obj );
                 break;
         }
 
@@ -658,7 +648,6 @@ public final class DialectUtil {
 
     private static void rewriteUpdateDescr( RuleBuildContext context,
                                             JavaBlockDescr d,
-                                            String originalBlock,
                                             StringBuilder consequence,
                                             Declaration declr,
                                             String obj) {
@@ -668,7 +657,7 @@ public final class DialectUtil {
         TypeDeclaration typeDeclaration = typeClass == null ? null : context.getKnowledgeBuilder().getTypeDeclaration(typeClass);
 
         if (typeDeclaration != null) {
-            boolean isPropertyReactive = typeDeclaration != null && typeDeclaration.isPropertyReactive();
+            boolean isPropertyReactive = typeDeclaration.isPropertyReactive();
             List<String> settableProperties = null;
             if (isPropertyReactive) {
                 typeDeclaration.setTypeClass(typeClass);
@@ -738,13 +727,11 @@ public final class DialectUtil {
             }
         } else {
             String propertyName = extractFirstIdentifier(exprStr, 0);
-            if (propertyName != null) {
-                modificationMask = updateModificationMask(settableProperties, propertyReactive, modificationMask, propertyName);
-                int equalPos = exprStr.indexOf('=');
-                if (equalPos >= 0) {
-                    String value = exprStr.substring(equalPos+1).trim();
-                    statement.addField(propertyName, value);
-                }
+            modificationMask = updateModificationMask(settableProperties, propertyReactive, modificationMask, propertyName);
+            int equalPos = exprStr.indexOf('=');
+            if (equalPos >= 0) {
+                String value = exprStr.substring(equalPos+1).trim();
+                statement.addField(propertyName, value);
             }
         }
         return modificationMask;
@@ -851,12 +838,11 @@ public final class DialectUtil {
         return function == null ? null : findClassByName(context, function.getReturnType());
     }
 
-    private static boolean rewriteRetractDescr(RuleBuildContext context,
+    private static boolean rewriteDeleteDescr( RuleBuildContext context,
                                                JavaBlockDescr d,
-                                               String originalBlock,
                                                StringBuilder consequence,
                                                Declaration declr,
-                                               String obj) {
+                                               String obj ) {
         Class<?> typeClass = findModifiedClass(context, d, declr);
         if (typeClass != null) {
             ConsequenceMetaData.Statement statement = new ConsequenceMetaData.Statement(ConsequenceMetaData.Statement.Type.RETRACT, typeClass);
@@ -864,15 +850,15 @@ public final class DialectUtil {
         }
 
         if (declr != null && !declr.isInternalFact()) {
-            consequence.append("drools.retract( ").append(obj).append("__Handle__ ); }");
+            consequence.append("drools.delete( ").append(obj).append("__Handle__ ); }");
         } else {
-            consequence.append("drools.retract( ").append(obj).append("__Handle2__ ); }");
+            consequence.append("drools.delete( ").append(obj).append("__Handle2__ ); }");
         }
 
         return declr != null;
     }
 
-    private static void parseInsertDescr(RuleBuildContext context, JavaBlockDescr block, StringBuilder consequence) {
+    private static void parseInsertDescr(RuleBuildContext context, JavaBlockDescr block) {
         String expr = block.getTargetExpression();
         if (expr.startsWith("new ")) {
             int argsStart = expr.indexOf('(');
@@ -898,10 +884,6 @@ public final class DialectUtil {
         }
     }
 
-    /**
-     * @param consequence
-     * @param chunk
-     */
     private static void addLineBreaks(StringBuilder consequence,
                                       String chunk) {
         Matcher m = LINE_BREAK_FINDER.matcher(chunk);

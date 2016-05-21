@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,7 +156,7 @@ public class SessionInspector {
             }
         } else if ( parent instanceof ObjectSource ) {
             ObjectSource source = (ObjectSource) parent;
-            for ( ObjectSink sink : source.getSinkPropagator().getSinks() ) {
+            for ( ObjectSink sink : source.getObjectSinkPropagator().getSinks() ) {
                 gatherNodeInfo( sink,
                                 nodeStack,
                                 info );

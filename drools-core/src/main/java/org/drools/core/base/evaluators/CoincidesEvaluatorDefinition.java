@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,6 @@
 
 package org.drools.core.base.evaluators;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.drools.core.base.BaseEvaluator;
 import org.drools.core.base.ValueType;
 import org.drools.core.common.EventFactHandle;
@@ -34,6 +27,13 @@ import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.time.Interval;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>The implementation of the 'coincides' evaluator definition.</p>
@@ -80,7 +80,6 @@ public class CoincidesEvaluatorDefinition
     private static String[]         SUPPORTED_IDS;
 
     private Map<String, CoincidesEvaluator> cache     = Collections.emptyMap();
-    private volatile TimeIntervalParser parser        = new TimeIntervalParser();
 
     { init(); }
 
@@ -156,7 +155,7 @@ public class CoincidesEvaluatorDefinition
         String key = left + ":" + right + ":" + isNegated + ":" + parameterText;
         CoincidesEvaluator eval = this.cache.get( key );
         if ( eval == null ) {
-            Long[] params = parser.parse( parameterText );
+            long[] params = TimeIntervalParser.parse( parameterText );
             eval = new CoincidesEvaluator( type,
                                            isNegated,
                                            params,
@@ -220,7 +219,7 @@ public class CoincidesEvaluatorDefinition
 
         public CoincidesEvaluator(final ValueType type,
                                   final boolean isNegated,
-                                  final Long[] parameters,
+                                  final long[] parameters,
                                   final String paramText,
                                   final boolean unwrapLeft,
                                   final boolean unwrapRight) {
@@ -394,7 +393,7 @@ public class CoincidesEvaluatorDefinition
          *
          * @param parameters
          */
-        private void setParameters(Long[] parameters) {
+        private void setParameters(long[] parameters) {
             if ( parameters == null || parameters.length == 0 ) {
                 // open bounded range
                 this.startDev = 0;
@@ -408,12 +407,12 @@ public class CoincidesEvaluatorDefinition
                 }
                 if ( parameters.length == 1 ) {
                     // same deviation for both
-                    this.startDev = parameters[0].longValue();
-                    this.endDev = parameters[0].longValue();
+                    this.startDev = parameters[0];
+                    this.endDev = parameters[0];
                 } else if ( parameters.length == 2 ) {
                     // different deviation 
-                    this.startDev = parameters[0].longValue();
-                    this.endDev = parameters[1].longValue();
+                    this.startDev = parameters[0];
+                    this.endDev = parameters[1];
                 } else {
                     throw new RuntimeException( "[Coincides Evaluator]: Not possible to have more than 2 parameters: '" + paramText + "'" );
                 }

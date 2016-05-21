@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,6 @@ public abstract class Accumulate extends ConditionalElement
 
     /**
      * Returns true if this accumulate supports reverse
-     * @return
      */
     public abstract boolean supportsReverse();
 
@@ -138,7 +137,7 @@ public abstract class Accumulate extends ConditionalElement
      * @inheritDoc
      */
     public Declaration resolveDeclaration(final String identifier) {
-        return (Declaration) this.source.getInnerDeclarations().get( identifier );
+        return this.source.getInnerDeclarations().get( identifier );
     }
 
     public abstract Object createWorkingMemoryContext();
@@ -160,7 +159,11 @@ public abstract class Accumulate extends ConditionalElement
                 this.requiredDeclarations[i] = resolved;
             }
         }
+        replaceAccumulatorDeclaration(declaration, resolved);
     }
+
+    protected abstract void replaceAccumulatorDeclaration(Declaration declaration,
+                                                          Declaration resolved);
     
     public void resetInnerDeclarationCache() {
         this.innerDeclarationCache = null;
@@ -175,7 +178,16 @@ public abstract class Accumulate extends ConditionalElement
         return this.innerDeclarationCache;
     }
 
+    public Declaration[] getRequiredDeclarations() {
+        return requiredDeclarations;
+    }
+
     public boolean hasRequiredDeclarations() {
         return requiredDeclarations != null && requiredDeclarations.length > 0;
+    }
+
+    @Override
+    public boolean requiresLeftActivation() {
+        return true;
     }
 }

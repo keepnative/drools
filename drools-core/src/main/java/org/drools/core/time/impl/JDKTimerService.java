@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,6 @@
 
 package org.drools.core.time.impl;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.drools.core.time.AcceptsTimerJobFactoryManager;
 import org.drools.core.time.InternalSchedulerService;
 import org.drools.core.time.Job;
 import org.drools.core.time.JobContext;
@@ -32,6 +23,14 @@ import org.drools.core.time.JobHandle;
 import org.drools.core.time.TimerService;
 import org.drools.core.time.Trigger;
 import org.kie.api.time.SessionClock;
+
+import java.util.Collection;
+import java.util.Date;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A default Scheduler implementation that uses the
@@ -42,8 +41,7 @@ public class JDKTimerService
         implements
         TimerService,
         SessionClock,
-        InternalSchedulerService,
-        AcceptsTimerJobFactoryManager {
+        InternalSchedulerService {
 
     private AtomicLong                      idCounter         = new AtomicLong();
 
@@ -97,8 +95,8 @@ public class JDKTimerService
                     trigger,
                     jobHandle,
                     this);
-            jobHandle.setTimerJobInstance((TimerJobInstance) jobInstance);
-            internalSchedule((TimerJobInstance) jobInstance);
+            jobHandle.setTimerJobInstance(jobInstance);
+            internalSchedule(jobInstance);
 
             return jobHandle;
         } else {

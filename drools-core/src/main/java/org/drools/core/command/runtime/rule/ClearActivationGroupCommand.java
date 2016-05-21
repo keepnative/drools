@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,24 @@ import org.drools.core.command.impl.KnowledgeCommandContext;
 import org.kie.internal.command.Context;
 import org.kie.api.runtime.KieSession;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.NONE)
 public class ClearActivationGroupCommand implements GenericCommand<Void> {
 
+    @XmlAttribute(required=true)
     private String name;
+
+    public ClearActivationGroupCommand() {
+    }
+
+    public ClearActivationGroupCommand(String name) {
+        this.name = name;
+    }
 
     public String getName() {
         return name;

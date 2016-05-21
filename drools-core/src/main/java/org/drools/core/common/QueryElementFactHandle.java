@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.drools.core.common;
 import org.drools.core.factmodel.traits.TraitTypeEnum;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.RightTuple;
-import org.kie.api.runtime.rule.EntryPoint;
+import org.drools.core.spi.Tuple;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -34,6 +34,7 @@ public class QueryElementFactHandle
     private int id;
     private int identityHashCode;
     private long recency;
+    private boolean                 negated;
 
     protected QueryElementFactHandle() {}
 
@@ -46,8 +47,18 @@ public class QueryElementFactHandle
         this.id = id;
         this.recency = recency;
         this.identityHashCode = identityHashCode;
-    }    
-    
+    }
+
+    @Override
+    public boolean isNegated() {
+        return negated;
+    }
+
+    @Override
+    public void setNegated(boolean negated) {
+        this.negated = negated;
+    }
+
     public int getId() {
         return this.id;
     }
@@ -74,12 +85,16 @@ public class QueryElementFactHandle
         }
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
-    
+
+    public String getObjectClassName() {
+        return this.object != null ? object.getClass().getName() : null;
+    }
+
     public void setObject(Object object) {
         this.object = object;
     }    
 
-    public EntryPoint getEntryPoint() {
+    public InternalWorkingMemoryEntryPoint getEntryPoint() {
         return null;
         //throw new UnsupportedOperationException( "DisonnectedFactHandle does not support this method" );
     }
@@ -120,7 +135,7 @@ public class QueryElementFactHandle
         return true;
     }
 
-    public void setEntryPoint(EntryPoint ep) {
+    public void setEntryPoint(InternalWorkingMemoryEntryPoint ep) {
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
 
@@ -200,10 +215,6 @@ public class QueryElementFactHandle
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
 
-    public void addLeftTupleInPosition( LeftTuple leftTuple ) {
-        throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
-    }
-
     public void removeLeftTuple( LeftTuple leftTuple ) {
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
@@ -224,12 +235,17 @@ public class QueryElementFactHandle
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
 
-    public void addRightTupleInPosition( RightTuple rightTuple ) {
+    public void addTupleInPosition( Tuple rightTuple ) {
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
 
     public void removeRightTuple( RightTuple rightTuple ) {
         throw new UnsupportedOperationException( "QueryElementFactHandle does not support this method" );
     }
-    
+
+    @Override
+    public <K> K as( Class<K> klass ) throws ClassCastException {
+        throw new UnsupportedOperationException( "QueryElementFactHandle does not yet support this method" );
+    }
+
 }

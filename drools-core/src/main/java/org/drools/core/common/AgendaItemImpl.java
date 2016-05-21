@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,21 @@
 
 package org.drools.core.common;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import org.drools.core.beliefsystem.ModedAssertion;
 import org.drools.core.beliefsystem.simple.SimpleMode;
-import org.kie.api.runtime.rule.FactHandle;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.phreak.RuleAgendaItem;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.reteoo.TerminalNode;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.GroupElement;
 import org.drools.core.spi.Consequence;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.LinkedList;
 import org.drools.core.util.LinkedListEntry;
 import org.kie.api.runtime.rule.FactHandle;
 import org.kie.internal.event.rule.ActivationUnMatchListener;
-import org.kie.internal.runtime.beliefs.Mode;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,7 +48,7 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
     /**
      * The tuple.
      */
-    private           LeftTuple                                      tuple;
+    private Tuple                                                    tuple;
     /**
      * The salience
      */
@@ -71,8 +65,8 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
      * The activation number
      */
     private           long                                           activationNumber;
-    private volatile  int                                            index;
-    private volatile  boolean                                        queued;
+    private           int                                            index;
+    private           boolean                                        queued;
     private           LinkedList<LogicalDependency<T>>  justified;
     private           LinkedList<LogicalDependency<SimpleMode>>      blocked;
     private           LinkedList<SimpleMode>                         blockers;
@@ -100,7 +94,7 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
      * @param agendaGroup
      */
     public AgendaItemImpl(final long activationNumber,
-                          final LeftTuple tuple,
+                          final Tuple tuple,
                           final int salience,
                           final PropagationContext context,
                           final TerminalNode rtn,
@@ -147,7 +141,7 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
      * @return The tuple.
      */
     @Override
-    public LeftTuple getTuple() {
+    public Tuple getTuple() {
         return this.tuple;
     }
 
@@ -162,12 +156,12 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
     }
 
     @Override
-    public InternalFactHandle getFactHandle() {
+    public InternalFactHandle getActivationFactHandle() {
         return factHandle;
     }
 
     @Override
-    public void setFactHandle(InternalFactHandle factHandle) {
+    public void setActivationFactHandle( InternalFactHandle factHandle ) {
         this.factHandle = factHandle;
     }
 
@@ -420,14 +414,13 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
     @Override
     public Object getDeclarationValue(String variableName) {
         Declaration decl = this.rtn.getSubRule().getOuterDeclarations().get(variableName);
-        InternalFactHandle handle = this.tuple.get(decl);
         // need to double check, but the working memory reference is only used for resolving globals, right?
-        return decl.getValue(null, handle.getObject());
+        return decl.getValue(null, tuple.getObject(decl));
     }
 
     @Override
     public List<String> getDeclarationIds() {
-        Declaration[] declArray = ((org.drools.core.reteoo.RuleTerminalNode) this.tuple.getLeftTupleSink()).getDeclarations();
+        Declaration[] declArray = ((org.drools.core.reteoo.RuleTerminalNode) this.tuple.getTupleSink()).getAllDeclarations();
         List<String> declarations = new ArrayList<String>();
         for (Declaration decl : declArray) {
             declarations.add(decl.getIdentifier());
@@ -468,4 +461,7 @@ public class AgendaItemImpl<T extends ModedAssertion<T>>  implements  AgendaItem
         return false;
     }
 
+    public boolean isRuleInUse() {
+        return rtn.getLeftTupleSource() != null;
+    }
 }

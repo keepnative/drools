@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -156,17 +156,33 @@ public class BaseSingleFieldConstraint
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals( Object o ) {
+        if ( this == o ) {
+            return true;
+        }
+        if ( o == null || getClass() != o.getClass() ) {
+            return false;
+        }
 
         BaseSingleFieldConstraint that = (BaseSingleFieldConstraint) o;
 
-        if (constraintValueType != that.constraintValueType) return false;
-        if (expression != null ? !expression.equals(that.expression) : that.expression != null) return false;
-        if (operator != null ? !operator.equals(that.operator) : that.operator != null) return false;
-        if (parameters != null ? !parameters.equals(that.parameters) : that.parameters != null) return false;
-        if (value != null ? !value.equals(that.value) : that.value != null) return false;
+        if ( constraintValueType != that.constraintValueType ) {
+            return false;
+        }
+        if ( expression != null ? !expression.equals( that.expression ) : that.expression != null ) {
+            return false;
+        }
+        if ( operator != null ? !operator.equals( that.operator ) : that.operator != null ) {
+            return false;
+        }
+        if ( parameters != null ?
+                !parameters.equals( that.parameters ) && !parameters.isEmpty() && that.parameters != null
+                : that.parameters != null && !that.parameters.isEmpty() ) {
+            return false;
+        }
+        if ( value != null ? !value.equals( that.value ) : that.value != null ) {
+            return false;
+        }
 
         return true;
     }
@@ -174,10 +190,15 @@ public class BaseSingleFieldConstraint
     @Override
     public int hashCode() {
         int result = value != null ? value.hashCode() : 0;
-        result = 31 * result + (operator != null ? operator.hashCode() : 0);
+        result = ~~result;
+        result = 31 * result + ( operator != null ? operator.hashCode() : 0 );
+        result = ~~result;
         result = 31 * result + constraintValueType;
-        result = 31 * result + (expression != null ? expression.hashCode() : 0);
-        result = 31 * result + (parameters != null ? parameters.hashCode() : 0);
+        result = ~~result;
+        result = 31 * result + ( expression != null ? expression.hashCode() : 0 );
+        result = ~~result;
+        result = 31 * result + ( parameters != null ? parameters.hashCode() : 0 );
+        result = ~~result;
         return result;
     }
 }

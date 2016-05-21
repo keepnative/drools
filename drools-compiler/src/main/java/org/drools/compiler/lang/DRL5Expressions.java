@@ -1,4 +1,4 @@
-// $ANTLR 3.5 src/main/resources/org/drools/compiler/lang/DRL5Expressions.g 2014-10-05 20:03:07
+// $ANTLR 3.5 src/main/resources/org/drools/compiler/lang/DRL5Expressions.g 2015-11-16 15:53:53
 
     package org.drools.compiler.lang;
 
@@ -3864,7 +3864,7 @@ public class DRL5Expressions extends DRLExpressions {
 
 
 	// $ANTLR start "primary"
-	// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:536:1: primary returns [BaseDescr result] : ( ( parExpression )=>expr= parExpression | ( nonWildcardTypeArguments )=> nonWildcardTypeArguments ( explicitGenericInvocationSuffix | this_key arguments ) | ( literal )=> literal | ( super_key )=> super_key superSuffix | ( new_key )=> new_key creator | ( primitiveType )=> primitiveType ( LEFT_SQUARE RIGHT_SQUARE )* DOT class_key | ( inlineMapExpression )=> inlineMapExpression | ( inlineListExpression )=> inlineListExpression | ( ID )=>i1= ID ( ( ( DOT ID )=> DOT i2= ID ) | ( ( SHARP ID )=> SHARP i2= ID ) | ( ( HASH ID )=> HASH i2= ID ) | ( ( NULL_SAFE_DOT ID )=> NULL_SAFE_DOT i2= ID ) )* ( ( identifierSuffix )=> identifierSuffix )? );
+	// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:536:1: primary returns [BaseDescr result] : ( ( LEFT_PAREN )=>expr= parExpression | ( nonWildcardTypeArguments )=> nonWildcardTypeArguments ( explicitGenericInvocationSuffix | this_key arguments ) | ( literal )=> literal | ( super_key )=> super_key superSuffix | ( new_key )=> new_key creator | ( primitiveType )=> primitiveType ( LEFT_SQUARE RIGHT_SQUARE )* DOT class_key | ( inlineMapExpression )=> inlineMapExpression | ( inlineListExpression )=> inlineListExpression | ( ID )=>i1= ID ( ( ( DOT ID )=> DOT i2= ID ) | ( ( SHARP ID )=> SHARP i2= ID ) | ( ( HASH ID )=> HASH i2= ID ) | ( ( NULL_SAFE_DOT ID )=> NULL_SAFE_DOT i2= ID ) )* ( ( identifierSuffix )=> identifierSuffix )? );
 	public final BaseDescr primary() throws RecognitionException {
 		BaseDescr result = null;
 
@@ -3879,7 +3879,7 @@ public class DRL5Expressions extends DRLExpressions {
 		ParserRuleReturnScope literal11 =null;
 
 		try {
-			// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:5: ( ( parExpression )=>expr= parExpression | ( nonWildcardTypeArguments )=> nonWildcardTypeArguments ( explicitGenericInvocationSuffix | this_key arguments ) | ( literal )=> literal | ( super_key )=> super_key superSuffix | ( new_key )=> new_key creator | ( primitiveType )=> primitiveType ( LEFT_SQUARE RIGHT_SQUARE )* DOT class_key | ( inlineMapExpression )=> inlineMapExpression | ( inlineListExpression )=> inlineListExpression | ( ID )=>i1= ID ( ( ( DOT ID )=> DOT i2= ID ) | ( ( SHARP ID )=> SHARP i2= ID ) | ( ( HASH ID )=> HASH i2= ID ) | ( ( NULL_SAFE_DOT ID )=> NULL_SAFE_DOT i2= ID ) )* ( ( identifierSuffix )=> identifierSuffix )? )
+			// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:5: ( ( LEFT_PAREN )=>expr= parExpression | ( nonWildcardTypeArguments )=> nonWildcardTypeArguments ( explicitGenericInvocationSuffix | this_key arguments ) | ( literal )=> literal | ( super_key )=> super_key superSuffix | ( new_key )=> new_key creator | ( primitiveType )=> primitiveType ( LEFT_SQUARE RIGHT_SQUARE )* DOT class_key | ( inlineMapExpression )=> inlineMapExpression | ( inlineListExpression )=> inlineListExpression | ( ID )=>i1= ID ( ( ( DOT ID )=> DOT i2= ID ) | ( ( SHARP ID )=> SHARP i2= ID ) | ( ( HASH ID )=> HASH i2= ID ) | ( ( NULL_SAFE_DOT ID )=> NULL_SAFE_DOT i2= ID ) )* ( ( identifierSuffix )=> identifierSuffix )? )
 			int alt60=9;
 			int LA60_0 = input.LA(1);
 			if ( (LA60_0==LEFT_PAREN) && (synpred19_DRL5Expressions())) {
@@ -3974,7 +3974,7 @@ public class DRL5Expressions extends DRLExpressions {
 
 			switch (alt60) {
 				case 1 :
-					// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:7: ( parExpression )=>expr= parExpression
+					// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:7: ( LEFT_PAREN )=>expr= parExpression
 					{
 					pushFollow(FOLLOW_parExpression_in_primary2727);
 					expr=parExpression();
@@ -6871,13 +6871,10 @@ public class DRL5Expressions extends DRLExpressions {
 
 	// $ANTLR start synpred19_DRL5Expressions
 	public final void synpred19_DRL5Expressions_fragment() throws RecognitionException {
-		// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:7: ( parExpression )
-		// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:8: parExpression
+		// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:7: ( LEFT_PAREN )
+		// src/main/resources/org/drools/compiler/lang/DRL5Expressions.g:537:8: LEFT_PAREN
 		{
-		pushFollow(FOLLOW_parExpression_in_synpred19_DRL5Expressions2721);
-		parExpression();
-		state._fsp--;
-		if (state.failed) return;
+		match(input,LEFT_PAREN,FOLLOW_LEFT_PAREN_in_synpred19_DRL5Expressions2721); if (state.failed) return;
 		}
 
 	}
@@ -8169,7 +8166,7 @@ public class DRL5Expressions extends DRLExpressions {
 	public static final BitSet FOLLOW_primitiveType_in_synpred17_DRL5Expressions2588 = new BitSet(new long[]{0x0000000000000002L});
 	public static final BitSet FOLLOW_LEFT_PAREN_in_synpred18_DRL5Expressions2611 = new BitSet(new long[]{0x0000000080000000L});
 	public static final BitSet FOLLOW_type_in_synpred18_DRL5Expressions2613 = new BitSet(new long[]{0x0000000000000002L});
-	public static final BitSet FOLLOW_parExpression_in_synpred19_DRL5Expressions2721 = new BitSet(new long[]{0x0000000000000002L});
+	public static final BitSet FOLLOW_LEFT_PAREN_in_synpred19_DRL5Expressions2721 = new BitSet(new long[]{0x0000000000000002L});
 	public static final BitSet FOLLOW_nonWildcardTypeArguments_in_synpred20_DRL5Expressions2740 = new BitSet(new long[]{0x0000000000000002L});
 	public static final BitSet FOLLOW_literal_in_synpred21_DRL5Expressions2765 = new BitSet(new long[]{0x0000000000000002L});
 	public static final BitSet FOLLOW_super_key_in_synpred22_DRL5Expressions2787 = new BitSet(new long[]{0x0000000000000002L});

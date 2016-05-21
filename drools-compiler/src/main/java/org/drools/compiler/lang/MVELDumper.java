@@ -13,6 +13,21 @@
  */
 package org.drools.compiler.lang;
 
+import org.drools.compiler.compiler.DrlExprParser;
+import org.drools.compiler.lang.descr.AtomicExprDescr;
+import org.drools.compiler.lang.descr.BaseDescr;
+import org.drools.compiler.lang.descr.BindingDescr;
+import org.drools.compiler.lang.descr.ConnectiveType;
+import org.drools.compiler.lang.descr.ConstraintConnectiveDescr;
+import org.drools.compiler.lang.descr.ExprConstraintDescr;
+import org.drools.compiler.lang.descr.OperatorDescr;
+import org.drools.compiler.lang.descr.RelationalExprDescr;
+import org.drools.compiler.rule.builder.RuleBuildContext;
+import org.drools.core.base.EvaluatorWrapper;
+import org.drools.core.base.evaluators.Operator;
+import org.drools.core.rule.XpathBackReference;
+import org.drools.core.util.ReflectiveVisitor;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -21,23 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import org.drools.compiler.lang.descr.ConnectiveType;
-import org.drools.core.base.EvaluatorWrapper;
-import org.drools.core.base.evaluators.Operator;
-import org.drools.compiler.compiler.DrlExprParser;
-import org.drools.compiler.lang.descr.BaseDescr;
-import org.drools.compiler.lang.descr.BindingDescr;
-import org.drools.compiler.lang.descr.ConstraintConnectiveDescr;
-import org.drools.compiler.lang.descr.OperatorDescr;
-import org.drools.compiler.lang.descr.RelationalExprDescr;
-import org.drools.core.util.ReflectiveVisitor;
-import org.drools.compiler.lang.descr.AtomicExprDescr;
-import org.drools.compiler.lang.descr.ExprConstraintDescr;
-import org.drools.compiler.rule.builder.RuleBuildContext;
-
+import static org.drools.compiler.rule.builder.dialect.DialectUtil.findClassByName;
 import static org.drools.core.util.ClassUtils.findClass;
 import static org.drools.core.util.StringUtils.indexOfOutOfQuotes;
-import static org.drools.compiler.rule.builder.dialect.DialectUtil.findClassByName;
 
 public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter {
 
@@ -150,13 +151,18 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         String[] constrAndExpr = processImplicitConstraints( expr, atomicExpr, parent, parentIdx, context );
         // top-level, implicit constraints will be processed in different nodes.
         // Nested CCDs require all constraints to be evaluated locally, as a complex constraints
-        sbuilder.append( context.isCcdNested() ? constrAndExpr[ 0 ] + constrAndExpr[ 1 ] : constrAndExpr[ 1 ] );
+        expr = context.isCcdNested() ? constrAndExpr[ 0 ] + constrAndExpr[ 1 ] : constrAndExpr[ 1 ];
+        if (!atomicExpr.hasRewrittenExpression()) {
+            atomicExpr.setRewrittenExpression( expr );
+        }
+        sbuilder.append( expr );
         return constrAndExpr;
     }
 
     private void processBinding(StringBuilder sbuilder, BindingDescr bind, ConstraintConnectiveDescr parent, boolean isInsideRelCons, MVELDumperContext context) {
         String expr = bind.getExpression().trim();
         AtomicExprDescr atomicExpr = new AtomicExprDescr(expr);
+        atomicExpr.setResource(parent.getResource());
         String[] constrAndExpr = processImplicitConstraints(expr, atomicExpr, parent, parent.getDescrs().indexOf( bind ), context );
 
         if ( isInsideRelCons ) {
@@ -177,23 +183,40 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         // maximum precedence, so wrap any child connective in parenthesis
         int idx = parent.getDescrs().indexOf( red );
         StringBuilder left = dump(new StringBuilder(), red.getLeft(), parent, idx, Integer.MAX_VALUE, true, context);
-        StringBuilder right = red.getRight() instanceof AtomicExprDescr ?
-                              processRightAtomicExpr(left, (AtomicExprDescr)red.getRight(), parent, idx, context) :
-                              dump( new StringBuilder(), red.getRight(), parent, idx, Integer.MAX_VALUE, true, context);
+        String right = red.getRight() instanceof AtomicExprDescr ?
+                       processRightAtomicExpr(left, (AtomicExprDescr)red.getRight(), parent, idx, context) :
+                       dump( new StringBuilder(), red.getRight(), parent, idx, Integer.MAX_VALUE, true, context).toString();
 
-        processRestriction( context,
-                            sbuilder,
-                            left.toString(),
-                            red.getOperatorDescr(),
-                            right.toString() );// maximum precedence, so wrap any child connective in parenthesis
+        String expr = processRestriction( context,
+                                          left.toString(),
+                                          red.getOperatorDescr(),
+                                          right );// maximum precedence, so wrap any child connective in parenthesis
+        red.setExpression( expr );
+        sbuilder.append( expr );
     }
 
-    private StringBuilder processRightAtomicExpr( StringBuilder left, AtomicExprDescr atomicExpr, ConstraintConnectiveDescr parent, int parentIdx, MVELDumperContext context ) {
+    private String processRightAtomicExpr( StringBuilder left, AtomicExprDescr atomicExpr, ConstraintConnectiveDescr parent, int parentIdx, MVELDumperContext context ) {
         String expr = atomicExpr.getExpression().trim();
         expr = processEval( expr );
         String[] constrAndExpr = processImplicitConstraints(expr, atomicExpr, parent, parentIdx, context);
         left.insert( 0, constrAndExpr[0] );
-        return new StringBuilder( constrAndExpr[1] );
+        return processBackReference( context, atomicExpr, constrAndExpr[1] );
+    }
+
+    private String processBackReference(MVELDumperContext context, AtomicExprDescr atomicExpr, String expr) {
+        if (!context.isInXpath()) {
+            return expr; // this is not an xpath and back references are allowed only there
+        }
+        int i = 0;
+        while (expr.startsWith( "../" )) {
+            i++;
+            expr = expr.substring( 3 ).trim();
+        }
+        if (i > 0) {
+            expr = XpathBackReference.BACK_REFERENCE_HEAD + i + "." + expr;
+            atomicExpr.setRewrittenExpression( expr );
+        }
+        return expr;
     }
 
     String[] processImplicitConstraints(String expr, AtomicExprDescr atomicExpr, ConstraintConnectiveDescr parent, int parentIdx, MVELDumperContext context) {
@@ -225,16 +248,18 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         int sharpPos2 = expr.indexOf('#', sharpPos+1);
         String part2 = sharpPos2 < 0 ? expr.substring(sharpPos+1).trim() : expr.substring(sharpPos+1, sharpPos2).trim();
         String[] classAndField = splitInClassAndField(part2, context);
+        BaseDescr desc = parentIdx >= 0 ? ccd.getDescrs().get( parentIdx ) : null;
+
         if (classAndField == null) {
             return new String[] { "", expr };
-        } else if ( classAndField.length == 1 ) {
+        } else if ( desc instanceof AtomicExprDescr && classAndField.length == 1 ) {
             return new String[] { "", field1 + " instanceof " + classAndField[ 0 ] };
         }
 
         String className = classAndField[0];
-        String field2 = classAndField[1];
-
-        String castedExpression = "((" + className + ")" + field1 + ")." + field2 + (sharpPos2 > 0 ? expr.substring(sharpPos2) : "");
+        String castedExpression = classAndField.length == 1 ?
+                                  "((" + className + ")" + field1 + ")" :
+                                  "((" + className + ")" + field1 + ")." + classAndField[1] + (sharpPos2 > 0 ? expr.substring(sharpPos2) : "");
 
         RelationalExprDescr check = new RelationalExprDescr( "instanceof",
                                                              false,
@@ -242,11 +267,9 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
                                                              new AtomicExprDescr( field1 ),
                                                              new AtomicExprDescr( className ) );
 
-        String innerCheck = "";
         if ( ccd.getConnective() == ConnectiveType.AND || ccd.getConnective() == ConnectiveType.INC_AND ) {
             ccd.getDescrs().add( childIdx, check );
         } else {
-            BaseDescr desc = ccd.getDescrs().get( parentIdx );
             if ( desc instanceof ConstraintConnectiveDescr ) {
                 ((ConstraintConnectiveDescr) desc).getDescrs().add( childIdx, check );
             } else {
@@ -257,9 +280,9 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
                 ccd.getDescrs().add( parentIdx, localAnd );
             }
         }
-        innerCheck = check.toString() + " && ";
 
         atomicExpr.setRewrittenExpression(castedExpression);
+        String innerCheck = check.toString() + " && ";
         return new String[] { innerCheck, castedExpression };
     }
 
@@ -285,7 +308,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
                                                              null,
                                                              new AtomicExprDescr( getPreconditionsToAppend( field1 ) ),
                                                              new AtomicExprDescr( "null" ) );
-        String innerCheck = "";
         if ( ccd.getConnective() == ConnectiveType.AND || ccd.getConnective() == ConnectiveType.INC_AND ) {
             ccd.getDescrs().add( childIdx, check );
         } else {
@@ -300,8 +322,8 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
                 ccd.getDescrs().add( parentIdx, localAnd );
             }
         }
-        innerCheck = check.toString() + " && ";
 
+        String innerCheck = check.toString() + " && ";
         String[] nullCheckAndExpr = new String[] { innerCheck, expr };
         atomicExpr.setRewrittenExpression( expr );
         return nullCheckAndExpr;
@@ -310,7 +332,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
     private String getPreconditionsToAppend(String field1) {
         int parenthesisDepth = 0;
         int squareDepth = 0;
-        String precondition = field1;
         for (int i = field1.length()-1; i >= 0; i--) {
             switch (field1.charAt(i)) {
                 case '(':
@@ -398,8 +419,7 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
             sbuilder.append( "( " );
         }
         boolean first = true;
-        List<BaseDescr> descrs = new ArrayList( ccd.getDescrs() );
-        int j = 0;
+        List<BaseDescr> descrs = new ArrayList<BaseDescr>( ccd.getDescrs() );
         for ( BaseDescr constr : descrs ) {
             if ( !( constr instanceof BindingDescr ) ) {
                 if ( first ) {
@@ -431,11 +451,11 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
 
     }
 
-    public void processRestriction( MVELDumperContext context,
-                                    StringBuilder sbuilder,
-                                    String left,
-                                    OperatorDescr operator,
-                                    String right ) {
+    public String processRestriction( MVELDumperContext context,
+                                      String left,
+                                      OperatorDescr operator,
+                                      String right ) {
+        StringBuilder sbuilder = new StringBuilder();
         Operator op = Operator.determineOperator( operator.getOperator(),
                                                   operator.isNegated() );
         if ( op == Operator.determineOperator( "memberOf",
@@ -480,6 +500,7 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
             // rewrite operator as a function call
             rewriteOperator( context, sbuilder, left, operator, right );
         }
+        return sbuilder.toString();
     }
 
     protected void rewriteBasicOperator( StringBuilder sbuilder,
@@ -547,16 +568,15 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         protected Map<String, OperatorDescr> aliases;
         protected int counter;
         protected List<BindingDescr> bindings;
-        protected Map<String, Class<?>> localTypes;
         private RuleBuildContext ruleContext;
         private Map<String, String> inferredCasts;
         private int openCcd;
+        private boolean inXpath;
 
         public MVELDumperContext() {
             this.aliases = new HashMap<String, OperatorDescr>();
             this.counter = 0;
             this.bindings = null;
-            this.localTypes = null;
             this.openCcd = 0;
         }
 
@@ -564,7 +584,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
             this.aliases.clear();
             this.counter = 0;
             this.bindings = null;
-            this.localTypes = null;
             this.openCcd = 0;
         }
 
@@ -603,9 +622,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         /**
          * Creates a new alias for the operator, setting it in the descriptor
          * class, adding it to the internal Map and returning it as a String
-         *
-         * @param operator
-         * @return
          */
         public String createAlias( OperatorDescr operator ) {
             String alias = operator.getOperator() + counter++;
@@ -617,7 +633,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
 
         /**
          * Adds a binding to the list of bindings on this context
-         * @param bind
          */
         public void addBinding( BindingDescr bind ) {
             if( this.bindings == null ) {
@@ -629,14 +644,6 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
         @SuppressWarnings("unchecked")
         public List<BindingDescr> getBindings() {
             return this.bindings == null ? Collections.EMPTY_LIST : this.bindings;
-        }
-
-        public Map<String,Class<?>> getLocalTypes() {
-            return localTypes;
-        }
-
-        public void setLocalTypes(Map<String, Class<?>> localTypes) {
-            this.localTypes = localTypes;
         }
 
         public RuleBuildContext getRuleContext() {
@@ -658,6 +665,14 @@ public class MVELDumper extends ReflectiveVisitor implements ExpressionRewriter 
 
         public boolean isCcdNested() {
             return openCcd > 0;
+        }
+
+        public boolean isInXpath() {
+            return inXpath;
+        }
+
+        public void setInXpath( boolean inXpath ) {
+            this.inXpath = inXpath;
         }
     }
 }

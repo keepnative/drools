@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kproject.models;
 
 import com.thoughtworks.xstream.XStream;
@@ -120,7 +135,7 @@ public class KieModuleModelImpl implements KieModuleModel {
 
     private static final String KMODULE_XSD =
             "<kmodule xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" \n" +
-            "         xmlns=\"http://jboss.org/kie/6.0.0/kmodule\""; // missed end >, so we can cater for />
+            "         xmlns=\"http://www.drools.org/xsd/kmodule\""; // missed end >, so we can cater for />
 
     public String toXML() {
         String xml = MARSHALLER.toXML(this);
@@ -155,6 +170,7 @@ public class KieModuleModelImpl implements KieModuleModel {
             xStream.registerConverter(new ListenerModelImpl.ListenerConverter());
             xStream.registerConverter(new QualifierModelImpl.QualifierConverter());
             xStream.registerConverter(new WorkItemHandlerModelImpl.WorkItemHandelerConverter());
+            xStream.registerConverter(new RuleTemplateModelImpl.RuleTemplateConverter());
             xStream.alias("kmodule", KieModuleModelImpl.class);
             xStream.alias("kbase", KieBaseModelImpl.class);
             xStream.alias("ksession", KieSessionModelImpl.class);
@@ -162,6 +178,7 @@ public class KieModuleModelImpl implements KieModuleModel {
             xStream.alias("qualifier", QualifierModelImpl.class);
             xStream.alias("workItemHandler", WorkItemHandlerModelImpl.class);
             xStream.alias("fileLogger", FileLoggerModelImpl.class);
+            xStream.alias("ruleTemplate", RuleTemplateModelImpl.class);
             xStream.setClassLoader(KieModuleModelImpl.class.getClassLoader());
         }
 
@@ -176,7 +193,7 @@ public class KieModuleModelImpl implements KieModuleModel {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            KieModuleValidator.validate(new ByteArrayInputStream(bytes));
+            KieModuleValidator.validate(bytes);
             return (KieModuleModel)xStream.fromXML(new ByteArrayInputStream(bytes));
         }
 
@@ -231,6 +248,7 @@ public class KieModuleModelImpl implements KieModuleModel {
 
     private static class KieModuleValidator {
         private static final Schema schema = loadSchema();
+        private static final Schema oldSchema = loadOldSchema();
 
         private static Schema loadSchema() {
             SchemaFactory factory = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
@@ -242,31 +260,55 @@ public class KieModuleModelImpl implements KieModuleModel {
             }
         }
 
-        private static void validate(InputStream kModuleStream) {
-            validate(new StreamSource(kModuleStream));
-        }
-
-        private static void validate(java.io.File kModuleFile) {
-            validate(new StreamSource(kModuleFile));
-        }
-
-        private static void validate(URL kModuleUrl) {
+        private static Schema loadOldSchema() {
+            SchemaFactory factory = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema");
             try {
-                validate(new StreamSource(kModuleUrl.toURI().toString()));
-            } catch (URISyntaxException e) {
-                throw new RuntimeException(e);
+                URL url = KieModuleModel.class.getClassLoader().getResource("org/kie/api/old-kmodule.xsd");
+                return factory.newSchema(url);
+            } catch (SAXException ex ) {
+                throw new RuntimeException( "Unable to load old XSD", ex );
             }
         }
 
-        private static void validate(String kModuleString) {
-            validate(new StreamSource(new ByteArrayInputStream(kModuleString.getBytes(IoUtils.UTF8_CHARSET))));
+        private static void validate(byte[] bytes) {
+            validate(new StreamSource(new ByteArrayInputStream(bytes)),
+                    new StreamSource(new ByteArrayInputStream(bytes)));
         }
 
-        private static void validate(Source source) {
+        private static void validate(java.io.File kModuleFile) {
+            validate(new StreamSource(kModuleFile),
+                    new StreamSource(kModuleFile));
+        }
+
+        private static void validate(URL kModuleUrl) {
+            String urlString;
+            try {
+                urlString = kModuleUrl.toURI().toString();
+            } catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+            validate(new StreamSource(urlString), new StreamSource(urlString));
+        }
+
+        private static void validate(String kModuleString) {
+            byte[] bytes = kModuleString.getBytes(IoUtils.UTF8_CHARSET);
+            validate(bytes);
+        }
+
+        private static void validate(Source source, Source duplicateSource) {
             try {
                 schema.newValidator().validate(source);
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
+            } catch (Exception schemaException) {
+                try {
+                    // For backwards compatibility, validate against the old namespace (which has 6.0.0 hardcoded)
+                    oldSchema.newValidator().validate(duplicateSource);
+                } catch (Exception oldSchemaException) {
+                    // Throw the original exception, as we want them to use that
+                    throw new RuntimeException(
+                            "XSD validation failed against the new schema (" + schemaException.getMessage()
+                            + ") and against the old schema (" + oldSchemaException.getMessage() + ").",
+                            schemaException);
+                }
             }
         }
     }

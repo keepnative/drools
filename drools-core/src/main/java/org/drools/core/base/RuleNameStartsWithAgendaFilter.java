@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,14 @@ public class RuleNameStartsWithAgendaFilter
                                           final boolean accept) {
         this.prefix = prefix;
         this.accept = accept;
+    }
+
+    public String getPrefix() {
+        return prefix;
+    }
+
+    public boolean isAccept() {
+        return accept;
     }
 
     public boolean accept( Match activation ) {

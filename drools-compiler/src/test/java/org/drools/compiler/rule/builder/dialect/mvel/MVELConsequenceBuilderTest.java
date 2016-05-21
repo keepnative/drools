@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.mvel;
 
 import org.drools.compiler.Cheese;
@@ -70,11 +85,11 @@ public class MVELConsequenceBuilderTest {
 
         MVELDialect mvelDialect = (MVELDialect) dialectRegistry.getDialect( "mvel" );
 
-        final InstrumentedBuildContent context = new InstrumentedBuildContent( pkgBuilder,
-                                                                               ruleDescr,
-                                                                               dialectRegistry,
-                                                                               pkg,
-                                                                               mvelDialect );
+        final RuleBuildContext context = new RuleBuildContext( pkgBuilder,
+                                                               ruleDescr,
+                                                               dialectRegistry,
+                                                               pkg,
+                                                               mvelDialect );
 
         final InstrumentedDeclarationScopeResolver declarationResolver = new InstrumentedDeclarationScopeResolver();
 
@@ -137,11 +152,11 @@ public class MVELConsequenceBuilderTest {
         DialectCompiletimeRegistry dialectRegistry = pkgBuilder.getPackageRegistry( pkg.getName() ).getDialectCompiletimeRegistry();
         MVELDialect mvelDialect = (MVELDialect) dialectRegistry.getDialect( pkgRegistry.getDialect() );
 
-        final InstrumentedBuildContent context = new InstrumentedBuildContent( pkgBuilder,
-                                                                               ruleDescr,
-                                                                               dialectRegistry,
-                                                                               pkg,
-                                                                               mvelDialect );
+        final RuleBuildContext context = new RuleBuildContext( pkgBuilder,
+                                                               ruleDescr,
+                                                               dialectRegistry,
+                                                               pkg,
+                                                               mvelDialect );
 
         final InstrumentedDeclarationScopeResolver declarationResolver = new InstrumentedDeclarationScopeResolver();
 
@@ -293,8 +308,6 @@ public class MVELConsequenceBuilderTest {
     public void testDebugSymbolCount() {
         String expr = "System.out.println( \"a1\" );\n" + "System.out.println( \"a2\" );\n" + "System.out.println( \"a3\" );\n" + "System.out.println( \"a4\" );\n";
 
-        ExpressionCompiler compiler = new ExpressionCompiler( expr );
-
         ParserContext context = new ParserContext();
         context.setDebugSymbols( true );
         context.addImport( "System",
@@ -303,8 +316,8 @@ public class MVELConsequenceBuilderTest {
         //context.setDebugSymbols( true );
         context.setSourceFile( "mysource" );
 
-
-        Serializable compiledExpression = compiler.compile( context );
+        ExpressionCompiler compiler = new ExpressionCompiler( expr, context );
+        Serializable compiledExpression = compiler.compile();
 
         String s = DebugTools.decompile( compiledExpression );
 
@@ -358,7 +371,7 @@ public class MVELConsequenceBuilderTest {
                                         reg,
                                         pkg,
                                         reg.getDialect( pkgRegistry.getDialect() ) );
-        context.getBuildStack().push( rule.getLhs() );
+        context.getDeclarationResolver().pushOnBuildStack( rule.getLhs() );
         
         context.getDialect().getConsequenceBuilder().build( context, RuleImpl.DEFAULT_CONSEQUENCE_NAME );
         for ( String name : namedConsequences.keySet() ) {

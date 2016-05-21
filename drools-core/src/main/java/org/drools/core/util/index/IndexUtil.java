@@ -1,11 +1,25 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.util.index;
 
 import org.drools.core.RuleBaseConfiguration;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.BetaNode;
-import org.drools.core.reteoo.LeftTupleMemory;
 import org.drools.core.reteoo.NodeTypeEnums;
-import org.drools.core.reteoo.RightTupleMemory;
+import org.drools.core.reteoo.TupleMemory;
 import org.drools.core.rule.ContextEntry;
 import org.drools.core.rule.IndexableConstraint;
 import org.drools.core.rule.constraint.MvelConstraint;
@@ -267,8 +281,8 @@ public class IndexUtil {
         public static BetaMemory createBetaMemory(RuleBaseConfiguration config, short nodeType, BetaNodeFieldConstraint... constraints) {
             int keyDepth = config.getCompositeKeyDepth();
             if (config.getCompositeKeyDepth() < 1) {
-                return new BetaMemory( config.isSequential() ? null : new LeftTupleList(),
-                                       new RightTupleList(),
+                return new BetaMemory( config.isSequential() ? null : new TupleList(),
+                                       new TupleList(),
                                        createContext(constraints),
                                        nodeType );
             }
@@ -280,17 +294,17 @@ public class IndexUtil {
                                    nodeType );
         }
 
-        private static RightTupleMemory createRightMemory(RuleBaseConfiguration config, IndexSpec indexSpec) {
+        private static TupleMemory createRightMemory(RuleBaseConfiguration config, IndexSpec indexSpec) {
             if ( !config.isIndexRightBetaMemory() || !indexSpec.constraintType.isIndexable() ) {
-                return new RightTupleList();
+                return new TupleList();
             }
 
             if (indexSpec.constraintType == ConstraintType.EQUAL) {
-                return new RightTupleIndexHashTable( indexSpec.indexes );
+                return new TupleIndexHashTable( indexSpec.indexes, false );
             }
 
             if (indexSpec.constraintType.isComparison()) {
-                return new RightTupleIndexRBTree( indexSpec.constraintType, indexSpec.indexes[0] );
+                return new TupleIndexRBTree( indexSpec.constraintType, indexSpec.indexes[0], false );
             }
 
             if (indexSpec.constraintType == ConstraintType.RANGE) {
@@ -299,23 +313,23 @@ public class IndexUtil {
                                                        indexSpec.descendingConstraintType, indexSpec.indexes[1] );
             }
 
-            return new RightTupleList();
+            return new TupleList();
         }
 
-        private static LeftTupleMemory createLeftMemory(RuleBaseConfiguration config, IndexSpec indexSpec) {
+        private static TupleMemory createLeftMemory(RuleBaseConfiguration config, IndexSpec indexSpec) {
             if (config.isSequential()) {
                 return null;
             }
             if ( !config.isIndexLeftBetaMemory() || !indexSpec.constraintType.isIndexable() ) {
-                return new LeftTupleList();
+                return new TupleList();
             }
 
             if (indexSpec.constraintType == ConstraintType.EQUAL) {
-                return new LeftTupleIndexHashTable( indexSpec.indexes );
+                return new TupleIndexHashTable( indexSpec.indexes, true );
             }
 
             if (indexSpec.constraintType.isComparison()) {
-                return new LeftTupleIndexRBTree( indexSpec.constraintType, indexSpec.indexes[0] );
+                return new TupleIndexRBTree( indexSpec.constraintType, indexSpec.indexes[0], true );
             }
 
             if (indexSpec.constraintType == ConstraintType.RANGE) {
@@ -324,7 +338,7 @@ public class IndexUtil {
                                                       indexSpec.descendingConstraintType, indexSpec.indexes[1] );
             }
 
-            return new LeftTupleList();
+            return new TupleList();
         }
 
         public static ContextEntry[] createContext(BetaNodeFieldConstraint... constraints) {

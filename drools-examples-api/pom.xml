@@ -5,14 +5,25 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.drools</groupId>
-    <artifactId>drools-multiproject</artifactId>
-    <version>6.2.0-SNAPSHOT</version>
+    <artifactId>drools</artifactId>
+    <version>6.4.0.Final</version>
   </parent>
 
   <artifactId>drools-examples-api</artifactId>
   <name>Drools API examples</name>
 
   <packaging>pom</packaging>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.drools</groupId>
+        <artifactId>kiebase-inclusion</artifactId>
+        <version>${version.org.kie}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <modules>
     <module>default-kiesession</module>
     <module>named-kiesession</module>
@@ -24,6 +35,7 @@
     <module>kiemodulemodel-example</module>
     <module>kiecontainer-from-kierepo</module>
     <module>multiple-kbases</module>
+    <module>reactive-kiesession</module>
   </modules>
 
 

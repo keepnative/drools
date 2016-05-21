@@ -1,43 +1,115 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
-import java.io.StringReader;
+import org.drools.compiler.Cheese;
+import org.drools.compiler.CommonTestMethodBase;
+import org.drools.compiler.Person;
+import org.drools.core.base.ClassObjectType;
+import org.drools.core.base.DroolsQuery;
+import org.drools.core.common.DoubleNonIndexSkipBetaConstraints;
+import org.drools.core.common.InternalFactHandle;
+import org.drools.core.common.InternalWorkingMemory;
+import org.drools.core.common.SingleBetaConstraints;
+import org.drools.core.common.TripleNonIndexSkipBetaConstraints;
+import org.drools.core.impl.KnowledgeBaseImpl;
+import org.drools.core.impl.StatefulKnowledgeSessionImpl;
+import org.drools.core.reteoo.AlphaNode;
+import org.drools.core.reteoo.BetaMemory;
+import org.drools.core.reteoo.CompositeObjectSinkAdapter;
+import org.drools.core.reteoo.JoinNode;
+import org.drools.core.reteoo.LeftInputAdapterNode;
+import org.drools.core.reteoo.NotNode;
+import org.drools.core.reteoo.ObjectSinkNodeList;
+import org.drools.core.reteoo.ObjectTypeNode;
+import org.drools.core.reteoo.RightTuple;
+import org.drools.core.rule.IndexableConstraint;
+import org.drools.core.util.FastIterator;
+import org.drools.core.util.index.TupleIndexHashTable;
+import org.drools.core.util.index.TupleList;
+import org.junit.Test;
+import org.kie.api.definition.rule.Rule;
+import org.kie.api.definition.type.FactType;
+import org.kie.api.runtime.rule.Row;
+import org.kie.api.runtime.rule.Variable;
+import org.kie.api.runtime.rule.ViewChangedEventListener;
+import org.kie.internal.KnowledgeBase;
+import org.kie.internal.runtime.StatefulKnowledgeSession;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.compiler.Cheese;
-import org.drools.compiler.CommonTestMethodBase;
-import org.drools.compiler.Person;
-import org.kie.api.runtime.rule.FactHandle;
-import org.drools.core.base.ClassObjectType;
-import org.drools.core.base.DroolsQuery;
-import org.drools.core.common.*;
-import org.drools.core.reteoo.*;
-import org.drools.core.util.FastIterator;
-import org.drools.core.util.index.LeftTupleIndexHashTable;
-import org.drools.core.util.index.LeftTupleList;
-import org.drools.core.util.index.RightTupleIndexHashTable;
-import org.drools.core.util.index.RightTupleList;
-import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.rule.IndexableConstraint;
-import org.junit.Test;
-import org.kie.api.runtime.rule.Row;
-import org.kie.api.runtime.rule.Variable;
-import org.kie.api.runtime.rule.ViewChangedEventListener;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.builder.KnowledgeBuilder;
-import org.kie.internal.builder.KnowledgeBuilderErrors;
-import org.kie.internal.builder.KnowledgeBuilderFactory;
-import org.kie.api.definition.type.FactType;
-import org.kie.internal.io.ResourceFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.io.ResourceType;
+import static org.drools.core.util.DroolsTestUtil.rulestoMap;
 
 
 public class IndexingTest extends CommonTestMethodBase {
+
+    //@Test(timeout=10000)
+    @Test()
+    public void testAlphaNodeSharing() {
+        String drl = "";
+        drl += "package org.drools.compiler.test\n";
+        drl += "import " + Person.class.getCanonicalName() + "\n";
+        drl += "rule r1\n";
+        drl += "when\n";
+        drl += "   Person(name == \"Mark\")\n";
+        drl += "then\n";
+        drl += "end\n";
+        drl += "rule r2\n";
+        drl += "when\n";
+        drl += "   Person(name == \"Mark\", age == 40)\n";
+        drl += "then\n";
+        drl += "end\n";
+        drl += "rule r3\n";
+        drl += "when\n";
+        drl += "   Person(name == \"Mark\", age == 50)\n";
+        drl += "then\n";
+        drl += "end\n";
+        drl += "rule r4\n";
+        drl += "when\n";
+        drl += "   Person(name == \"John\", age == 60)\n";
+        drl += "then\n";
+        drl += "end\n";
+
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( drl );
+
+        Map<String, Rule> rules = rulestoMap(kbase);
+
+        ObjectTypeNode otn = getObjectTypeNode(kbase, Person.class );
+        InternalWorkingMemory wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+
+        assertEquals( 2, otn.getObjectSinkPropagator().size() );
+
+        AlphaNode a1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
+        assertEquals( 3, a1.getObjectSinkPropagator().size() );
+        assertEquals( 3, a1.getAssociationsSize() );
+        assertTrue( a1.isAssociatedWith(rules.get("r1")));
+        assertTrue( a1.isAssociatedWith(rules.get("r2")));
+        assertTrue( a1.isAssociatedWith(rules.get("r3")));
+
+
+        AlphaNode a2 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[1];
+        assertEquals( 1, a2.getAssociationsSize() );
+        assertEquals( 1, a2.getObjectSinkPropagator().size() );
+        assertTrue( a2.isAssociatedWith(rules.get("r4")));
+    }
+
+
 
     @Test(timeout=10000)
     public void testBuildsIndexedAlphaNodes() {
@@ -54,18 +126,18 @@ public class IndexingTest extends CommonTestMethodBase {
         KnowledgeBase kbase = loadKnowledgeBaseFromString( drl );
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, Person.class );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
-        CompositeObjectSinkAdapter sinkAdapter = (CompositeObjectSinkAdapter)alphaNode1.getSinkPropagator();
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
+        CompositeObjectSinkAdapter sinkAdapter = (CompositeObjectSinkAdapter)alphaNode1.getObjectSinkPropagator();
         ObjectSinkNodeList hashableSinks = sinkAdapter.getHashableSinks();
         assertNotNull(hashableSinks);
         assertEquals(2, hashableSinks.size());
 
-        AlphaNode alphaNode2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertSame(hashableSinks.getFirst(), alphaNode2);
 
-        AlphaNode alphaNode3 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode3 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertSame(hashableSinks.getLast(), alphaNode3);
     }
 
@@ -95,9 +167,9 @@ public class IndexingTest extends CommonTestMethodBase {
         KnowledgeBase kbase = loadKnowledgeBaseFromString( drl );
         
         ObjectTypeNode node = getObjectTypeNode(kbase, Person.class );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
         
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) node.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) node.getObjectSinkPropagator().getSinks()[0];
         JoinNode j2 = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[0]; // $p2
         JoinNode j3 = ( JoinNode ) j2.getSinkPropagator().getSinks()[0];  // $p3
         JoinNode j4 = ( JoinNode ) j3.getSinkPropagator().getSinks()[0];  // $p4
@@ -113,29 +185,29 @@ public class IndexingTest extends CommonTestMethodBase {
         assertEquals( "$name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier() );
         assertTrue( c.isIndexed() );        
         BetaMemory bm = ( BetaMemory ) wm.getNodeMemory( j2 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable);
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         c = ( SingleBetaConstraints ) j3.getRawConstraints();
         assertEquals( "name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier() );
         assertTrue( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j3 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         c = ( SingleBetaConstraints ) j4.getRawConstraints();
         assertEquals("$p1", c.getConstraint().getRequiredDeclarations()[0].getIdentifier());
         assertFalse( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j4 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleList );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleList );
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleList );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleList );
         
         c = ( SingleBetaConstraints ) j5.getRawConstraints();
         assertEquals("name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier());
         assertTrue( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j5 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );   
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         // won't compile
 //        c = ( SingleBetaConstraints ) j6.getRawConstraints();
@@ -149,36 +221,36 @@ public class IndexingTest extends CommonTestMethodBase {
         assertEquals("name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier());
         assertTrue( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j7 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );   
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         c = ( SingleBetaConstraints ) j8.getRawConstraints();
         assertEquals("name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier());
         assertTrue( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j8 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );     
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         c = ( SingleBetaConstraints ) j9.getRawConstraints();
         assertEquals("$p1", c.getConstraint().getRequiredDeclarations()[0].getIdentifier());
         assertFalse( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j9 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleList );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleList );  
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleList );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleList );
         
         c = ( SingleBetaConstraints ) j10.getRawConstraints();
         assertEquals("name", ((IndexableConstraint)c.getConstraint()).getFieldIndex().getDeclaration().getIdentifier());
         assertTrue( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j10 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );  
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
         
         c = ( SingleBetaConstraints ) j11.getRawConstraints();
         assertEquals("$p1", c.getConstraint().getRequiredDeclarations()[0].getIdentifier());
         assertFalse( c.isIndexed() );   
         bm = ( BetaMemory ) wm.getNodeMemory( j11 );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleList);
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleList );          
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleList);
+        assertTrue( bm.getRightTupleMemory() instanceof TupleList );
     }
     
     @Test(timeout=10000)
@@ -199,20 +271,20 @@ public class IndexingTest extends CommonTestMethodBase {
                 node = n;
                 break;
             }
-        }    
+        }
+
+        InternalWorkingMemory wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
         
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
-        
-        AlphaNode alphanode = ( AlphaNode ) node.getSinkPropagator().getSinks()[0];
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getSinkPropagator().getSinks()[0];
+        AlphaNode alphanode = ( AlphaNode ) node.getObjectSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getObjectSinkPropagator().getSinks()[0];
         JoinNode j = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[0]; // $p2
         
         TripleNonIndexSkipBetaConstraints c = ( TripleNonIndexSkipBetaConstraints ) j.getRawConstraints();
         //assertEquals( "$name", ((VariableConstraint)c.getConstraint()).getRequiredDeclarations()[0].getIdentifier() );
         assertTrue( c.isIndexed() );        
         BetaMemory bm = ( BetaMemory ) wm.getNodeMemory( j );
-        assertTrue( bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable );
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );        
+        assertTrue( bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
     }
 
     @Test(timeout=10000)
@@ -235,10 +307,10 @@ public class IndexingTest extends CommonTestMethodBase {
             }
         }
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        StatefulKnowledgeSessionImpl wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
 
-        AlphaNode alphanode = ( AlphaNode ) node.getSinkPropagator().getSinks()[0];
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getSinkPropagator().getSinks()[0];
+        AlphaNode alphanode = ( AlphaNode ) node.getObjectSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getObjectSinkPropagator().getSinks()[0];
 
         NotNode n = (NotNode) liaNode.getSinkPropagator().getSinks()[0];
 
@@ -248,8 +320,8 @@ public class IndexingTest extends CommonTestMethodBase {
         BetaMemory bm = ( BetaMemory ) wm.getNodeMemory( n );
         System.out.println( bm.getLeftTupleMemory().getClass() );
         System.out.println( bm.getRightTupleMemory().getClass() );
-        assertTrue(bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable);
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );
+        assertTrue(bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
 
 
         final Map<String, Integer> map = new HashMap<String, Integer>();
@@ -377,10 +449,10 @@ public class IndexingTest extends CommonTestMethodBase {
             }
         }
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        StatefulKnowledgeSessionImpl wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
 
-        AlphaNode alphanode = ( AlphaNode ) node.getSinkPropagator().getSinks()[0];
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getSinkPropagator().getSinks()[0];
+        AlphaNode alphanode = ( AlphaNode ) node.getObjectSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) alphanode.getObjectSinkPropagator().getSinks()[0];
 
         NotNode n = (NotNode) liaNode.getSinkPropagator().getSinks()[0];
 
@@ -390,8 +462,8 @@ public class IndexingTest extends CommonTestMethodBase {
         BetaMemory bm = ( BetaMemory ) wm.getNodeMemory( n );
         System.out.println( bm.getLeftTupleMemory().getClass() );
         System.out.println( bm.getRightTupleMemory().getClass() );
-        assertTrue(bm.getLeftTupleMemory() instanceof LeftTupleIndexHashTable);
-        assertTrue( bm.getRightTupleMemory() instanceof RightTupleIndexHashTable );
+        assertTrue(bm.getLeftTupleMemory() instanceof TupleIndexHashTable );
+        assertTrue( bm.getRightTupleMemory() instanceof TupleIndexHashTable );
 
 
         final Map<String, Integer> map = new HashMap<String, Integer>();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,12 @@ package org.drools.compiler.factmodel.traits;
 
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.Person;
+import org.drools.core.ObjectFilter;
 import org.drools.core.RuleBaseConfiguration;
+import org.drools.core.base.ClassObjectType;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemoryEntryPoint;
+import org.drools.core.common.NamedEntryPoint;
 import org.drools.core.common.ObjectTypeConfigurationRegistry;
 import org.drools.core.factmodel.traits.Entity;
 import org.drools.core.factmodel.traits.LogicalTypeInconsistencyException;
@@ -39,7 +42,11 @@ import org.drools.core.factmodel.traits.VirtualPropertyMode;
 import org.drools.core.impl.KnowledgeBaseImpl;
 import org.drools.core.io.impl.ByteArrayResource;
 import org.drools.core.io.impl.ClassPathResource;
+import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.ObjectTypeConf;
+import org.drools.core.reteoo.ObjectTypeNode;
+import org.drools.core.reteoo.RuleTerminalNodeLeftTuple;
+import org.drools.core.rule.EntryPointId;
 import org.drools.core.util.CodedHierarchyImpl;
 import org.drools.core.util.HierarchyEncoder;
 import org.junit.Assert;
@@ -49,7 +56,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.kie.api.KieBaseConfiguration;
 import org.kie.api.command.Command;
+import org.kie.api.conf.EqualityBehaviorOption;
 import org.kie.api.definition.type.FactType;
+import org.kie.api.definition.type.PropertyReactive;
 import org.kie.api.event.rule.AfterMatchFiredEvent;
 import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.DebugAgendaEventListener;
@@ -57,6 +66,7 @@ import org.kie.api.event.rule.RuleRuntimeEventListener;
 import org.kie.api.io.Resource;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.ClassObjectFilter;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.rule.FactHandle;
 import org.kie.api.runtime.rule.QueryResults;
 import org.kie.api.runtime.rule.QueryResultsRow;
@@ -148,8 +158,8 @@ public class TraitTest extends CommonTestMethodBase {
 
     private KnowledgeBase getKieBaseFromString( String drl, RuleBaseConfiguration... conf ) {
         KnowledgeBuilder knowledgeBuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        knowledgeBuilder.add( ResourceFactory.newByteArrayResource( drl.getBytes() ),
-                              ResourceType.DRL );
+        knowledgeBuilder.add(ResourceFactory.newByteArrayResource(drl.getBytes()),
+                ResourceType.DRL);
         if (knowledgeBuilder.hasErrors()) {
             throw new RuntimeException( knowledgeBuilder.getErrors().toString() );
         }
@@ -161,9 +171,39 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-
-
     @Test
+    public void testRetract( ) {
+        String drl = "package org.drools.compiler.trait.test; \n" +
+                "import org.drools.core.factmodel.traits.Traitable; \n" +
+                "" +
+                "declare Foo @Traitable end\n" +
+                "declare trait Bar end \n" +
+                "" +
+                "rule Init when then\n" +
+                "  Foo foo = new Foo(); \n" +
+                "  don( foo, Bar.class ); \n" +
+                "end\n" +
+                "rule Retract \n" +
+                "when\n" +
+                " $bar : Bar()\n" +
+                "then\n" +
+                "  delete( $bar ); \n" +
+                "end\n";
+
+        StatefulKnowledgeSession ks = getSessionFromString( drl );
+        TraitFactory.setMode(mode, ks.getKieBase());
+
+        assertEquals(2, ks.fireAllRules());
+
+        for(Object o : ks.getObjects()) {
+            System.out.println(o);
+        }
+
+        assertEquals(0, ks.getObjects().size());
+    }
+
+
+    @Test(timeout=10000)
     public void testTraitWrapGetAndSet() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -224,7 +264,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitShed() {
         String source = "org/drools/compiler/factmodel/traits/testTraitShed.drl";
 
@@ -265,7 +305,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitDon() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -301,7 +341,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testMixin() {
         String source = "org/drools/compiler/factmodel/traits/testTraitMixin.drl";
 
@@ -319,7 +359,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitMethodsWithObjects() {
         String source = "org/drools/compiler/factmodel/traits/testTraitWrapping.drl";
 
@@ -340,7 +380,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitMethodsWithPrimitives() {
         String source = "org/drools/compiler/factmodel/traits/testTraitWrappingPrimitives.drl";
 
@@ -361,7 +401,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitProxy() {
 
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
@@ -440,7 +480,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testWrapperSize() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -568,7 +608,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testWrapperEmpty() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -649,7 +689,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testWrapperContainsKey() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -773,7 +813,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testInternalComponents1(  ) {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -836,7 +876,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testWrapperKeySetAndValues() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -934,7 +974,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testWrapperClearAndRemove() {
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
 
@@ -1058,7 +1098,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsAEvaluator( ) {
         String source = "package org.drools.compiler.trait.test;\n" +
                         "\n" +
@@ -1131,7 +1171,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsA() {
         String source = "org/drools/compiler/factmodel/traits/testTraitIsA.drl";
 
@@ -1158,7 +1198,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testOverrideType() {
         String source = "org/drools/compiler/factmodel/traits/testTraitOverride.drl";
 
@@ -1180,7 +1220,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testOverrideType2( ) {
         String drl = "package org.drools.compiler.trait.test; \n" +
                      "import org.drools.core.factmodel.traits.Traitable; \n" +
@@ -1209,7 +1249,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testOverrideType3( ) {
         String drl = "package org.drools.compiler.trait.test; \n" +
                      "import org.drools.core.factmodel.traits.Traitable; \n" +
@@ -1237,10 +1277,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-
-
-
-    @Test
+    @Test(timeout=10000)
     public void testTraitLegacy() {
         String source = "org/drools/compiler/factmodel/traits/testTraitLegacyTrait.drl";
 
@@ -1275,7 +1312,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitCollections() {
         String source = "org/drools/compiler/factmodel/traits/testTraitCollections.drl";
 
@@ -1306,7 +1343,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test()
     public void testTraitCore() {
         String source = "org/drools/compiler/factmodel/traits/testTraitLegacyCore.drl";
 
@@ -1337,7 +1374,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitWithEquality() {
         String source = "org/drools/compiler/factmodel/traits/testTraitWithEquality.drl";
 
@@ -1357,7 +1394,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitDeclared() {
 
         List<Integer> trueTraits = new ArrayList<Integer>();
@@ -1382,7 +1419,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitPojo() {
 
         List<Integer> trueTraits = new ArrayList<Integer>();
@@ -1408,7 +1445,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsAOperator() {
         String source = "org/drools/compiler/factmodel/traits/testTraitIsA2.drl";
         StatefulKnowledgeSession ksession = getSession( source );
@@ -1440,7 +1477,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testManyTraits() {
         String source = "" +
                         "import org.drools.compiler.Message;" +
@@ -1501,7 +1538,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitManyTimes() {
 
         StatefulKnowledgeSession ksession = getSession( "org/drools/compiler/factmodel/traits/testTraitDonMultiple.drl" );
@@ -1530,7 +1567,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
     // BZ #748752
-    @Test
+    @Test(timeout=10000)
     public void traitsInBatchExecution() {
         String str = "package org.jboss.qa.brms.traits\n" +
                      "import org.drools.compiler.Person;\n" +
@@ -1606,7 +1643,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testManyTraitsStateless() {
         String source = "" +
                         "import org.drools.compiler.Message;" +
@@ -1666,7 +1703,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testAliasing() {
         String drl = "package org.drools.traits\n" +
                      "import org.drools.core.factmodel.traits.Traitable;\n" +
@@ -1740,7 +1777,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitLogicalRemoval() {
         String drl = "package org.drools.trait.test;\n" +
                      "\n" +
@@ -1815,7 +1852,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTMSConsistencyWithNonTraitableBeans() {
 
         String s1 = "package org.drools.test;\n" +
@@ -1879,7 +1916,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitsLegacyWrapperCoherence() {
         String str = "package org.drools.trait.test; \n" +
                      "global java.util.List list; \n" +
@@ -1956,7 +1993,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testHasTypes() {
 
         String source = "org/drools/compiler/factmodel/traits/testTraitDon.drl";
@@ -2009,7 +2046,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitRedundancy() {
         String str = "package org.drools.compiler.factmodel.traits; \n" +
                      "global java.util.List list; \n" +
@@ -2075,7 +2112,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitSimpleTypes() {
 
         String s1 = "package org.drools.factmodel.traits;\n" +
@@ -2114,12 +2151,24 @@ public class TraitTest extends CommonTestMethodBase {
         StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
         ksession.fireAllRules();
 
-
+        for ( Object o : ksession.getObjects() ) {
+            if ( o instanceof TraitableBean ) {
+                TraitableBean tb = (TraitableBean) o;
+                assertEquals( 1, tb._getTraitMap().size() );
+                BitSet bs = new BitSet();
+                bs.set( 0 );
+                assertEquals( bs, tb.getCurrentTypeCode() );
+            }
+            if ( o instanceof TraitProxy ) {
+                TraitProxy tp = (TraitProxy) o;
+                assertEquals( 0, tp.listAssignedOtnTypeCodes().size() );
+            }
+        }
     }
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitEncoding() {
         String s1 = "package org.drools.core.factmodel.traits;\n" +
                     "declare trait A end\n" +
@@ -2196,12 +2245,12 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitActualTypeCodeWithEntities() {
         testTraitActualTypeCodeWithEntities( "ent", mode );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitActualTypeCodeWithCoreMap() {
         testTraitActualTypeCodeWithEntities( "kor", mode );
     }
@@ -2254,76 +2303,80 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-
-
-    @Test
+    @Test(timeout=10000)
     public void testTraitModifyCore() {
-        String s1 = "package test;\n" +
-                    "import org.drools.core.factmodel.traits.*;\n" +
+        String s1 = "package test; " +
+                    "import org.drools.core.factmodel.traits.*; " +
                     "" +
-                    "declare trait Student name : String end\n" +
-                    "declare trait Worker name : String end\n" +
-                    "declare trait StudentWorker extends Student, Worker name : String end\n" +
-                    "declare trait Assistant extends Student, Worker name : String end\n" +
-                    "declare Person @Traitable name : String end\n" +
+                    "global java.util.List list; " +
                     "" +
-                    "rule \"Init\" \n" +
-                    "when \n" +
-                    "then \n" +
-                    "  Person p = new Person( \"john\" ); \n" +
-                    "  insert( p ); \n" +
-                    "end \n" +
+                    "declare trait Student @PropertyReactive name : String end " +
+                    "declare trait Worker @PropertyReactive name : String end " +
+                    "declare trait StudentWorker extends Student, Worker @PropertyReactive name : String end " +
+                    "declare trait Assistant extends Student, Worker @PropertyReactive name : String end " +
+                    "declare Person @Traitable name : String end " +
                     "" +
-                    "rule \"Don\" \n" +
-                    "no-loop\n " +
-                    "when \n" +
-                    "  $p : Person( name == \"john\" ) \n" +
-                    "then \n" +
-                    "  System.out.println( $p ); \n" +
+                    "rule \"Init\"  " +
+                    "when  " +
+                    "then  " +
+                    "  Person p = new Person( \"john\" );  " +
+                    "  insert( p );  " +
+                    "end  " +
                     "" +
-                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don student\" ); \n" +
-                    "  don( $p, Student.class ); \n" +
-                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don worker\" ); \n" +
-                    "  don( $p, Worker.class ); \n" +
-                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don studentworker\" ); \n" +
-                    "  don( $p, StudentWorker.class ); \n" +
-                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don assistant\" ); \n" +
-                    "  don( $p, Assistant.class ); \n" +
-                    "end \n" +
+                    "rule \"Don\"  " +
+                    "no-loop  " +
+                    "when  " +
+                    "  $p : Person( name == \"john\" )  " +
+                    "then  " +
+                    "  System.out.println( $p );  " +
                     "" +
-                    "rule \"Log S\" \n" +
-                    "when \n" +
-                    "  $t : Student() \n" +
-                    "then \n" +
-                    "  System.out.println( \"Student >> \" +  $t ); \n" +
-                    "end \n" +
-                    "rule \"Log W\" \n" +
-                    "when \n" +
-                    "  $t : Worker() \n" +
-                    "then \n" +
-                    "  System.out.println( \"Worker >> \" + $t ); \n" +
-                    "end \n" +
-                    "rule \"Log SW\" \n" +
-                    "when \n" +
-                    "  $t : StudentWorker() \n" +
-                    "then \n" +
-                    "  System.out.println( \"StudentWorker >> \" + $t ); \n" +
-                    "end \n" +
-                    "rule \"Log RA\" \n" +
-                    "when \n" +
-                    "  $t : Assistant() \n" +
-                    "then \n" +
-                    "  System.out.println( \"Assistant >> \" + $t ); \n" +
-                    "end \n" +
+                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don student\" );  " +
+                    "  don( $p, Student.class );  " +
+                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don worker\" );  " +
+                    "  don( $p, Worker.class );  " +
+                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don studentworker\" );  " +
+                    "  don( $p, StudentWorker.class );  " +
+                    "  System.out.println( \" ----------------------------------------------------------------------------------- Don assistant\" );  " +
+                    "  don( $p, Assistant.class );  " +
+                    "end  " +
                     "" +
-                    "rule \"Mod\" \n" +
-                    "salience -10 \n" +
-                    "when \n" +
-                    "  $p : Person( name == \"john\" ) \n" +
-                    "then \n" +
-                    "   System.out.println( \"-----------------------------\" );\n" +
+                    "rule \"Log S\"  " +
+                    "when  " +
+                    "  $t : Student() @Watch( name ) " +
+                    "then  " +
+                    "  System.out.println( \"Student >> \" +  $t ); " +
+                    "  list.add( $t.getName() );  " +
+                    "end  " +
+                    "rule \"Log W\"  " +
+                    "when  " +
+                    "  $t : Worker() @Watch( name ) " +
+                    "then  " +
+                    "  System.out.println( \"Worker >> \" + $t );  " +
+                    "  list.add( $t.getName() );  " +
+                    "end  " +
+                    "rule \"Log SW\"  " +
+                    "when  " +
+                    "  $t : StudentWorker() @Watch( name ) " +
+                    "then  " +
+                    "  System.out.println( \"StudentWorker >> \" + $t );  " +
+                    "  list.add( $t.getName() );  " +
+                    "end  " +
+                    "rule \"Log RA\"  " +
+                    "when  " +
+                    "  $t : Assistant() @Watch( name ) " +
+                    "then  " +
+                    "  System.out.println( \"Assistant >> \" + $t );  " +
+                    "  list.add( $t.getName() );  " +
+                    "end  " +
+                    "" +
+                    "rule \"Mod\"  " +
+                    "salience -10  " +
+                    "when  " +
+                    "  $p : Person( name == \"john\" ) " +
+                    "then  " +
+                    "   System.out.println( \"-----------------------------\" ); " +
                     "   modify ( $p ) { setName( \"alan\" ); } " +
-                    "end \n" +
+                    "end  " +
                     "";
 
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
@@ -2337,10 +2390,14 @@ public class TraitTest extends CommonTestMethodBase {
         kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
 
         StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        List list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
 
         int k = ksession.fireAllRules();
 
-        assertEquals( 13, k );
+        assertEquals( Arrays.asList( "john", "john", "john", "john", "alan", "alan", "alan", "alan" ), list );
+        assertEquals( 11, k );
 
     }
 
@@ -2349,76 +2406,76 @@ public class TraitTest extends CommonTestMethodBase {
 
     @Test
     public void testTraitModifyCore2() {
-        String s1 = "package test;\n" +
-                    "import org.drools.core.factmodel.traits.*;\n" +
+        String s1 = "package test; " +
+                    "import org.drools.core.factmodel.traits.*; " +
                     "" +
-                    "declare trait Student @propertyReactive name : String end\n" +
-                    "declare trait Worker @propertyReactive name : String end\n" +
-                    "declare trait StudentWorker extends Student, Worker @propertyReactive name : String end\n" +
-                    "declare trait StudentWorker2 extends StudentWorker @propertyReactive name : String end\n" +
-                    "declare trait Assistant extends Student, Worker @propertyReactive name : String end\n" +
-                    "declare Person @Traitable @propertyReactive name : String end\n" +
+                    "declare trait Student @propertyReactive name : String end " +
+                    "declare trait Worker @propertyReactive name : String end " +
+                    "declare trait StudentWorker extends Student, Worker @propertyReactive name : String end " +
+                    "declare trait StudentWorker2 extends StudentWorker @propertyReactive name : String end " +
+                    "declare trait Assistant extends Student, Worker @propertyReactive name : String end " +
+                    "declare Person @Traitable @propertyReactive name : String end " +
                     "" +
-                    "rule \"Init\" \n" +
-                    "when \n" +
-                    "then \n" +
-                    "  Person p = new Person( \"john\" ); \n" +
-                    "  insert( p ); \n" +
-                    "end \n" +
+                    "rule \"Init\"  " +
+                    "when  " +
+                    "then  " +
+                    "  Person p = new Person( \"john\" );  " +
+                    "  insert( p );  " +
+                    "end  " +
                     "" +
-                    "rule \"Don\" \n" +
-                    "when \n" +
-                    "  $p : Person( name == \"john\" ) \n" +
-                    "then \n" +
-                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON WORKER \" + $p  ); \n" +
-                    "  don( $p, Worker.class ); \n" +
-                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON STUDWORKER \" + $p ); \n" +
-                    "  don( $p, StudentWorker2.class ); \n" +
-                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON ASSISTANT \" + $p ); \n" +
-                    "  don( $p, Assistant.class ); \n" +
-                    "end \n" +
+                    "rule \"Don\"  " +
+                    "when  " +
+                    "  $p : Person( name == \"john\" )  " +
+                    "then  " +
+                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON WORKER \" + $p  );  " +
+                    "  don( $p, Worker.class );  " +
+                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON STUDWORKER-2 \" + $p );  " +
+                    "  don( $p, StudentWorker2.class );  " +
+                    "  System.out.println( \">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> DON ASSISTANT \" + $p );  " +
+                    "  don( $p, Assistant.class );  " +
+                    "end  " +
                     "" +
-                    "rule \"Log S\" \n" +
-                    "when \n" +
-                    "  $t : Student() @watch( name ) \n" +
-                    "then \n" +
-                    "  System.out.println( \"@@Student >> \" +  $t ); \n" +
-                    "end \n" +
-                    "rule \"Log W\" \n" +
-                    "when \n" +
-                    "  $t : Worker() @watch( name ) \n" +
-                    "then \n" +
-                    "  System.out.println( \"@@Worker >> \" + $t ); \n" +
-                    "end \n" +
-                    "rule \"Log SW\" \n" +
-                    "when \n" +
-                    "  $t : StudentWorker() @watch( name ) \n" +
-                    "then \n" +
-                    "  System.out.println( \"@@StudentWorker >> \" + $t ); \n" +
-                    "end \n" +
-                    "rule \"Log RA\" \n" +
-                    "when \n" +
-                    "  $t : Assistant() @watch( name ) \n" +
-                    "then \n" +
-                    "  System.out.println( \"@@Assistant >> \" + $t ); \n" +
-                    "end \n" +
-                    "rule \"Log Px\" \n" +
-                    "salience -1 \n" +
-                    "when \n" +
-                    "  $p : Person() @watch( name ) \n" +
-                    "then \n" +
-                    "  System.out.println( \"Poor Core Person >> \" + $p ); \n" +
-                    "end \n" +
+                    "rule \"Log S\"  " +
+                    "when  " +
+                    "  $t : Student() @watch( name )  " +
+                    "then  " +
+                    "  System.err.println( \"@@Student >> \" +  $t );  " +
+                    "end  " +
+                    "rule \"Log W\"  " +
+                    "when  " +
+                    "  $t : Worker() @watch( name )  " +
+                    "then  " +
+                    "  System.err.println( \"@@Worker >> \" + $t );  " +
+                    "end  " +
+                    "rule \"Log SW\"  " +
+                    "when  " +
+                    "  $t : StudentWorker() @watch( name )  " +
+                    "then  " +
+                    "  System.err.println( \"@@StudentWorker >> \" + $t );  " +
+                    "end  " +
+                    "rule \"Log RA\"  " +
+                    "when  " +
+                    "  $t : Assistant() @watch( name )  " +
+                    "then  " +
+                    "  System.err.println( \"@@Assistant >> \" + $t );  " +
+                    "end  " +
+                    "rule \"Log Px\"  " +
+                    "salience -1  " +
+                    "when  " +
+                    "  $p : Person() @watch( name )  " +
+                    "then  " +
+                    "  System.err.println( \"Poor Core Person >> \" + $p );  " +
+                    "end  " +
                     "" +
-                    "rule \"Mod\" \n" +
-                    "salience -10 \n" +
-                    "when \n" +
-                    "  String( this == \"go\" ) \n" +
-                    "  $p : Student( name == \"john\" ) \n" +
-                    "then \n" +
-                    "  System.out.println( \" ------------------------------------------------------------------------------ \" + $p ); \n" +
+                    "rule \"Mod\"  " +
+                    "salience -10  " +
+                    "when  " +
+                    "  String( this == \"go\" )  " +
+                    "  $p : Student( name == \"john\" )  " +
+                    "then  " +
+                    "  System.out.println( \" ------------------------------------------------------------------------------ \" + $p );  " +
                     "  modify ( $p ) { setName( \"alan\" ); } " +
-                    "end \n" +
+                    "end  " +
                     "";
 
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
@@ -2443,7 +2500,7 @@ public class TraitTest extends CommonTestMethodBase {
 
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitModifyCore2a() {
         String s1 = "package test;\n" +
                     "import org.drools.core.factmodel.traits.*;\n" +
@@ -2508,7 +2565,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitModifyCore3() {
         String s1 = "package test;\n" +
                     "import org.drools.core.factmodel.traits.*;\n" +
@@ -2619,7 +2676,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitModifyCoreWithPropertyReactivity() {
         String s1 = "package test;\n" +
                     "import org.drools.core.factmodel.traits.*;\n" +
@@ -2737,7 +2794,7 @@ public class TraitTest extends CommonTestMethodBase {
 
     public static interface IntfParent {}
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitEncodeExtendingNonTrait() {
 
         String s1 = "package test;\n" +
@@ -2773,7 +2830,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void isAWithBackChaining() {
 
         String source = "org/drools/compiler/factmodel/traits/testTraitIsAWithBC.drl";
@@ -2795,7 +2852,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsAEvaluatorOnClassification( ) {
         String source = "package t.x \n" +
                         "\n" +
@@ -2854,7 +2911,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testShedWithTMS( ) {
         String source = "package t.x \n" +
                         "\n" +
@@ -2887,7 +2944,7 @@ public class TraitTest extends CommonTestMethodBase {
                         "" +
                         "rule \"Rule 0 >> http://t/x#D\"\n" +
                         "when\n" +
-                        "   $t : org.drools.core.factmodel.traits.Thing( $c : core, top == true, this not isA t.x.E.class, this isA t.x.D.class ) " +
+                        "   $t : org.drools.core.factmodel.traits.Thing( $c : core, _isTop(), this not isA t.x.E.class, this isA t.x.D.class ) " +
                         "then\n" +
                         "   list.add( \"E\" ); \n" +
                         "   System.out.println( \"E due to \" + $t); \n" +
@@ -2934,7 +2991,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitInitialization() {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3010,7 +3067,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testUnTraitedBean() {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3060,7 +3117,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsAOptimization(  ) {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3120,7 +3177,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTypeRefractionOnInsert(  ) {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3185,7 +3242,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTypeRefractionOnQuery(  ) {
         String source = "declare BaseObject\n" +
                         "@Traitable\n" +
@@ -3226,7 +3283,6 @@ public class TraitTest extends CommonTestMethodBase {
         assertEquals( 1, res.size() );
 
     }
-
 
     @Test
     public void testTypeRefractionOnQuery2(  ) {
@@ -3286,11 +3342,159 @@ public class TraitTest extends CommonTestMethodBase {
         QueryResults res;
         res = ks.getQueryResults( "queryA1" );
         assertEquals( 1, res.size() );
+
+    }
+
+    @Test
+    public void testNodePartitioningByProxies(  ) {
+        String source = "package t.x  " +
+                        "import java.util.*;  " +
+                        "import org.drools.core.factmodel.traits.Thing  " +
+                        "import org.drools.core.factmodel.traits.Traitable  " +
+                        " " +
+                        "global java.util.List list;  " +
+                        " " +
+                        "" +
+                        "declare trait A @PropertyReactive end " +
+                        "declare trait B extends A @PropertyReactive end " +
+                        "declare trait C extends B @PropertyReactive end " +
+                        "declare trait D extends A @PropertyReactive end " +
+                        "declare trait E extends C, D @PropertyReactive end " +
+                        "declare trait F extends E @PropertyReactive end " +
+                        "declare trait G extends A @PropertyReactive end " +
+                        "" +
+                        "declare Kore " +
+                        "   @Traitable " +
+                        "end " +
+                        "" +
+                        "rule Init when " +
+
+                        "then " +
+                        "   Kore k = new Kore(); " +
+                        "   don( k, C.class );  " +
+                        "   don( k, D.class );  " +
+                        "   don( k, B.class );  " +
+                        "   don( k, A.class );  " +
+                        "   don( k, F.class );  " +
+                        "   don( k, E.class );  " +
+                        "   don( k, G.class );  " +
+                        "end ";
+
+        for ( char c = 'A'; c <= 'G'; c++ ) {
+            String C = "" + c;
+            source += "rule Rule" + C +
+                      " when " + C + "() then list.add( '"+ C + "' ); end ";
+        }
+
+            source += "rule RuleAll " +
+                        "when  " +
+                        "   A() B() C() D() E() F() G() " +
+                        "then  " +
+                        "   list.add( 'Z' ); " +
+                        "end " +
+                        "";
+
+
+        StatefulKnowledgeSession ks = getSessionFromString( source );
+        TraitFactory.setMode( mode, ks.getKieBase() );
+
+        List list = new ArrayList();
+        ks.setGlobal( "list", list );
+        ks.fireAllRules();
+
+        System.out.println( list );
+        assertEquals( Arrays.asList( 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'Z' ), list );
+
+
+        for ( Object o : ks.getObjects( new ObjectFilter() {
+            @Override
+            public boolean accept( Object object ) {
+                return object instanceof TraitableBean;
+            }
+        } ) ) {
+            Set<BitSet> otns = checkOTNPartitioning( (TraitableBean) o, ks );
+            assertEquals( 7, otns.size() );
+        }
+
+    }
+
+    @Test
+    public void testNodePartitioningByProxiesAfterShed(  ) {
+        String source = "package t.x  " +
+                        "import java.util.*;  " +
+                        "import org.drools.core.factmodel.traits.Thing  " +
+                        "import org.drools.core.factmodel.traits.Traitable  " +
+                        " " +
+                        "global java.util.List list;  " +
+                        " " +
+                        "" +
+                        "declare trait A end " +
+                        "declare trait B extends A end " +
+                        "declare trait C extends B end " +
+                        "declare trait D extends A end " +
+                        "declare trait E extends C, D end " +
+                        "declare trait F extends E end " +
+                        "declare trait G extends A end " +
+                        "" +
+                        "declare Kore " +
+                        "   @Traitable " +
+                        "end " +
+                        "" +
+                        "rule Init when " +
+
+                        "then " +
+                        "   Kore k = new Kore(); " +
+                        "   don( k, C.class );  " +
+                        "   don( k, D.class );  " +
+                        "   don( k, B.class );  " +
+                        "   don( k, A.class );  " +
+                        "   don( k, F.class );  " +
+                        "   don( k, E.class );  " +
+                        "   don( k, G.class );  " +
+                        "   shed( k, B.class );  " +
+                        "end ";
+
+        for ( char c = 'A'; c <= 'G'; c++ ) {
+            String C = "" + c;
+            source += "rule Rule" + C +
+                      " when " + C + "() then list.add( '"+ C + "' ); end ";
+        }
+
+            source += "rule RuleAll " +
+                        "when  " +
+                        "   A() D() G() " +
+                        "then  " +
+                        "   list.add( 'Z' ); " +
+                        "end " +
+                        "";
+
+
+        StatefulKnowledgeSession ks = getSessionFromString( source );
+        TraitFactory.setMode( mode, ks.getKieBase() );
+
+        List list = new ArrayList();
+        ks.setGlobal( "list", list );
+        ks.fireAllRules();
+
+        System.out.println( list );
+        assertEquals( Arrays.asList( 'A', 'D', 'G', 'Z' ), list );
+
+
+        for ( Object o : ks.getObjects( new ObjectFilter() {
+            @Override
+            public boolean accept( Object object ) {
+                return object instanceof TraitableBean;
+            }
+        } ) ) {
+            Set<BitSet> otns = checkOTNPartitioning( (TraitableBean) o, ks );
+            assertEquals( 3, otns.size() );
+        }
+
     }
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTypeRefractionOnQueryWithIsA(  ) {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3348,7 +3552,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testCoreUpdate4(  ) {
         String source = "package t.x \n" +
                         "import java.util.*; \n" +
@@ -3408,7 +3612,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void traitLogicalSupportAnddelete() {
         String drl = "package org.drools.trait.test;\n" +
                      "\n" +
@@ -3542,7 +3746,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testShedThing() {
         String s1 = "package test;\n" +
                     "import org.drools.core.factmodel.traits.*;\n" +
@@ -3612,7 +3816,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testdeleteThings() {
         String s1 = "package test;\n" +
                     "import org.drools.core.factmodel.traits.*;\n" +
@@ -3681,7 +3885,7 @@ public class TraitTest extends CommonTestMethodBase {
         assertEquals( 0, ksession.getObjects().size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void traitLogicalRemovalSimple( ) {
         String drl = "package org.drools.compiler.trait.test;\n" +
                      "\n" +
@@ -3769,7 +3973,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitDonLegacyClassWithoutEmptyConstructor( ) {
         String drl = "package org.drools.compiler.trait.test;\n" +
                      "\n" +
@@ -3805,7 +4009,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testdeleteCoreObjectChained(  ) {
         String source = "package org.drools.test;\n" +
                         "import java.util.List; \n" +
@@ -3873,7 +4077,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testUpdateLegacyClass(  ) {
         String source = "package org.drools.text;\n" +
                         "\n" +
@@ -3934,7 +4138,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testSoftPropertyClash() {
         String source = "package org.drools.text;\n" +
                         "\n" +
@@ -4200,6 +4404,7 @@ public class TraitTest extends CommonTestMethodBase {
         assertTrue( list.contains( "HF" ) );
         assertTrue( list.contains( "HG" ) );
         assertTrue( list.contains( "HH" ) );
+        System.out.println( list );
         assertEquals( 9, list.size() );
         list.clear();
 
@@ -4226,7 +4431,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testParentBlockers() {
         String drl = "package org.drools.test;\n" +
                      "import org.drools.core.factmodel.traits.*; \n" +
@@ -4268,7 +4473,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitLogicalTMS() {
         String drl = "package org.drools.test;\n" +
                      "import org.drools.core.factmodel.traits.*; \n" +
@@ -4318,7 +4523,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitNoType() {
         String drl = "" +
                      "package org.drools.core.factmodel.traits.test;\n" +
@@ -4376,7 +4581,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitdeleteOrder() {
         String drl = "" +
                      "package org.drools.core.factmodel.traits.test;\n" +
@@ -4412,7 +4617,7 @@ public class TraitTest extends CommonTestMethodBase {
             public void objectDeleted( org.kie.api.event.rule.ObjectDeletedEvent objectRetractedEvent ) {
                 Object o = objectRetractedEvent.getOldObject();
                 if ( o instanceof TraitProxy ) {
-                    String traitName = ( (TraitProxy) o ).getTraitName();
+                    String traitName = ( (TraitProxy) o )._getTraitName();
                     list.add( traitName.substring( traitName.lastIndexOf( "." ) + 1 ) );
                 }
             }
@@ -4426,7 +4631,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitWithManySoftFields() {
         String drl = "" +
                      "package org.drools.core.factmodel.traits.test;\n" +
@@ -4510,7 +4715,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testDonManyTraitsAtOnce() {
         String drl = "" +
                      "package org.drools.core.factmodel.traits.test;\n" +
@@ -4589,10 +4794,10 @@ public class TraitTest extends CommonTestMethodBase {
         ksession.fireAllRules();
 
         // insert Core Bean, A, B, Thing.
-        // Update the bean on don A, update the bean and A on don B
+        // Update the bean on don B
         assertEquals( 0, cwm.getdeletes() );
         assertEquals( 3, cwm.getInserts() );
-        assertEquals( 2, cwm.getUpdates() );
+        assertEquals( 1, cwm.getUpdates() );
         cwm.reset();
 
         FactHandle handle = ksession.insert( "go" );
@@ -4634,6 +4839,57 @@ public class TraitTest extends CommonTestMethodBase {
         assertTrue( list.containsAll( Arrays.asList( 0, 1, 2, 3 ) ) );
     }
 
+    @Test
+    public void testDonManyTraitsAtOnce2() {
+        String drl = "" +
+                     "package org.drools.core.factmodel.traits.test;\n" +
+                     "\n" +
+                     "import org.drools.core.factmodel.traits.*;\n" +
+                     "import java.util.*;\n" +
+                     "\n" +
+                     "global List list; \n" +
+                     "" +
+                     "declare trait A @propertyReactive end \n" +
+                     "declare trait B @propertyReactive end \n" +
+                     "\n" +
+                     "declare TBean @Traitable @propertyReactive fld0 : String end \n" +
+                     "" +
+                     "rule \"Don 1\"\n" +
+                     "when \n" +
+                     "then\n" +
+                     "  TBean t = new TBean(); \n" +
+                     "  don( t, A.class ); \n" +
+                     "  don( t, B.class ); \n" +
+                     "end\n" +
+                     "" +
+                     "rule \"Test Don A,B\" " +
+                     "when \n" +
+                     "  A(this isA B) \n" +
+                     "then \n" +
+                     "  list.add( 0 ); \n" +
+                     "  System.out.println( \"Call DON MANY (A isA B) \" ); " +
+                     "end \n" +
+                     "" +
+                     "" ;
+
+        StatefulKnowledgeSession ksession = loadKnowledgeBaseFromString(drl).newStatefulKnowledgeSession();
+        TraitFactory.setMode( mode, ksession.getKieBase() );
+        ArrayList list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
+        CountingWorkingMemoryEventListener cwm = new CountingWorkingMemoryEventListener();
+        ksession.addEventListener( cwm );
+
+        ksession.fireAllRules();
+
+        assertEquals( Arrays.asList( 0 ), list );
+
+        assertEquals( 0, cwm.getdeletes() );
+        assertEquals( 3, cwm.getInserts() );
+        assertEquals( 1, cwm.getUpdates() );
+
+    }
+
 
 
 
@@ -4670,7 +4926,7 @@ public class TraitTest extends CommonTestMethodBase {
         }
     }
 
-    @Test
+    @Test(timeout=10000)
     @Ignore("Triple Store is not thread safe and needs to be rewritten")
     public void testMultithreadingTraits() throws InterruptedException {
         final String s1 = "package test;\n" +
@@ -4722,7 +4978,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testShedOneLastTrait() throws InterruptedException {
         final String s1 = "package test;\n" +
                           "import org.drools.core.factmodel.traits.*; \n" +
@@ -4778,7 +5034,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testShedThingCompletelyThenDonAgain() throws InterruptedException {
         final String s1 = "package test;\n" +
                           "import org.drools.core.factmodel.traits.*; \n" +
@@ -4869,7 +5125,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitImplicitInsertionExceptionOnNonTraitable() throws InterruptedException {
         final String s1 = "package test;\n" +
                           "import org.drools.core.factmodel.traits.*; \n" +
@@ -4910,7 +5166,7 @@ public class TraitTest extends CommonTestMethodBase {
         public void setFoo( String foo );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitLegacyTraitableWithLegacyTrait() {
         final String s1 = "package org.drools.compiler.factmodel.traits;\n" +
                           "import " + TraitTest.class.getName() + ".SomeTrait; \n" +
@@ -4935,7 +5191,7 @@ public class TraitTest extends CommonTestMethodBase {
         assertEquals( 2, knowledgeSession.getObjects().size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testIsALegacyTrait() {
         final String s1 = "package org.drools.compiler.factmodel.traits;\n" +
                           "import " + TraitTest.class.getName() + ".SomeTrait; \n" +
@@ -4972,7 +5228,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testClassLiteralsWithOr() {
 
         String drl = "package org.drools.test; " +
@@ -5032,7 +5288,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testIsASwappedArg() {
 
         String drl = "package org.drools.test; " +
@@ -5094,7 +5350,7 @@ public class TraitTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testHierarchyEncodeOnPackageMerge() {
 
         String drl0 = "package org.drools.test; " +
@@ -5138,7 +5394,7 @@ public class TraitTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testDonThenReinsert() throws InterruptedException {
         final String s1 = "package test;\n" +
                           "import org.drools.core.factmodel.traits.*; \n" +
@@ -5204,4 +5460,485 @@ public class TraitTest extends CommonTestMethodBase {
 
     }
 
+    @Test
+    public void testCastOnTheFly() throws InterruptedException {
+        final String s1 = "package test; " +
+
+                          "import org.drools.core.factmodel.traits.*; " +
+
+                          "global java.util.List list; " +
+
+                          "declare Foo " +
+                          " @Traitable " +
+                          " @propertyReactive " +
+                          " id : int " +
+                          "end " +
+
+                          "declare trait Upper " +
+                          " @propertyReactive " +
+                          " id : int " +
+                          "end " +
+
+                          "declare trait Lower extends Upper " +
+                          " @propertyReactive " +
+                          "end " +
+
+                          "rule Init " +
+                          " dialect 'mvel' " +
+                          "	when " +
+                          "	then " +
+                          "     Foo o = insert( new Foo( 42 ) ).as( Foo.class ); " +
+                          "     list.add( o.getId() ); " +
+                          "end " +
+
+                          "rule Don " +
+                          " when " +
+                          "     $f : Foo() " +
+                          " then " +
+                          "     Lower l = don( $f, Lower.class ); " +
+                          "     Upper u = bolster( $f ).as( Upper.class ); " +
+                          "     list.add( u.getId() + 1 ); " +
+                          " end ";
+
+        final KnowledgeBase kbase = getKieBaseFromString(s1);
+
+        TraitFactory.setMode( mode, kbase );
+        ArrayList list = new ArrayList();
+
+        StatefulKnowledgeSession knowledgeSession = kbase.newStatefulKnowledgeSession();
+        knowledgeSession.setGlobal( "list", list );
+
+        knowledgeSession.fireAllRules();
+
+        assertEquals( Arrays.asList( 42, 43 ), list );
+    }
+
+
+
+    @Test
+    public void testDonModify() {
+        String drl =
+                "import org.drools.core.factmodel.traits.Entity;\n" +
+                "import org.drools.compiler.factmodel.traits.IPerson;\n" +
+                "import org.drools.compiler.factmodel.traits.IStudent;\n" +
+
+                "declare trait IPerson end\n" +
+
+                "declare trait IStudent end\n" +
+
+                "declare trait Person\n" +
+                "    name : String\n" +
+                "end\n" +
+
+                "rule \"Init\"\n" +
+                "when\n" +
+                "then\n" +
+                "    Entity core = new Entity();\n" +
+                "    insert( core );\n" +
+                "end\n" +
+
+                "rule Trait when\n" +
+                "    $core: Entity( )\n" +
+                "then\n" +
+                "    IPerson x = don( $core, IPerson.class, true );\n" +
+                "    IStudent s = don( $core, IStudent.class, true );\n" +
+                "    Person p = don( $core, Person.class, true );\n" +
+                "    System.err.println( \"            Done donning              \" );\n " +
+                "end\n" +
+
+                "rule R2 when\n" +
+                "    $p: IPerson( name == null )\n" +
+                "then\n" +
+                "    System.out.println(\"IPerson: \" + $p);\n" +
+                "end\n" +
+                "\n";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        TraitFactory.setMode( mode, kbase );
+        StatefulKnowledgeSession kSession = kbase.newStatefulKnowledgeSession();
+
+        assertEquals( 3, kSession.fireAllRules() );
+    }
+
+    @Test
+    public void testAlphaNodeSharing() {
+        String drl =
+                "package test; " +
+                "import " + Entity.class.getName() + " " +
+
+                "declare trait Person\n" +
+                "    name : String\n" +
+                "end\n" +
+
+                "rule Init " +
+                "when " +
+                "then " +
+                "    don( new Entity(), Person.class ); " +
+                "end\n" +
+
+                "rule One when" +
+                "    $core: Entity( this isA Person ) " +
+                "then " +
+                "end " +
+
+                "rule Two when" +
+                "    $core: Entity( this isA Person ) " +
+                "then " +
+                "end " +
+
+                "\n";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        TraitFactory.setMode( mode, kbase );
+        StatefulKnowledgeSession kSession = kbase.newStatefulKnowledgeSession();
+
+        assertEquals( 3, kSession.fireAllRules() );
+        NamedEntryPoint nep = ( (NamedEntryPoint) kSession.getEntryPoint( EntryPointId.DEFAULT.getEntryPointId() ) );
+        ObjectTypeNode otn = nep.getEntryPointNode().getObjectTypeNodes().get( new ClassObjectType( Entity.class ) );
+        assertNotNull( otn );
+        assertEquals( 1, otn.getObjectSinkPropagator().getSinks().length );
+    }
+
+
+    @Test
+    public void testPartitionWithSiblingsOnDelete() {
+        String drl =
+                "import " + Entity.class.getName() + ";" +
+                "global java.util.List list; " +
+
+                "declare trait A @propertyReactive end " +
+                "declare trait B extends A @propertyReactive end " +
+                "declare trait C extends A @propertyReactive end " +
+
+                "rule Trait when " +
+                "    $core: Entity( ) " +
+                "then " +
+                "    don( $core, A.class ); " +
+                "    don( $core, B.class ); " +
+                "    don( $core, C.class ); " +
+                "end " +
+
+                "rule Shed when " +
+                "   $s: String() " +
+                "   $core : Entity() " +
+                "then " +
+                "   shed( $core, C.class ); " +
+                "end " +
+
+                "rule RA when A() then list.add( 'A' ); end " +
+                "rule RB when B() then list.add( 'B' ); end " +
+                "rule RC when C() then list.add( 'C' ); end " +
+                " ";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        TraitFactory.setMode( mode, kbase );
+        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
+        Entity e = new Entity();
+        ksession.insert( e );
+        ksession.fireAllRules();
+
+        ksession.insert( "go" );
+        ksession.fireAllRules();
+
+        Set<BitSet> s = checkOTNPartitioning( e, ksession );
+        assertEquals( 2, s.size() );
+
+        assertEquals( Arrays.asList( 'A', 'B', 'C' ), list );
+    }
+
+
+    @Test
+    public void testTupleIntegrityOnModification() {
+        String drl = "package test " +
+                     "import " + Entity.class.getName() + ";" +
+                     "global java.util.List list; " +
+
+                     "declare trait A @propertyReactive value : int end " +
+
+                     "rule Trait when " +
+                     "    $core: Entity( ) " +
+                     "then " +
+                     "    A o = don( $core, A.class ); " +
+                     "    System.out.println( 'Found ! ' + o ); " +
+                     "end " +
+
+                     "rule Test when " +
+                     "   $x: A( value == 0 ) " +
+                     "then " +
+                     "   list.add( 0 ); " +
+                     "end " +
+
+                     "rule Check when " +
+                     "   $x: A( value == 42 ) " +
+                     "then " +
+                     "   list.add( 42 ); " +
+                     "end " +
+
+                     "rule Mood when " +
+                     "  $x : A( value != 42 ) " +
+                     "then " +
+                     "  modify ( $x ) { setValue( 42 ); } " +
+                     "end ";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        TraitFactory.setMode( mode, kbase );
+        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        List list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
+        ksession.insert( new Entity() );
+        ksession.fireAllRules();
+
+        for ( final Object o : ksession.getObjects( new ObjectFilter() {
+            @Override
+            public boolean accept( Object object ) {
+                return object.getClass().getName().contains( "test.A" );
+            }
+        } ) ) {
+            InternalFactHandle handle = (InternalFactHandle) ksession.getFactHandle( o );
+            LeftTuple first = handle.getFirstLeftTuple();
+            LeftTuple last = handle.getLastLeftTuple();
+            assertSame( first, last );
+            assertTrue( first instanceof RuleTerminalNodeLeftTuple );
+            assertEquals( "Check", ((RuleTerminalNodeLeftTuple) first).getRule().getName() );
+        }
+
+        assertEquals( Arrays.asList( 0, 42 ), list );
+    }
+
+    @Test
+    public void testShedVacancy() {
+        String drl = "package org.drools.test " +
+                     "import " + Entity.class.getName() + ";" +
+                     "global java.util.List list; " +
+
+                     "declare trait A @propertyReactive end " +
+                     "declare trait B @propertyReactive end " +
+                     "declare trait C extends A,B @propertyReactive end " +
+                     "declare trait D extends B @propertyReactive end " +
+
+                     "rule Trait when " +
+                     "then " +
+                     "    Entity e = new Entity( 'x1' ); " +
+                     "    don( e, C.class ); " +
+                     "    don( e, D.class ); " +
+                     "end " +
+
+                     "rule Mood when " +
+                     "  $x : B() " +
+                     "then " +
+                     "  System.out.println( 'Found B' ); " +
+                     "end " +
+
+                     "rule Shed when " +
+                     "  $s : String() " +
+                     "  $x : Entity() " +
+                     "then " +
+                     "  delete( $s ); " +
+                     "  shed( $x, A.class ); " +
+                     "end " +
+                     "";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        TraitFactory.setMode( mode, kbase );
+        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        List list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
+        HierarchyEncoder<String> hier = ( (KnowledgeBaseImpl) kbase ).getConfiguration().getComponentFactory().getTraitRegistry().getHierarchy();
+        BitSet a = (BitSet) hier.getCode( "org.drools.test.A" ).clone();
+        BitSet b = (BitSet) hier.getCode( "org.drools.test.B" ).clone();
+        BitSet c = (BitSet) hier.getCode( "org.drools.test.C" ).clone();
+        BitSet d = (BitSet) hier.getCode( "org.drools.test.D" ).clone();
+
+        int n = ksession.fireAllRules();
+        assertEquals( 2, n );
+
+        System.err.print( "---------------------------------------------------------------\n\n\n " );
+
+        int counter = 0;
+        for ( Object o : ksession.getObjects() ) {
+            if ( o instanceof TraitProxy ) {
+                TraitProxy tp = (TraitProxy) o;
+                if ( tp._getTypeCode().equals( c ) ) {
+                    assertEquals( 1, tp.listAssignedOtnTypeCodes().size() );
+                    assertTrue( tp.listAssignedOtnTypeCodes().contains( b ) );
+                    counter++;
+                } else if ( tp._getTypeCode().equals( d ) ) {
+                    assertTrue( tp.listAssignedOtnTypeCodes().isEmpty() );
+                    counter++;
+                }
+            } else if ( o instanceof TraitableBean ) {
+                TraitableBean tb = (TraitableBean) o;
+                System.out.println( tb.getCurrentTypeCode() );
+                counter++;
+            }
+        }
+        assertEquals( 3, counter );
+
+
+        ksession.insert( "go" );
+        ksession.fireAllRules();
+
+        System.err.print( "---------------------------------------------------------------\n\n\n " );
+
+        int counter2 = 0;
+        for ( Object o : ksession.getObjects() ) {
+            if ( o instanceof TraitProxy ) {
+                TraitProxy tp = (TraitProxy) o;
+                assertEquals( d, tp._getTypeCode() );
+                assertEquals( 1, tp.listAssignedOtnTypeCodes().size() );
+                assertTrue( tp.listAssignedOtnTypeCodes().contains( b ) );
+                counter2++;
+            } else if ( o instanceof TraitableBean ) {
+                TraitableBean tb = (TraitableBean) o;
+                assertEquals( d, tb.getCurrentTypeCode() );
+                counter2++;
+            }
+        }
+        assertEquals( 2, counter2 );
+    }
+
+
+    @Test
+    public void testExternalUpdateWithProxyRefreshInEqualityMode() {
+        String drl = "package org.drools.trait.test; " +
+                     "import " + ExtEntity.class.getCanonicalName() + "; " +
+                     "global " + List.class.getName() + " list; " +
+
+                     "declare trait Mask " +
+                     "  id  : String " +
+                     "  num : int " +
+                     "end " +
+
+                     "rule Don when " +
+                     "  $x : ExtEntity( $id : id ) " +
+                     "then " +
+                     "  list.add( $id ); " +
+                     "  don( $x, Mask.class ); " +
+                     "end " +
+
+                     "rule Test when " +
+                     "  Mask( $n : num ) " +
+                     "then " +
+                     "  list.add( $n ); " +
+                     "end ";
+
+        RuleBaseConfiguration rbc = new RuleBaseConfiguration();
+        rbc.setOption( EqualityBehaviorOption.EQUALITY );
+        final KnowledgeBase kbase = getKieBaseFromString( drl, rbc );
+        TraitFactory.setMode( mode, kbase );
+
+        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        List list = new ArrayList();
+        ksession.setGlobal( "list", list );
+
+        FactHandle handle = ksession.insert( new ExtEntity( "x1", 42 ) );
+        ksession.fireAllRules();
+
+        ksession.update( handle, new ExtEntity( "x1", 35 ) );
+        ksession.fireAllRules();
+
+        assertEquals( Arrays.asList( "x1", 42, "x1", 42 ), list );
+    }
+
+
+    @Test(timeout=10000)
+    public void testIsAInstanceOf() {
+
+        String drl = "package org.drools.test; " +
+                     "import " + StudentImpl.class.getName() + "; " +
+                     "import " + IStudent.class.getName() + "; " +
+                     "global java.util.List list; " +
+
+                     "rule Test1 " +
+                     "when " +
+                     "  StudentImpl( this isA IStudent.class ) " +
+                     "then list.add( 1 ); end " +
+
+                     "rule Test2 " +
+                     "when " +
+                     "  IStudent( this isA StudentImpl.class ) " +
+                     "then list.add( 2 ); end " +
+
+                     "";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        List list = new ArrayList(  );
+        TraitFactory.setMode( mode, kbase );
+
+        StatefulKnowledgeSession knowledgeSession = kbase.newStatefulKnowledgeSession();
+        knowledgeSession.setGlobal( "list", list );
+        knowledgeSession.insert( new StudentImpl(  ) );
+
+        assertEquals( 2, knowledgeSession.fireAllRules() );
+        assertEquals( Arrays.asList( 1, 2 ), list );
+    }
+
+
+    @Test(timeout=10000)
+    public void testIsAInstanceOfNonTraitable() {
+
+        String drl = "package org.drools.test; " +
+                     "global java.util.List list; " +
+
+                     "rule Test1 " +
+                     "when " +
+                     "  Object( this isA String.class ) " +
+                     "then list.add( 1 ); end " +
+
+                     "";
+
+        final KnowledgeBase kbase = getKieBaseFromString( drl );
+        List list = new ArrayList(  );
+        TraitFactory.setMode( mode, kbase );
+
+        StatefulKnowledgeSession knowledgeSession = kbase.newStatefulKnowledgeSession();
+        knowledgeSession.setGlobal( "list", list );
+        knowledgeSession.insert( "hello" );
+
+        assertEquals( 1, knowledgeSession.fireAllRules() );
+        assertEquals( Arrays.asList( 1 ), list );
+    }
+
+
+
+    @Traitable
+    @PropertyReactive
+    public static class ExtEntity extends Entity {
+        private int num;
+
+        public int getNum() {
+            return num;
+        }
+
+        public void setNum( int num ) {
+            this.num = num;
+        }
+
+        public ExtEntity( String id, int num ) {
+            super( id );
+            this.num = num;
+        }
+    }
+
+    protected Set<BitSet> checkOTNPartitioning( TraitableBean core, KieSession wm ) {
+        Set<BitSet> otns = new HashSet<BitSet>();
+
+        for ( Object o : core._getTraitMap().values() ) {
+            TraitProxy tp = (TraitProxy) o;
+            Set<BitSet> localNodes = tp.listAssignedOtnTypeCodes();
+
+            for ( BitSet code : localNodes ) {
+                assertFalse( otns.contains( code ) );
+                otns.add( code );
+            }
+        }
+
+        return otns;
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,6 @@
 
 package org.drools.core.base;
 
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
-
 import org.drools.core.util.asm.BeanInherit;
 import org.drools.core.util.asm.InterfaceChild;
 import org.drools.core.util.asm.TestAbstract;
@@ -27,6 +23,10 @@ import org.drools.core.util.asm.TestAbstractImpl;
 import org.drools.core.util.asm.TestBean;
 import org.drools.core.util.asm.TestInterface;
 import org.drools.core.util.asm.TestInterfaceImpl;
+import org.junit.Before;
+import org.junit.Test;
+
+import static org.junit.Assert.*;
 
 public class ClassFieldAccessorTest {
 
@@ -48,22 +48,19 @@ public class ClassFieldAccessorTest {
         obj.setObjArray( objArray );
 
         final ClassFieldReader ext = store.getReader( TestBean.class,
-                                                      "blah",
-                                                      getClass().getClassLoader() );
+                                                      "blah" );
         assertEquals( false,
                       ((Boolean) ext.getValue( null,
                                                obj )).booleanValue() );
 
         final ClassFieldReader ext2 = store.getReader( TestBean.class,
-                                                       "fooBar",
-                                                       getClass().getClassLoader() );
+                                                       "fooBar" );
         assertEquals( "fooBar",
                       ext2.getValue( null,
                                      obj ) );
 
         final ClassFieldReader ext3 = store.getReader( TestBean.class,
-                                                       "objArray",
-                                                       getClass().getClassLoader() );
+                                                       "objArray" );
         assertEquals( objArray,
                       ext3.getValue( null,
                                      obj ) );
@@ -75,8 +72,7 @@ public class ClassFieldAccessorTest {
 
         final TestInterface obj = new TestInterfaceImpl();
         final ClassFieldReader ext = store.getReader( TestInterface.class,
-                                                      "something",
-                                                      getClass().getClassLoader() );
+                                                      "something" );
 
         assertEquals( "foo",
                       (String) ext.getValue( null,
@@ -88,8 +84,7 @@ public class ClassFieldAccessorTest {
     public void testAbstract() throws Exception {
 
         final ClassFieldReader ext = store.getReader( TestAbstract.class,
-                                                      "something",
-                                                      getClass().getClassLoader() );
+                                                      "something" );
         final TestAbstract obj = new TestAbstractImpl();
         assertEquals( "foo",
                       (String) ext.getValue( null,
@@ -100,8 +95,7 @@ public class ClassFieldAccessorTest {
     @Test
     public void testInherited() throws Exception {
         final ClassFieldReader ext = store.getReader( BeanInherit.class,
-                                                      "text",
-                                                      getClass().getClassLoader() );
+                                                      "text" );
         final BeanInherit obj = new BeanInherit();
         assertEquals( "hola",
                       (String) ext.getValue( null,
@@ -113,8 +107,7 @@ public class ClassFieldAccessorTest {
     public void testMultipleInterfaces() throws Exception {
         final ConcreteChild obj = new ConcreteChild();
         final ClassFieldReader ext = store.getReader( InterfaceChild.class,
-                                                      "foo",
-                                                      getClass().getClassLoader() );
+                                                      "foo" );
         assertEquals( 42,
                       ((Number) ext.getValue( null,
                                               obj )).intValue() );
@@ -123,8 +116,7 @@ public class ClassFieldAccessorTest {
     @Test
     public void testLong() throws Exception {
         final ClassFieldReader ext = store.getReader( TestBean.class,
-                                                      "longField",
-                                                      getClass().getClassLoader() );
+                                                      "longField" );
         final TestBean bean = new TestBean();
         assertEquals( 424242,
                       ((Number) ext.getValue( null,
@@ -140,29 +132,18 @@ public class ClassFieldAccessorTest {
         obj.setSomething( "no" );
         obj.setObjArray( objArray );
 
-        try {
-            final ClassFieldReader ext = store.getReader( TestBean.class,
-                                                          "xyz",
-                                                          getClass().getClassLoader() );
-            fail( "A RuntimeException should have been raised" );
-        } catch ( RuntimeException e ) {
-            // everything is fine, since field does not exist
-            // e.printStackTrace();
-        } catch ( Exception e ) {
-            fail( "A RuntimeException should have been raised" );
-        }
-
+        ClassFieldReader ext = store.getReader( TestBean.class,
+                                                "xyz" );
+        assertNull(ext);
     }
 
     @Test
     public void testBuildFieldAccessor() {
         try {
             ClassFieldAccessor intAccessor = store.getAccessor( TestClass.class,
-                                                                "intAttr",
-                                                                getClass().getClassLoader() );
+                                                                "intAttr" );
             ClassFieldAccessor strAccessor = store.getAccessor( TestClass.class,
-                                                                "strAttr",
-                                                                getClass().getClassLoader() );
+                                                                "strAttr" );
 
             String testString1 = "TestAttr1";
             String testString2 = "TestAttr2";
@@ -211,32 +192,23 @@ public class ClassFieldAccessorTest {
     public void testNullOnPrimitives() {
         try {
             ClassFieldAccessor intAccessor = store.getAccessor( TestClass.class,
-                                                                "intAttr",
-                                                                getClass().getClassLoader() );
+                                                                "intAttr" );
             ClassFieldAccessor strAccessor = store.getAccessor( TestClass.class,
-                                                                "strAttr",
-                                                                getClass().getClassLoader() );
+                                                                "strAttr" );
             ClassFieldAccessor byteAccessor = store.getAccessor( TestClass.class,
-                                                                 "byteAttr",
-                                                                 getClass().getClassLoader() );
+                                                                 "byteAttr" );
             ClassFieldAccessor booleanAccessor = store.getAccessor( TestClass.class,
-                                                                    "booleanAttr",
-                                                                    getClass().getClassLoader() );
+                                                                    "booleanAttr" );
             ClassFieldAccessor charAccessor = store.getAccessor( TestClass.class,
-                                                                 "charAttr",
-                                                                 getClass().getClassLoader() );
+                                                                 "charAttr" );
             ClassFieldAccessor doubleAccessor = store.getAccessor( TestClass.class,
-                                                                   "doubleAttr",
-                                                                   getClass().getClassLoader() );
+                                                                   "doubleAttr" );
             ClassFieldAccessor floatAccessor = store.getAccessor( TestClass.class,
-                                                                  "floatAttr",
-                                                                  getClass().getClassLoader() );
+                                                                  "floatAttr" );
             ClassFieldAccessor longAccessor = store.getAccessor( TestClass.class,
-                                                                 "longAttr",
-                                                                 getClass().getClassLoader() );
+                                                                 "longAttr" );
             ClassFieldAccessor shortAccessor = store.getAccessor( TestClass.class,
-                                                                  "shortAttr",
-                                                                  getClass().getClassLoader() );
+                                                                  "shortAttr" );
 
             String testString1 = "TestAttr1";
             TestClass instance = new TestClass();

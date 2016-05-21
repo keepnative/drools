@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,11 @@ import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.spi.Activation;
 import org.drools.core.util.bitmask.BitMask;
 import org.kie.api.runtime.rule.FactHandle;
+import org.drools.core.factmodel.traits.Thing;
+import org.drools.core.factmodel.traits.TraitableBean;
+import org.kie.internal.runtime.beliefs.Mode;
+
+import java.util.Collection;
 
 public interface InternalWorkingMemoryActions
         extends
@@ -42,7 +47,11 @@ public interface InternalWorkingMemoryActions
                                  RuleImpl rule,
                                  Activation activation);
 
-    public FactHandle insertLogical(Object object,
-                                               boolean dynamic);
+    void updateTraits( InternalFactHandle h, BitMask mask, Class<?> modifiedClass, Activation activation );
 
+    <T, K, X extends TraitableBean> Thing<K> shed( Activation activation, TraitableBean<K,X> core, Class<T> trait );
+
+    <T, K> T don( Activation activation, K core, Collection<Class<? extends Thing>> traits, boolean b, Mode[] modes );
+
+    <T, K> T don( Activation activation, K core, Class<T> trait, boolean b, Mode[] modes );
 }

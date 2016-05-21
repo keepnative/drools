@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.drools.compiler.lang.descr;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.kie.api.io.Resource;
 
 /**
  * A descriptor to represent logical connectives in constraints, like
@@ -88,7 +90,15 @@ public class ConstraintConnectiveDescr extends AnnotatedBaseDescr {
             addDescr( baseDescr );
         }
     }
-    
+
+    @Override
+    public void setResource(Resource resource) {
+        super.setResource(resource);
+        for( BaseDescr descr : descrs )  {
+            descr.setResource(resource);
+        }
+    }
+    ;
     @Override
     public String toString() {
         return "["+this.connective+" "+descrs+" ]";

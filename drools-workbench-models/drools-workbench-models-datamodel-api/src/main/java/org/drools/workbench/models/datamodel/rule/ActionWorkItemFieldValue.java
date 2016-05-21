@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,8 +75,11 @@ public class ActionWorkItemFieldValue extends ActionFieldValue {
     public int hashCode() {
         int result = super.hashCode();
         result = 31 * result + (workItemName != null ? workItemName.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + (workItemParameterName != null ? workItemParameterName.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + (workItemParameterClassName != null ? workItemParameterClassName.hashCode() : 0);
+        result = ~~result;
         return result;
     }
 }

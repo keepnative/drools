@@ -1,29 +1,41 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.beliefsystem.simple;
 
 import org.drools.core.beliefsystem.BeliefSet;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.NamedEntryPoint;
 import org.drools.core.common.WorkingMemoryAction;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
 import org.drools.core.marshalling.impl.MarshallerWriteContext;
 import org.drools.core.marshalling.impl.PersisterHelper;
 import org.drools.core.marshalling.impl.ProtobufMessages;
+import org.drools.core.phreak.PropagationEntry;
 import org.drools.core.reteoo.ObjectTypeConf;
 import org.drools.core.spi.Activation;
 import org.drools.core.spi.PropagationContext;
 
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 
 import static org.drools.core.reteoo.PropertySpecificUtil.allSetButTraitBitMask;
 
 public class BeliefSystemLogicalCallback
-    implements
-    WorkingMemoryAction {
+        extends PropagationEntry.AbstractPropagationEntry
+        implements WorkingMemoryAction {
 
         private InternalFactHandle handle;
         private PropagationContext context;
@@ -51,7 +63,7 @@ public class BeliefSystemLogicalCallback
     public BeliefSystemLogicalCallback(MarshallerReaderContext context) throws IOException {
         this.handle = context.handles.get( context.readInt() );
         this.context = context.propagationContexts.get( context.readLong() );
-        this.activation = (Activation) context.terminalTupleMap.get( context.readInt() ).getObject();
+        this.activation = (Activation) context.terminalTupleMap.get( context.readInt() ).getContextObject();
     }
 
     public BeliefSystemLogicalCallback(MarshallerReaderContext context,
@@ -62,18 +74,10 @@ public class BeliefSystemLogicalCallback
         this.activation = (Activation) context.filter
                                               .getTuplesCache().get( PersisterHelper.createActivationKey(_retract.getActivation().getPackageName(),
                                                                                                          _retract.getActivation().getRuleName(),
-                                                                                                         _retract.getActivation().getTuple()) ).getObject();
+                                                                                                         _retract.getActivation().getTuple()) ).getContextObject();
         this.context = this.activation.getPropagationContext();
         this.fullyRetract = _retract.getFullyRetract();
         this.update = _retract.getUpdate();
-    }
-
-    public void write(MarshallerWriteContext context) throws IOException {
-        context.writeShort( WorkingMemoryAction.LogicalRetractCallback );
-
-        context.writeInt( this.handle.getId() );
-        context.writeLong( this.context.getPropagationNumber() );
-        context.writeInt( context.terminalTupleMap.get( this.activation.getTuple() ) );
     }
 
     public ProtobufMessages.ActionQueue.Action serialize(MarshallerWriteContext context) {
@@ -89,23 +93,6 @@ public class BeliefSystemLogicalCallback
                                            .setType( ProtobufMessages.ActionQueue.ActionType.LOGICAL_RETRACT )
                                            .setLogicalRetract( _retract )
                                            .build();
-    }
-
-    public void readExternal(ObjectInput in) throws IOException,
-                                                    ClassNotFoundException {
-        handle = (InternalFactHandle) in.readObject();
-        context = (PropagationContext) in.readObject();
-        activation = (Activation) in.readObject();
-        fullyRetract = in.readBoolean();
-        update =  in.readBoolean();
-    }
-
-    public void writeExternal(ObjectOutput out) throws IOException {
-        out.writeObject( handle );
-        out.writeObject( context );
-        out.writeObject( activation );
-        out.writeBoolean( fullyRetract );
-        out.writeBoolean( update );
     }
 
     public boolean isUpdate() {
@@ -133,7 +120,7 @@ public class BeliefSystemLogicalCallback
         if ( update ) {
             if ( !bs.isEmpty() ) {
                 // We need the isEmpty check, in case the BeliefSet was made empty (due to retract) after this was scheduled
-                ((NamedEntryPoint) handle.getEntryPoint() ).update( handle, true, handle.getObject(), allSetButTraitBitMask(), Object.class, null );
+                ((NamedEntryPoint) handle.getEntryPoint() ).update( handle, handle.getObject(), allSetButTraitBitMask(), Object.class, null );
             }
         } else  {
             if ( fullyRetract ) {
@@ -149,9 +136,5 @@ public class BeliefSystemLogicalCallback
                                                                                                workingMemory );
             }
         }
-    }
-
-    public void execute(InternalKnowledgeRuntime kruntime) {
-        execute( ((StatefulKnowledgeSessionImpl) kruntime).getInternalWorkingMemory() );
     }
 }

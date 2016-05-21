@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,6 @@
 
 package org.drools.core.base.evaluators;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.drools.core.base.BaseEvaluator;
 import org.drools.core.base.ValueType;
 import org.drools.core.common.EventFactHandle;
@@ -34,6 +27,13 @@ import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.time.Interval;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>The implementation of the <code>includes</code> evaluator definition.</p>
@@ -104,7 +104,6 @@ public class IncludesEvaluatorDefinition
     private static String[]             SUPPORTED_IDS;
 
     private Map<String, IncludesEvaluator> cache       = Collections.emptyMap();
-    private volatile TimeIntervalParser  parser        = new TimeIntervalParser();
 
     { init(); }
 
@@ -180,7 +179,7 @@ public class IncludesEvaluatorDefinition
         String key = isNegated + ":" + parameterText;
         IncludesEvaluator eval = this.cache.get( key );
         if ( eval == null ) {
-            Long[] params = parser.parse( parameterText );
+            long[] params = TimeIntervalParser.parse( parameterText );
             eval = new IncludesEvaluator( type,
                                           isNegated,
                                           params,
@@ -240,7 +239,7 @@ public class IncludesEvaluatorDefinition
 
         public IncludesEvaluator(final ValueType type,
                                  final boolean isNegated,
-                                 final Long[] parameters,
+                                 final long[] parameters,
                                  final String paramText) {
             super( type,
                    isNegated ? INCLUDES_NOT : INCLUDES );
@@ -363,7 +362,7 @@ public class IncludesEvaluatorDefinition
          *
          * @param parameters
          */
-        private void setParameters(Long[] parameters) {
+        private void setParameters(long[] parameters) {
             if ( parameters == null || parameters.length == 0 ) {
                 // open bounded range
                 this.startMinDev = 1;
@@ -373,21 +372,21 @@ public class IncludesEvaluatorDefinition
             } else if ( parameters.length == 1 ) {
                 // open bounded ranges
                 this.startMinDev = 1;
-                this.startMaxDev = parameters[0].longValue();
+                this.startMaxDev = parameters[0];
                 this.endMinDev = 1;
-                this.endMaxDev = parameters[0].longValue();
+                this.endMaxDev = parameters[0];
             } else if ( parameters.length == 2 ) {
                 // open bounded ranges
-                this.startMinDev = parameters[0].longValue();
-                this.startMaxDev = parameters[1].longValue();
-                this.endMinDev = parameters[0].longValue();
-                this.endMaxDev = parameters[1].longValue();
+                this.startMinDev = parameters[0];
+                this.startMaxDev = parameters[1];
+                this.endMinDev = parameters[0];
+                this.endMaxDev = parameters[1];
             } else if ( parameters.length == 4 ) {
                 // open bounded ranges
-                this.startMinDev = parameters[0].longValue();
-                this.startMaxDev = parameters[1].longValue();
-                this.endMinDev = parameters[2].longValue();
-                this.endMaxDev = parameters[3].longValue();
+                this.startMinDev = parameters[0];
+                this.startMaxDev = parameters[1];
+                this.endMinDev = parameters[2];
+                this.endMaxDev = parameters[3];
             } else {
                 throw new RuntimeException( "[During Evaluator]: Not possible to use " + parameters.length + " parameters: '" + paramText + "'" );
             }

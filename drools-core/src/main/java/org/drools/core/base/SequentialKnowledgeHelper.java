@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 package org.drools.core.base;
 
 import org.drools.core.WorkingMemory;
+import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemoryActions;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.factmodel.traits.Thing;
 import org.drools.core.factmodel.traits.TraitableBean;
+import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.GroupElement;
@@ -38,7 +40,6 @@ import org.kie.internal.runtime.beliefs.Mode;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.Map;
 
 public class SequentialKnowledgeHelper
@@ -52,7 +53,6 @@ public class SequentialKnowledgeHelper
     private Activation                         activation;
     private Tuple                              tuple;
     private final InternalWorkingMemoryActions workingMemory;
-    private IdentityHashMap<Object,FactHandle>              identityMap;
 
     public SequentialKnowledgeHelper(final WorkingMemory workingMemory) {
         this.workingMemory = (InternalWorkingMemoryActions) workingMemory;
@@ -63,7 +63,6 @@ public class SequentialKnowledgeHelper
         this.subrule = agendaItem.getSubRule();
         this.activation = agendaItem;
         this.tuple = agendaItem.getTuple();
-        this.identityMap = new IdentityHashMap<Object,FactHandle>();
     }
     
     public void reset() {
@@ -133,11 +132,11 @@ public class SequentialKnowledgeHelper
     //    }
     
     public Object get(final Declaration declaration) {
-        return declaration.getValue( workingMemory, this.tuple.get( declaration ).getObject() );
+        return declaration.getValue( workingMemory, this.tuple.getObject( declaration ) );
     }
 
     public Declaration getDeclaration(final String identifier) {
-        return (Declaration) this.subrule.getOuterDeclarations().get( identifier );
+        return this.subrule.getOuterDeclarations().get( identifier );
     }
     
     public void halt() {
@@ -145,7 +144,7 @@ public class SequentialKnowledgeHelper
     }
 
     public EntryPoint getEntryPoint(String id) {
-        return ((StatefulKnowledgeSessionImpl) this.workingMemory).getEntryPoint( id );
+        return this.workingMemory.getEntryPoint( id );
     }
 
     public Channel getChannel(String id) {
@@ -156,14 +155,6 @@ public class SequentialKnowledgeHelper
         return Collections.unmodifiableMap( this.workingMemory.getChannels() );
     }
 
-    public IdentityHashMap<Object, FactHandle> getIdentityMap() {
-        return this.identityMap;
-    }
-
-    public void setIdentityMap(IdentityHashMap<Object, FactHandle> identityMap) {
-        this.identityMap = identityMap;
-    }
-
     public <T> T getContext(Class<T> contextClass) {
         return null;
     }
@@ -172,17 +163,8 @@ public class SequentialKnowledgeHelper
         return null;
     }
 
-    public <T, K> T don(Thing<K> core, Class<T> trait, boolean logical) {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
     @Override
     public <T, K> T don( K core, Class<T> trait, Mode... modes ) {
-        return null;
-    }
-
-    @Override
-    public <T, K> T don( Thing<K> core, Class<T> trait, Mode... modes ) {
         return null;
     }
 
@@ -217,51 +199,66 @@ public class SequentialKnowledgeHelper
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    public void cancelRemainingPreviousLogicalDependencies() {
-    }
-
-    public FactHandle insert(Object object) {
+    @Override
+    public InternalFactHandle bolster( Object object, Object value ) {
         return null;
     }
 
-    public FactHandle insert(Object object,
+    @Override
+    public InternalFactHandle bolster( Object object ) {
+        return null;
+    }
+
+    @Override
+    public ClassLoader getProjectClassLoader() {
+        return ((InternalKnowledgeBase)getKieRuntime().getKieBase()).getRootClassLoader();
+    }
+
+    public void cancelRemainingPreviousLogicalDependencies() {
+    }
+
+    public InternalFactHandle insert(Object object) {
+        return null;
+    }
+
+    public InternalFactHandle insert(Object object,
                        boolean dynamic) {
         return null;
     }
 
     @Override
-    public void insertLogical(Object object, Mode belief) {
-
+    public InternalFactHandle insertLogical(Object object, Mode belief) {
+        return null;
     }
 
     @Override
-    public void insertLogical(Object object, Mode... beliefs) {
-
+    public InternalFactHandle insertLogical(Object object, Mode... beliefs) {
+        return null;
     }
 
-    public void insertLogical(Object object) {
-        // TODO Auto-generated method stub
-        
-    }
-
-    public void insertLogical(Object object,
-                              boolean dynamic) {
-        // TODO Auto-generated method stub
-        
-    }
-    
-    public void insertLogical(Object object,
-                              Object value) {
-        // TODO Auto-generated method stub
-        
-    }
-
-    public FactHandle getFactHandle(Object object) {
+    public InternalFactHandle insertLogical(Object object) {
         // TODO Auto-generated method stub
         return null;
     }
 
-    public FactHandle getFactHandle(FactHandle handle) {
+    public InternalFactHandle insertLogical(Object object,
+                                    boolean dynamic) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+    
+    public InternalFactHandle insertLogical(Object object,
+                                    Object value) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    public InternalFactHandle getFactHandle(Object object) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    public InternalFactHandle getFactHandle(InternalFactHandle handle) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -286,6 +283,10 @@ public class SequentialKnowledgeHelper
         // TODO Auto-generated method stub
     }
 
+    public void delete(FactHandle handle, FactHandle.State fhState) {
+        // TODO Auto-generated method stub
+    }
+
     public void update(Object newObject) {
         // TODO Auto-generated method stub
     }
@@ -299,6 +300,10 @@ public class SequentialKnowledgeHelper
     }
 
     public void delete(Object handle) {
+        // TODO Auto-generated method stub
+    }
+
+    public void delete(Object handle, FactHandle.State fhState) {
         // TODO Auto-generated method stub
     }
 

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.integrationtests.marshalling;
 
 import org.drools.compiler.Address;
@@ -1177,12 +1192,12 @@ public class MarshallingTest extends CommonTestMethodBase {
 
         // Make sure the rete node map is created correctly
         Map<Integer, BaseNode> nodes = RuleBaseNodes.getNodeMap((InternalKnowledgeBase) kBase);
-        assertEquals( 2,
+        assertEquals( 3,
                       nodes.size() );
         assertEquals( "Person",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 2 )).getObjectType()).getClassType().getSimpleName() );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 3 )).getObjectType()).getClassType().getSimpleName() );
         assertEquals( "Rule 1",
-                      ((RuleTerminalNode) nodes.get( 4 )).getRule().getName() );
+                      ((RuleTerminalNode) nodes.get( 5 )).getRule().getName() );
 
         StatefulKnowledgeSession session = kBase.newStatefulKnowledgeSession();
 
@@ -1222,15 +1237,15 @@ public class MarshallingTest extends CommonTestMethodBase {
         // Make sure the rete node map is created correctly
         Map<Integer, BaseNode> nodes = RuleBaseNodes.getNodeMap((InternalKnowledgeBase) kBase);
 
-        assertEquals( 4,
+        assertEquals( 5,
                       nodes.size() );
         assertEquals( "Cheese",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 2 )).getObjectType()).getClassType().getSimpleName() );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 3 )).getObjectType()).getClassType().getSimpleName() );
         assertEquals( "Person",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 4 )).getObjectType()).getClassType().getSimpleName() );
-        assertTrue( "Should end with JoinNode",  nodes.get( 5 ).getClass().getSimpleName().endsWith( "JoinNode") );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 5 )).getObjectType()).getClassType().getSimpleName() );
+        assertTrue( "Should end with JoinNode",  nodes.get( 6 ).getClass().getSimpleName().endsWith( "JoinNode") );
         assertEquals( "Rule 1",
-                      ((RuleTerminalNode) nodes.get( 6 )).getRule().getName() );
+                      ((RuleTerminalNode) nodes.get( 7 )).getRule().getName() );
 
         StatefulKnowledgeSession session = kBase.newStatefulKnowledgeSession();
 
@@ -2283,7 +2298,7 @@ public class MarshallingTest extends CommonTestMethodBase {
         impl.addRule( rule );
 
         knowledgeBase.addKnowledgePackages( Collections.singleton( (KnowledgePackage) impl ) );
-        SessionConfiguration config = new SessionConfiguration();
+        SessionConfiguration config = SessionConfiguration.newInstance();
         config.setClockType( ClockType.PSEUDO_CLOCK );
         StatefulKnowledgeSession ksession = knowledgeBase.newStatefulKnowledgeSession( config, KnowledgeBaseFactory.newEnvironment() );
         PseudoClockScheduler scheduler = (PseudoClockScheduler) ksession.<SessionClock> getSessionClock();

@@ -1,7 +1,19 @@
-package org.drools.decisiontable.parser;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import org.drools.template.model.SnippetBuilder;
-import org.drools.template.parser.DecisionTableParseException;
+package org.drools.decisiontable.parser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +23,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.drools.template.model.SnippetBuilder;
+import org.drools.template.parser.DecisionTableParseException;
 
 /**
  * This utility will build up a list of constraints for a column.
@@ -28,6 +43,7 @@ public class LhsBuilder implements SourceBuilder {
     private String colDefPrefix;
     private String colDefSuffix;
     private boolean multiple;
+    private boolean forAll;
     private String andop;
     private Map<Integer, String> constraints;
     private List<String> values;
@@ -55,7 +71,7 @@ public class LhsBuilder implements SourceBuilder {
 
     private static final Pattern patParFrm = Pattern.compile( "\\(\\s*\\)\\s*from\\b" );
     private static final Pattern patFrm = Pattern.compile( "\\s+from\\s+" );
-    private static final Pattern patPar    = Pattern.compile ("\\(\\s*\\)\\s*\\Z");
+    private static final Pattern patPar = Pattern.compile( "\\(\\s*\\)\\s*\\Z" );
     private static final Pattern patEval = Pattern.compile( "\\beval\\s*(?:\\(\\s*\\)\\s*)?$" );
 
     /**
@@ -68,6 +84,7 @@ public class LhsBuilder implements SourceBuilder {
         this.headerCol = column;
         this.constraints = new HashMap<Integer, String>();
         this.values = new ArrayList<String>();
+        this.forAll = false;
 
         String colDef = colDefinition == null ? "" : colDefinition;
         if ( "".equals( colDef ) ) {
@@ -132,12 +149,22 @@ public class LhsBuilder implements SourceBuilder {
 
         //we can wrap all values in quotes, it all works
         fieldType = calcFieldType( content );
-        if ( fieldType == FieldType.NORMAL_FIELD || !isMultipleConstraints() ) {
-            constraints.put( key, content );
+        if ( !isMultipleConstraints() ) {
+            constraints.put( key,
+                             content );
+        } else if ( fieldType == FieldType.FORALL_FIELD ) {
+            forAll = true;
+            constraints.put( key,
+                             content );
+        } else if ( fieldType == FieldType.NORMAL_FIELD ) {
+            constraints.put( key,
+                             content );
         } else if ( fieldType == FieldType.SINGLE_FIELD ) {
-            constraints.put( key, content + " == \"" + SnippetBuilder.PARAM_STRING + "\"" );
+            constraints.put( key,
+                             content + " == \"" + SnippetBuilder.PARAM_STRING + "\"" );
         } else if ( fieldType == FieldType.OPERATOR_FIELD ) {
-            constraints.put( key, content + " \"" + SnippetBuilder.PARAM_STRING + "\"" );
+            constraints.put( key,
+                             content + " \"" + SnippetBuilder.PARAM_STRING + "\"" );
         }
     }
 
@@ -151,7 +178,7 @@ public class LhsBuilder implements SourceBuilder {
                               String value ) {
         this.hasValues = true;
         Integer key = new Integer( column );
-        String content = (String) this.constraints.get( key );
+        String content = this.constraints.get( key );
         if ( content == null ) {
             throw new DecisionTableParseException( "No code snippet for CONDITION in cell " +
                                                            RuleSheetParserUtil.rc2name( this.headerRow + 2, this.headerCol ) );
@@ -171,7 +198,7 @@ public class LhsBuilder implements SourceBuilder {
      */
     private String fixValue( final String value ) {
         String _value = value;
-        if ( fieldType == FieldType.NORMAL_FIELD || !isMultipleConstraints() ) {
+        if ( fieldType == FieldType.NORMAL_FIELD || !isMultipleConstraints() || isForAll() ) {
             return value;
         }
         if ( isDelimitedString( _value ) ) {
@@ -212,6 +239,15 @@ public class LhsBuilder implements SourceBuilder {
     }
 
     /**
+     * Check whether the column definition is a 'forall' construct. In these
+     * situations we do not attempt to strip quotation marks from field values.
+     * @return true if the column definition is 'forall'
+     */
+    boolean isForAll() {
+        return forAll;
+    }
+
+    /**
      * Work out the type of "field" that is being specified,
      * as in :
      * age
@@ -223,7 +259,10 @@ public class LhsBuilder implements SourceBuilder {
      * etc. as we treat them all differently.
      */
     public FieldType calcFieldType( String content ) {
-        if ( !SnippetBuilder.getType( content ).equals(
+        final SnippetBuilder.SnippetType snippetType = SnippetBuilder.getType( content );
+        if ( snippetType.equals( SnippetBuilder.SnippetType.FORALL ) ) {
+            return FieldType.FORALL_FIELD;
+        } else if ( !snippetType.equals(
                 SnippetBuilder.SnippetType.SINGLE ) ) {
             return FieldType.NORMAL_FIELD;
         }
@@ -237,9 +276,19 @@ public class LhsBuilder implements SourceBuilder {
 
     static class FieldType {
 
-        public static final FieldType SINGLE_FIELD = new FieldType();
-        public static final FieldType OPERATOR_FIELD = new FieldType();
-        public static final FieldType NORMAL_FIELD = new FieldType();
+        //This is only used to aid debugging
+        @SuppressWarnings("unused")
+        private String fieldType;
+
+        private FieldType( final String fieldType ) {
+            this.fieldType = fieldType;
+        }
+
+        public static final FieldType SINGLE_FIELD = new FieldType( "single" );
+        public static final FieldType OPERATOR_FIELD = new FieldType( "operator" );
+        public static final FieldType NORMAL_FIELD = new FieldType( "normal" );
+        public static final FieldType FORALL_FIELD = new FieldType( "forall" );
+
     }
 
     public boolean hasValues() {

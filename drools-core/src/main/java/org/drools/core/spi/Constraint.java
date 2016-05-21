@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 
 package org.drools.core.spi;
 
-import java.io.Externalizable;
-
 import org.drools.core.rule.Declaration;
+
+import java.io.Externalizable;
 
 public interface Constraint
     extends
@@ -75,7 +75,8 @@ public interface Constraint
 
         UNKNOWN("UNKNOWN"),
         ALPHA("ALPHA"),
-        BETA("BETA");
+        BETA("BETA"),
+        XPATH("XPATH");
 
         private String desc;
 

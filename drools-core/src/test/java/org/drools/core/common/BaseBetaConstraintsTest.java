@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,6 @@ import org.drools.core.base.ClassFieldAccessorStore;
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.base.evaluators.EvaluatorRegistry;
 import org.drools.core.base.evaluators.Operator;
-import org.drools.core.util.AbstractHashTable.FieldIndex;
-import org.drools.core.util.AbstractHashTable.Index;
-import org.drools.core.util.index.IndexUtil.ConstraintType;
-import org.drools.core.util.index.LeftTupleIndexHashTable;
-import org.drools.core.util.index.LeftTupleList;
-import org.drools.core.util.LinkedList;
-import org.drools.core.util.LinkedListEntry;
-import org.drools.core.util.index.RightTupleIndexHashTable;
-import org.drools.core.util.index.RightTupleList;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.NodeTypeEnums;
 import org.drools.core.rule.Declaration;
@@ -39,14 +30,18 @@ import org.drools.core.rule.MvelConstraintTestUtil;
 import org.drools.core.rule.Pattern;
 import org.drools.core.spi.BetaNodeFieldConstraint;
 import org.drools.core.spi.InternalReadAccessor;
+import org.drools.core.util.AbstractHashTable.FieldIndex;
+import org.drools.core.util.AbstractHashTable.Index;
+import org.drools.core.util.LinkedList;
+import org.drools.core.util.LinkedListEntry;
+import org.drools.core.util.index.IndexUtil.ConstraintType;
+import org.drools.core.util.index.TupleIndexHashTable;
+import org.drools.core.util.index.TupleList;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public abstract class BaseBetaConstraintsTest {
 
@@ -60,8 +55,7 @@ public abstract class BaseBetaConstraintsTest {
         store.setClassFieldAccessorCache( new ClassFieldAccessorCache( Thread.currentThread().getContextClassLoader() ) );
         store.setEagerWire( true );
         InternalReadAccessor extractor = store.getReader( clazz,
-                                                          fieldName,
-                                                          getClass().getClassLoader() );
+                                                          fieldName );
         Declaration declaration = new Declaration( identifier,
                                                    extractor,
                                                    new Pattern( 0,
@@ -119,7 +113,7 @@ public abstract class BaseBetaConstraintsTest {
 
         if ( indexedPositions.length > 0 ) {
             if (((IndexableConstraint)constraints[indexedPositions[0]]).getConstraintType() == ConstraintType.EQUAL) {
-                LeftTupleIndexHashTable tupleHashTable = (LeftTupleIndexHashTable) betaMemory.getLeftTupleMemory();
+                TupleIndexHashTable tupleHashTable = (TupleIndexHashTable) betaMemory.getLeftTupleMemory();
                 assertTrue( tupleHashTable.isIndexed() );
                 Index index = tupleHashTable.getIndex();
 
@@ -128,7 +122,7 @@ public abstract class BaseBetaConstraintsTest {
                                                  index.getFieldIndex( i ) );
                 }
 
-                RightTupleIndexHashTable factHashTable = (RightTupleIndexHashTable) betaMemory.getRightTupleMemory();
+                TupleIndexHashTable factHashTable = (TupleIndexHashTable) betaMemory.getRightTupleMemory();
                 assertTrue( factHashTable.isIndexed() );
                 index = factHashTable.getIndex();
 
@@ -140,10 +134,10 @@ public abstract class BaseBetaConstraintsTest {
 
             }
         } else {
-            LeftTupleList tupleHashTable = (LeftTupleList) betaMemory.getLeftTupleMemory();
+            TupleList tupleHashTable = (TupleList) betaMemory.getLeftTupleMemory();
             assertFalse( tupleHashTable.isIndexed() );
 
-            RightTupleList factHashTable = (RightTupleList) betaMemory.getRightTupleMemory();
+            TupleList factHashTable = (TupleList) betaMemory.getRightTupleMemory();
             assertFalse( factHashTable.isIndexed() );
         }
     }

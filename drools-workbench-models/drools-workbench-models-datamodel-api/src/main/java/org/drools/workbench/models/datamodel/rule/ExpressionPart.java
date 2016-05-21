@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,10 +104,8 @@ public abstract class ExpressionPart
         if (classType != null ? !classType.equals(that.classType) : that.classType != null) return false;
         if (genericType != null ? !genericType.equals(that.genericType) : that.genericType != null) return false;
         if (name != null ? !name.equals(that.name) : that.name != null) return false;
-        if (next != null ? !next.equals(that.next) : that.next != null) return false;
         if (parametricType != null ? !parametricType.equals(that.parametricType) : that.parametricType != null)
             return false;
-        if (prev != null ? !prev.equals(that.prev) : that.prev != null) return false;
 
         return true;
     }
@@ -115,10 +113,15 @@ public abstract class ExpressionPart
     @Override
     public int hashCode() {
         int result = prev != null ? prev.hashCode() : 0;
+        result = ~~result;
         result = 31 * result + (name != null ? name.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + (classType != null ? classType.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + (genericType != null ? genericType.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + (parametricType != null ? parametricType.hashCode() : 0);
+        result = ~~result;
         return result;
     }
 }

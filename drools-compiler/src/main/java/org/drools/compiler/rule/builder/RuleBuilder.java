@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@ import org.drools.core.util.DateUtils;
 import org.drools.core.util.MVELSafeHelper;
 import org.drools.core.util.StringUtils;
 import org.kie.api.definition.rule.ActivationListener;
+import org.kie.api.definition.rule.All;
 import org.kie.api.definition.rule.Direct;
 import org.kie.api.definition.rule.Propagation;
 
@@ -86,8 +87,6 @@ public class RuleBuilder {
 
     /**
      * Build the give rule into the
-     * @param context
-     * @return
      */
     public void build(final RuleBuildContext context) {
         RuleDescr ruleDescr = context.getRuleDescr();
@@ -162,8 +161,7 @@ public class RuleBuilder {
         Object result = value;
         // try to resolve as an expression:
         try {
-            Object resolvedValue = MVELSafeHelper.getEvaluator().eval( value );
-            result = resolvedValue;
+            result = MVELSafeHelper.getEvaluator().eval( value );
         } catch ( Exception e ) {
             // do nothing
         }
@@ -221,8 +219,7 @@ public class RuleBuilder {
                 buildCalendars( rule, attributeDescr.getValue(), context );
             } else if ( name.equals( "date-effective" ) ) {
                 try {
-                    Date date = DateUtils.parseDate( attributeDescr.getValue(),
-                                                     context.getKnowledgeBuilder().getDateFormats()  );
+                    Date date = DateUtils.parseDate( attributeDescr.getValue() );
                     final Calendar cal = Calendar.getInstance();
                     cal.setTime( date );
                     rule.setDateEffective( cal );
@@ -233,8 +230,7 @@ public class RuleBuilder {
                 }
             } else if ( name.equals( "date-expires" ) ) {
                 try {
-                    Date date = DateUtils.parseDate( attributeDescr.getValue(),
-                                                     context.getKnowledgeBuilder().getDateFormats()  );
+                    Date date = DateUtils.parseDate( attributeDescr.getValue() );
                     final Calendar cal = Calendar.getInstance();
                     cal.setTime( date );
                     rule.setDateExpires( cal );
@@ -277,6 +273,8 @@ public class RuleBuilder {
             if (direct != null && direct.value()) {
                 rule.setActivationListener("direct");
             }
+
+            rule.setAllMatches(ruleDescr.hasAnnotation(All.class));
         } catch (Exception e) {
             DroolsError err = new RuleBuildError( rule, context.getParentDescr(), null,
                                                   e.getMessage() );
@@ -284,13 +282,9 @@ public class RuleBuilder {
         }
     }
 
-    private boolean trueOrDefault( String singleValue ) {
-        return StringUtils.isEmpty( singleValue ) || "true".equals( singleValue );
-    }
-
     private boolean getBooleanValue(final AttributeDescr attributeDescr,
                                     final boolean defaultValue) {
-        return (attributeDescr.getValue() == null || "".equals( attributeDescr.getValue().trim() )) ? defaultValue : Boolean.valueOf( attributeDescr.getValue() ).booleanValue();
+        return (attributeDescr.getValue() == null || "".equals( attributeDescr.getValue().trim() )) ? defaultValue : Boolean.valueOf(attributeDescr.getValue());
     }
 
     //    private void buildDuration(final RuleBuildContext context) {
@@ -386,7 +380,7 @@ public class RuleBuilder {
         
         String body = timerString.substring( colonPos + 1, semicolonPos > 0 ? semicolonPos : timerString.length() ).trim();
         
-        Timer timer = null;
+        Timer timer;
         if ( "cron".equals( protocol ) ) {
             try {
                 timer = new CronTimer( createMVELExpr(startDate, context), createMVELExpr(endDate, context), repeatLimit, new CronExpression( body ) );
@@ -437,12 +431,9 @@ public class RuleBuilder {
             }
 
             MVELObjectExpression times = MVELObjectExpressionBuilder.build( tok.nextToken().trim(), context );
-            MVELObjectExpression period = null;
-            if ( tok.hasMoreTokens() ) {
-                period = MVELObjectExpressionBuilder.build( tok.nextToken().trim(), context );
-            } else {
-                period = MVELObjectExpressionBuilder.build( "0", context );
-            }
+            MVELObjectExpression period = tok.hasMoreTokens() ?
+                                          MVELObjectExpressionBuilder.build( tok.nextToken().trim(), context ) :
+                                          MVELObjectExpressionBuilder.build( "0", context );
 
             timer = new ExpressionIntervalTimer( createMVELExpr(startDate, context), createMVELExpr(endDate, context), repeatLimit, times, period );
         } else {
@@ -470,7 +461,7 @@ public class RuleBuilder {
             return null;
         }
         try {
-            DateUtils.parseDate( expr, context.getKnowledgeBuilder().getDateFormats() );
+            DateUtils.parseDate( expr );
             expr = "\"" + expr + "\""; // if expr is a valid date wrap in quotes
         } catch (Exception e) { }
         return MVELObjectExpressionBuilder.build( expr, context );

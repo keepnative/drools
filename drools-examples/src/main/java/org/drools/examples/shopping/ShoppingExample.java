@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ public class ShoppingExample {
     public static final void main(String[] args) {
         KieContainer kc = KieServices.Factory.get().getKieClasspathContainer();
         System.out.println(kc.verify().getMessages().toString());
+        execute( kc );
+    }
+
+    public static void execute( KieContainer kc ) {
         KieSession ksession = kc.newKieSession("ShoppingKS");
 
         Customer mark = new Customer( "mark",

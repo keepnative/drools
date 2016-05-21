@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -88,6 +88,7 @@ import org.junit.After;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.definition.type.FactField;
+import org.kie.api.definition.type.FactType;
 import org.kie.api.definition.type.Role;
 import org.kie.api.definition.type.TypeSafe;
 import org.kie.api.runtime.KieSession;
@@ -1089,6 +1090,34 @@ public class KnowledgeBuilderTest extends DroolsTestCase {
     }
 
     @Test
+    public void testTypeDeclarationWithFieldMetadata() throws Exception {
+        PackageDescr pkgDescr = new PackageDescr( "org.drools.compiler.test" );
+        TypeDeclarationDescr typeDescr = new TypeDeclarationDescr( "TypeWithFieldMeta" );
+
+        TypeFieldDescr f1 = new TypeFieldDescr( "field",
+                                                new PatternDescr( "String" ) );
+        f1.addAnnotation("custom", null);
+        typeDescr.addField( f1 );
+
+        pkgDescr.addTypeDeclaration( typeDescr );
+
+        KnowledgeBuilderImpl builder = new KnowledgeBuilderImpl();
+        builder.addPackage(pkgDescr);
+        assertFalse(builder.hasErrors());
+
+        InternalKnowledgePackage bp = builder.getPackage();
+
+        final FactType factType = bp.getFactType("org.drools.compiler.test.TypeWithFieldMeta");
+        assertNotNull( factType );
+        final FactField field = factType.getField( "field" );
+        assertNotNull( field );
+
+        final Map<String, Object> fieldMetaData = field.getMetaData();
+        assertNotNull("No field-level custom metadata got compiled", fieldMetaData);
+        assertTrue("Field metadata does not include expected value", fieldMetaData.containsKey("custom"));
+    }
+
+    @Test
     public void testPackageMerge() throws Exception {
         final KnowledgeBuilderImpl builder = new KnowledgeBuilderImpl();
         try {
@@ -1461,7 +1490,7 @@ public class KnowledgeBuilderTest extends DroolsTestCase {
             return null;
         }
 
-        public InternalFactHandle getFactHandle() {
+        public InternalFactHandle getActivationFactHandle() {
             return null;
         }
 

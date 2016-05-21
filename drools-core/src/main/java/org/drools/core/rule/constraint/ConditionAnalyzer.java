@@ -1,5 +1,21 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.rule.constraint;
 
+import org.drools.core.base.EvaluatorWrapper;
 import org.drools.core.rule.Declaration;
 import org.mvel2.Operator;
 import org.mvel2.ParserContext;
@@ -69,10 +85,12 @@ public class ConditionAnalyzer {
     private ASTNode node;
     private ExecutableLiteral executableLiteral;
     private final Declaration[] declarations;
+    private final EvaluatorWrapper[] operators;
     private final String conditionClass;
 
-    public ConditionAnalyzer(ExecutableStatement stmt, Declaration[] declarations, String conditionClass) {
+    public ConditionAnalyzer(ExecutableStatement stmt, Declaration[] declarations, EvaluatorWrapper[] operators, String conditionClass) {
         this.declarations = declarations;
+        this.operators = operators;
         this.conditionClass = conditionClass;
         if (stmt instanceof ExecutableLiteral) {
             executableLiteral = (ExecutableLiteral)stmt;
@@ -442,7 +460,7 @@ public class ConditionAnalyzer {
             Class<?> valueType = Object.class;
             Type[] generics = getGenerics(formerInvocation);
             if (generics != null && generics.length == 2 && generics[0] instanceof Class) {
-                if (generics[0] instanceof Class) keyType = (Class<?>)generics[0];
+                keyType = (Class<?>)generics[0];
                 if (generics[1] instanceof Class) valueType = (Class<?>)generics[1];
             }
             MapAccessorNest mapAccessor = (MapAccessorNest)accessorNode;
@@ -510,7 +528,9 @@ public class ConditionAnalyzer {
 
     private Expression statementToExpression(ExecutableStatement param, Class paramType) {
         if (param instanceof ExecutableLiteral) {
-            return new FixedExpression(paramType, ((ExecutableLiteral)param).getLiteral());
+            return paramType.isPrimitive() ?
+                   new FixedExpression(paramType, ((ExecutableLiteral)param).getLiteral()) :
+                   new FixedExpression(((ExecutableLiteral)param).getLiteral());
         } else if (param instanceof ExecutableAccessor) {
             return analyzeNode(((ExecutableAccessor)param).getNode());
         } else {
@@ -521,12 +541,14 @@ public class ConditionAnalyzer {
     private Class<?> getVariableType(String name) {
         for (Declaration declaration : declarations) {
             if (declaration.getBindingName().equals(name)) {
-                if (declaration.getExtractor() != null) {
-                    return declaration.getExtractor().getExtractToClass();
-                } else {
-                    // TODO when can declaration.getExtractor() be null? (mdp)
-                    return declaration.getValueType().getClassType();
-                }
+                return declaration.getDeclarationClass() != null ?
+                       declaration.getDeclarationClass() :
+                       declaration.getValueType().getClassType();
+            }
+        }
+        for (EvaluatorWrapper operator : operators) {
+            if (operator.getBindingName().equals( name )) {
+                return EvaluatorWrapper.class;
             }
         }
         return null;

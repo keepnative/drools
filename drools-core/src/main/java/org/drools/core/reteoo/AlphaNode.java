@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +16,15 @@
 
 package org.drools.core.reteoo;
 
-import org.drools.core.RuleBaseConfiguration;
 import org.drools.core.base.evaluators.IsAEvaluatorDefinition;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.Memory;
-import org.drools.core.common.MemoryFactory;
 import org.drools.core.common.RuleBasePartitionId;
 import org.drools.core.reteoo.builder.BuildContext;
-import org.drools.core.rule.ContextEntry;
 import org.drools.core.rule.constraint.EvaluatorConstraint;
 import org.drools.core.rule.constraint.MvelConstraint;
 import org.drools.core.spi.AlphaNodeFieldConstraint;
 import org.drools.core.spi.PropagationContext;
-import org.drools.core.spi.RuleComponent;
 import org.drools.core.util.bitmask.AllSetBitMask;
 import org.drools.core.util.bitmask.BitMask;
 import org.kie.api.definition.rule.Rule;
@@ -39,7 +34,6 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.List;
-import java.util.Map;
 
 import static org.drools.core.reteoo.PropertySpecificUtil.allSetButTraitBitMask;
 
@@ -48,22 +42,21 @@ import static org.drools.core.reteoo.PropertySpecificUtil.allSetButTraitBitMask;
  * to apply <code>FieldConstraint<.code>s on asserted fact
  * objects where the <code>FieldConstraint</code>s have no dependencies on any other of the facts in the current <code>Rule</code>.
  *
- *  @see AlphaNodeFieldConstraint
+ * @see AlphaNodeFieldConstraint
  */
 public class AlphaNode extends ObjectSource
-    implements
-    ObjectSinkNode,
-    MemoryFactory {
+        implements
+        ObjectSinkNode {
 
-    private static final long        serialVersionUID = 510l;
+    private static final long serialVersionUID = 510l;
 
-    /** The <code>FieldConstraint</code> */
+    /**
+     * The <code>FieldConstraint</code>
+     */
     private AlphaNodeFieldConstraint constraint;
 
-    private ObjectSinkNode           previousRightTupleSinkNode;
-    private ObjectSinkNode           nextRightTupleSinkNode;
-
-    private int                      hashcode;
+    private ObjectSinkNode previousRightTupleSinkNode;
+    private ObjectSinkNode nextRightTupleSinkNode;
 
     public AlphaNode() {
 
@@ -76,19 +69,19 @@ public class AlphaNode extends ObjectSource
      * memory, or false otherwise. Memory is optional for <code>AlphaNode</code>s
      * and is only of benefic when adding additional <code>Rule</code>s at runtime.
      *
-     * @param id Node's ID
-     * @param constraint Node's constraints
+     * @param id           Node's ID
+     * @param constraint   Node's constraints
      * @param objectSource Node's object source
      */
     public AlphaNode(final int id,
                      final AlphaNodeFieldConstraint constraint,
                      final ObjectSource objectSource,
                      final BuildContext context) {
-        super( id,
-               context.getPartitionId(),
-               context.getKnowledgeBase().getConfiguration().isMultithreadEvaluation(),
-               objectSource,
-               context.getKnowledgeBase().getConfiguration().getAlphaNodeHashingThreshold() );
+        super(id,
+                context.getPartitionId(),
+                context.getKnowledgeBase().getConfiguration().isMultithreadEvaluation(),
+                objectSource,
+                context.getKnowledgeBase().getConfiguration().getAlphaNodeHashingThreshold());
 
         this.constraint = constraint.cloneIfInUse();
         if (this.constraint instanceof MvelConstraint) {
@@ -101,12 +94,11 @@ public class AlphaNode extends ObjectSource
 
 
     public void readExternal(ObjectInput in) throws IOException,
-                                            ClassNotFoundException {
-        super.readExternal( in );
+            ClassNotFoundException {
+        super.readExternal(in);
         constraint = (AlphaNodeFieldConstraint) in.readObject();
         declaredMask = (BitMask) in.readObject();
         inferredMask = (BitMask) in.readObject();
-        hashcode = in.readInt();
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -114,7 +106,6 @@ public class AlphaNode extends ObjectSource
         out.writeObject(constraint);
         out.writeObject(declaredMask);
         out.writeObject(inferredMask);
-        out.writeInt(hashcode);
     }
 
     /**
@@ -125,26 +116,24 @@ public class AlphaNode extends ObjectSource
     public AlphaNodeFieldConstraint getConstraint() {
         return this.constraint;
     }
-    
+
     public short getType() {
         return NodeTypeEnums.AlphaNode;
     }
 
     public void attach(BuildContext context) {
-        this.source.addObjectSink( this );
-    }   
-    
+        this.source.addObjectSink(this);
+    }
+
     public void assertObject(final InternalFactHandle factHandle,
                              final PropagationContext context,
                              final InternalWorkingMemory workingMemory) {
-        final AlphaMemory memory = (AlphaMemory) workingMemory.getNodeMemory( this );
-        if ( this.constraint.isAllowed( factHandle,
-                                        workingMemory,
-                                        memory.context ) ) {
+        if (this.constraint.isAllowed(factHandle,
+                workingMemory)) {
 
-            this.sink.propagateAssertObject( factHandle,
-                                             context,
-                                             workingMemory );
+            this.sink.propagateAssertObject(factHandle,
+                    context,
+                    workingMemory);
         }
     }
 
@@ -152,88 +141,70 @@ public class AlphaNode extends ObjectSource
                              final ModifyPreviousTuples modifyPreviousTuples,
                              final PropagationContext context,
                              final InternalWorkingMemory workingMemory) {
-        if ( context.getModificationMask().intersects( inferredMask ) ) {
+        if (context.getModificationMask().intersects(inferredMask)) {
 
-            final AlphaMemory memory = (AlphaMemory) workingMemory.getNodeMemory( this );
-            if ( this.constraint.isAllowed( factHandle,
-                    workingMemory,
-                    memory.context ) ) {
-                this.sink.propagateModifyObject( factHandle,
+            if (this.constraint.isAllowed(factHandle, workingMemory)) {
+                this.sink.propagateModifyObject(factHandle,
                         modifyPreviousTuples,
                         context,
-                        workingMemory );
+                        workingMemory);
             }
         } else {
-            byPassModifyToBetaNode(factHandle, modifyPreviousTuples,context,workingMemory);
+            byPassModifyToBetaNode(factHandle, modifyPreviousTuples, context, workingMemory);
         }
     }
 
-    public  void byPassModifyToBetaNode (final InternalFactHandle factHandle,
-                                         final ModifyPreviousTuples modifyPreviousTuples,
-                                         final PropagationContext context,
-                                         final InternalWorkingMemory workingMemory) {
-        sink.byPassModifyToBetaNode( factHandle, modifyPreviousTuples, context, workingMemory );
+    public void byPassModifyToBetaNode(final InternalFactHandle factHandle,
+                                       final ModifyPreviousTuples modifyPreviousTuples,
+                                       final PropagationContext context,
+                                       final InternalWorkingMemory workingMemory) {
+        sink.byPassModifyToBetaNode(factHandle, modifyPreviousTuples, context, workingMemory);
     }
 
 
     public void updateSink(final ObjectSink sink,
                            final PropagationContext context,
                            final InternalWorkingMemory workingMemory) {
-        final AlphaMemory memory = (AlphaMemory) workingMemory.getNodeMemory( this );
-
         // get the objects from the parent
-        ObjectSinkUpdateAdapter adapter = new ObjectSinkUpdateAdapter( sink,
-                                                                       this.constraint,
-                                                                       memory.context );
-        this.source.updateSink( adapter,
-                                context,
-                                workingMemory );
-    }
-
-    /**
-     * Creates a HashSet for the AlphaNode's memory.
-     */
-    public Memory createMemory(final RuleBaseConfiguration config, InternalWorkingMemory wm) {
-        AlphaMemory memory = new AlphaMemory();
-        memory.context = this.constraint.createContextEntry();
-        return memory;
+        ObjectSinkUpdateAdapter adapter = new ObjectSinkUpdateAdapter(sink,
+                this.constraint);
+        this.source.updateSink(adapter,
+                context,
+                workingMemory);
     }
 
     public String toString() {
         return "[AlphaNode(" + this.id + ") constraint=" + this.constraint + "]";
     }
 
-    public int hashCode() {
-        return hashcode;
-    }
-
-    public int calculateHashCode() {
+    private int calculateHashCode() {
         return (this.source != null ? this.source.hashCode() : 0) * 37 + (this.constraint != null ? this.constraint.hashCode() : 0) * 31;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
-    public boolean equals(final Object object) {
-        if ( this == object ) {
-            return true;
-        }
+    @Override
+    public boolean equals(Object object) {
+        return this == object ||
+               (internalEquals((AlphaNode)object) &&
+               (this.source != null ?
+                this.source.thisNodeEquals(((AlphaNode) object).source) :
+                ((AlphaNode) object).source == null) );
+    }
 
-        if ( !(object instanceof AlphaNode) || hashCode() != object.hashCode() ) {
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof AlphaNode) || this.hashCode() != object.hashCode() ) {
             return false;
         }
 
-        final AlphaNode other = (AlphaNode) object;
-
-        return this.source.equals( other.source ) && this.constraint.equals( other.constraint );
+        return (constraint instanceof MvelConstraint ?
+                    ((MvelConstraint) constraint).equals(((AlphaNode)object).constraint, getKnowledgeBase()) :
+                    constraint.equals(((AlphaNode)object).constraint));
     }
 
     /**
      * Returns the next node
-     * @return
-     *      The next ObjectSinkNode
+     *
+     * @return The next ObjectSinkNode
      */
     public ObjectSinkNode getNextObjectSinkNode() {
         return this.nextRightTupleSinkNode;
@@ -241,8 +212,8 @@ public class AlphaNode extends ObjectSource
 
     /**
      * Sets the next node
-     * @param next
-     *      The next ObjectSinkNode
+     *
+     * @param next The next ObjectSinkNode
      */
     public void setNextObjectSinkNode(final ObjectSinkNode next) {
         this.nextRightTupleSinkNode = next;
@@ -250,8 +221,8 @@ public class AlphaNode extends ObjectSource
 
     /**
      * Returns the previous node
-     * @return
-     *      The previous ObjectSinkNode
+     *
+     * @return The previous ObjectSinkNode
      */
     public ObjectSinkNode getPreviousObjectSinkNode() {
         return this.previousRightTupleSinkNode;
@@ -259,53 +230,11 @@ public class AlphaNode extends ObjectSource
 
     /**
      * Sets the previous node
-     * @param previous
-     *      The previous ObjectSinkNode
+     *
+     * @param previous The previous ObjectSinkNode
      */
     public void setPreviousObjectSinkNode(final ObjectSinkNode previous) {
         this.previousRightTupleSinkNode = previous;
-    }
-
-    public static class AlphaMemory
-        implements
-        Memory {
-        private static final long serialVersionUID = 510l;
-
-        public ContextEntry       context;
-        
-        public short getNodeType() {
-            return NodeTypeEnums.AlphaNode;
-        }
-
-        public SegmentMemory getSegmentMemory() {
-            return null;
-        }
-
-        public void setSegmentMemory(SegmentMemory segmentMemory) {
-            throw new UnsupportedOperationException();
-        }
-
-        public Memory getPrevious() {
-            throw new UnsupportedOperationException();
-        }
-
-        public void setPrevious(Memory previous) {
-            throw new UnsupportedOperationException();
-        }
-
-        public void setNext(Memory next) {
-            throw new UnsupportedOperationException();
-        }
-
-        public Memory getNext() {
-            throw new UnsupportedOperationException();
-        }
-
-        public void nullPrevNext() {
-            throw new UnsupportedOperationException();
-        }
-
-        public void reset() { }
     }
 
     /**
@@ -313,30 +242,26 @@ public class AlphaNode extends ObjectSource
      * can  update the  TupleSink
      */
     private static class ObjectSinkUpdateAdapter
-        implements
-        ObjectSink {
-        private final ObjectSink               sink;
+            implements
+            ObjectSink {
+        private final ObjectSink sink;
         private final AlphaNodeFieldConstraint constraint;
-        private final ContextEntry             contextEntry;
 
         public ObjectSinkUpdateAdapter(final ObjectSink sink,
-                                       final AlphaNodeFieldConstraint constraint,
-                                       final ContextEntry contextEntry) {
+                                       final AlphaNodeFieldConstraint constraint) {
             this.sink = sink;
             this.constraint = constraint;
-            this.contextEntry = contextEntry;
         }
 
         public void assertObject(final InternalFactHandle handle,
                                  final PropagationContext propagationContext,
                                  final InternalWorkingMemory workingMemory) {
 
-            if ( this.constraint.isAllowed( handle,
-                                            workingMemory,
-                                            this.contextEntry ) ) {
-                this.sink.assertObject( handle,
-                                        propagationContext,
-                                        workingMemory );
+            if (this.constraint.isAllowed(handle,
+                    workingMemory)) {
+                this.sink.assertObject(handle,
+                        propagationContext,
+                        workingMemory);
             }
         }
 
@@ -353,7 +278,7 @@ public class AlphaNode extends ObjectSource
         }
 
         public void readExternal(ObjectInput in) throws IOException,
-                                                ClassNotFoundException {
+                ClassNotFoundException {
             // this is a short living adapter class, so no need for serialization
         }
 
@@ -361,7 +286,7 @@ public class AlphaNode extends ObjectSource
                                  final ModifyPreviousTuples modifyPreviousTuples,
                                  final PropagationContext context,
                                  final InternalWorkingMemory workingMemory) {
-            throw new UnsupportedOperationException( "This method should NEVER EVER be called" );
+            throw new UnsupportedOperationException("This method should NEVER EVER be called");
         }
 
         public void byPassModifyToBetaNode(InternalFactHandle factHandle,
@@ -374,31 +299,50 @@ public class AlphaNode extends ObjectSource
             return NodeTypeEnums.AlphaNode;
         }
 
-        public Map<Rule, RuleComponent> getAssociations() {
-            return sink.getAssociations();
+        public int getAssociationsSize() {
+            return sink.getAssociationsSize();
         }
 
+        public int getAssociatedRuleSize() {
+            return sink.getAssociatedRuleSize();
+        }
+
+        public int getAssociationsSize(Rule rule) {
+            return sink.getAssociationsSize(rule);
+        }
+
+        public boolean isAssociatedWith(Rule rule) {
+            return sink.isAssociatedWith(rule);
+        }
+
+        public boolean thisNodeEquals(final Object object) {
+            return false;
+        }
+
+        public int nodeHashCode() {
+            return this.hashCode();
+        }
     }
 
     public BitMask calculateDeclaredMask(List<String> settableProperties) {
         boolean typeBit = false;
-        if ( constraint instanceof EvaluatorConstraint && ( (EvaluatorConstraint) constraint ).isSelf() ) {
+        if (constraint instanceof EvaluatorConstraint && ((EvaluatorConstraint) constraint).isSelf()) {
             Operator op = ((EvaluatorConstraint) constraint).getEvaluator().getOperator();
-            if ( op == IsAEvaluatorDefinition.ISA || op == IsAEvaluatorDefinition.NOT_ISA ) {
+            if (op == IsAEvaluatorDefinition.ISA || op == IsAEvaluatorDefinition.NOT_ISA) {
                 typeBit = true;
             }
         }
         if (settableProperties == null || !(constraint instanceof MvelConstraint)) {
             return typeBit ? AllSetBitMask.get() : allSetButTraitBitMask();
         }
-        BitMask mask = ((MvelConstraint)constraint).getListenedPropertyMask(settableProperties);
+        BitMask mask = ((MvelConstraint) constraint).getListenedPropertyMask(settableProperties);
         return typeBit ? mask.set(PropertySpecificUtil.TRAITABLE_BIT) : mask;
     }
 
     @Override
     public BitMask getDeclaredMask() {
         return declaredMask;
-    }  
+    }
 
     public BitMask getInferredMask() {
         return inferredMask;

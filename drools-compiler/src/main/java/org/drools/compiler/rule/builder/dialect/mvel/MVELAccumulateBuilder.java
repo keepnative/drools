@@ -1,5 +1,5 @@
 /*
- * Copyright 2007 JBoss Inc
+ * Copyright 2007 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,13 +38,18 @@ import org.drools.core.rule.Accumulate;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.rule.MultiAccumulate;
+import org.drools.core.rule.MutableTypeConstraint;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.RuleConditionElement;
 import org.drools.core.rule.SingleAccumulate;
+import org.drools.core.rule.constraint.MvelConstraint;
 import org.drools.core.spi.Accumulator;
+import org.drools.core.spi.Constraint;
+import org.drools.core.spi.DeclarationScopeResolver;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.spi.KnowledgeHelper;
 import org.drools.core.spi.MvelAccumulator;
+import org.drools.core.util.index.IndexUtil;
 import org.kie.api.runtime.rule.AccumulateFunction;
 
 import java.util.ArrayList;
@@ -97,16 +102,16 @@ public class MVELAccumulateBuilder
             Map<String, Declaration> mergedDecl = new HashMap( decls );
             mergedDecl.putAll( sourceOuterDeclr );
 
-            Map<String, Class< ? >> declarationClasses = context.getDeclarationResolver().getDeclarationClasses( decls );
-            declarationClasses.putAll( context.getDeclarationResolver().getDeclarationClasses( sourceOuterDeclr ) );
+            Map<String, Class< ? >> declarationClasses = DeclarationScopeResolver.getDeclarationClasses( decls );
+            declarationClasses.putAll( DeclarationScopeResolver.getDeclarationClasses( sourceOuterDeclr ) );
 
             BoundIdentifiers boundIds = new BoundIdentifiers( declarationClasses,
                                                               context.getKnowledgeBuilder().getGlobals() );
             boundIds.setDeclarations( mergedDecl );
 
-            Accumulator[] accumulators = null;
+            Accumulator[] accumulators;
 
-            final boolean readLocalsFromTuple = PackageBuilderUtil.isReadLocalsFromTuple(accumDescr, source);
+            final boolean readLocalsFromTuple = PackageBuilderUtil.isReadLocalsFromTuple(context, accumDescr, source);
 
             if ( accumDescr.isExternalFunction() ) {
                 // uses accumulate functions
@@ -121,7 +126,6 @@ public class MVELAccumulateBuilder
                 // it is a custom accumulate
                 accumulators = buildCustomAccumulate( context,
                                                       accumDescr,
-                                                      source,
                                                       dialect,
                                                       decls,
                                                       sourceOuterDeclr,
@@ -132,14 +136,12 @@ public class MVELAccumulateBuilder
             List<Declaration> requiredDeclarations = new ArrayList<Declaration>();
             for ( Accumulator acc : accumulators ) {
                 MvelAccumulator mvelAcc = (MvelAccumulator) acc;
-                for ( Declaration decl : mvelAcc.getRequiredDeclarations() ) {
-                    requiredDeclarations.add( decl );
-                }
+                Collections.addAll( requiredDeclarations, mvelAcc.getRequiredDeclarations() );
             }
 
             MVELDialectRuntimeData data = (MVELDialectRuntimeData) context.getPkg().getDialectRuntimeRegistry().getDialectData( "mvel" );
 
-            Accumulate accumulate = null;
+            Accumulate accumulate;
             if (accumDescr.isMultiFunction()) {
                 accumulate = new MultiAccumulate( source,
                                                   requiredDeclarations.toArray( new Declaration[ requiredDeclarations.size() ] ),
@@ -184,11 +186,10 @@ public class MVELAccumulateBuilder
 
         accumulators = new Accumulator[functions.size()];
         // creating the custom array reader
-        InternalReadAccessor arrayReader = new SelfReferenceClassFieldReader( Object[].class,
-                                                                              "this" );
+        InternalReadAccessor arrayReader = new SelfReferenceClassFieldReader( Object[].class );
 
         int index = 0;
-        Pattern pattern = (Pattern) context.getBuildStack().peek();
+        Pattern pattern = (Pattern) context.getDeclarationResolver().peekBuildStack();
         for ( AccumulateFunctionCallDescr func : functions ) {
             // build an external function executor
             AccumulateFunction function = context.getConfiguration().getAccumulateFunction( func.getFunction() );
@@ -203,23 +204,6 @@ public class MVELAccumulateBuilder
                                                               "Unknown accumulate function: '" + func.getFunction() + "' on rule '" + context.getRuleDescr().getName()
                                                                       + "'. All accumulate functions must be registered before building a resource." ) );
                 return null;
-            }
-
-            // if there is a binding, create the binding
-            if ( func.getBind() != null ) {
-                if ( pattern.getDeclaration( func.getBind() ) != null ) {
-                    context.addError(new DescrBuildError(context.getParentDescr(),
-                            accumDescr,
-                            null,
-                            "Duplicate declaration for variable '" + func.getBind() + "' in the rule '" + context.getRule().getName() + "'"));
-                } else {
-                    Declaration declr = pattern.addDeclaration( func.getBind() );
-                    if (accumDescr.isMultiFunction()) {
-                        declr.setReadAccessor(new ArrayElementReader(arrayReader, index, function.getResultType()));
-                    } else {
-                        declr.setReadAccessor(new SelfReferenceClassFieldReader( function.getResultType(), "this" ));
-                    }
-                }
             }
 
             final AnalysisResult analysis = dialect.analyzeExpression( context,
@@ -237,17 +221,54 @@ public class MVELAccumulateBuilder
                                                                        context,
                                                                        "drools",
                                                                        KnowledgeHelper.class,
-                                                                       readLocalsFromTuple );
+                                                                       readLocalsFromTuple,
+                                                                       MVELCompilationUnit.Scope.CONSTRAINT );
 
-            accumulators[index++] = new MVELAccumulatorFunctionExecutor( unit,
+            accumulators[index] = new MVELAccumulatorFunctionExecutor( unit,
                                                                          function );
+            // if there is a binding, create the binding
+            if ( func.getBind() != null ) {
+                if ( context.getDeclarationResolver().isDuplicated( context.getRule(), func.getBind(), function.getResultType().getName() ) ) {
+                    if ( ! func.isUnification() ) {
+                        context.addError( new DescrBuildError( context.getParentDescr(),
+                                                               accumDescr,
+                                                               null,
+                                                               "Duplicate declaration for variable '" + func.getBind() + "' in the rule '" + context.getRule().getName() + "'" ) );
+                    } else {
+                        Declaration inner = context.getDeclarationResolver().getDeclaration( context.getRule(), func.getBind() );
+                        Constraint c = new MvelConstraint( Collections.singletonList( context.getPkg().getName() ),
+                                                           accumDescr.isMultiFunction()
+                                                                ? "this[ " + index + " ] == " + func.getBind()
+                                                                : "this == " + func.getBind(),
+                                                           new Declaration[] { inner },
+                                                           null,
+                                                           null,
+                                                           IndexUtil.ConstraintType.EQUAL,
+                                                           context.getDeclarationResolver().getDeclaration( context.getRule(), func.getBind() ),
+                                                           accumDescr.isMultiFunction()
+                                                                ? new ArrayElementReader( arrayReader, index, function.getResultType() )
+                                                                : new SelfReferenceClassFieldReader( function.getResultType() ),
+                                                           true);
+                        ((MutableTypeConstraint) c).setType( Constraint.ConstraintType.BETA );
+                        pattern.addConstraint( c );
+                        index++;
+                    }
+                } else {
+                    Declaration declr = pattern.addDeclaration( func.getBind() );
+                    if (accumDescr.isMultiFunction()) {
+                        declr.setReadAccessor(new ArrayElementReader(arrayReader, index, function.getResultType()));
+                    } else {
+                        declr.setReadAccessor(new SelfReferenceClassFieldReader( function.getResultType() ));
+                    }
+                }
+            }
+            index++;
         }
         return accumulators;
     }
 
     private Accumulator[] buildCustomAccumulate( final RuleBuildContext context,
                                                  final AccumulateDescr accumDescr,
-                                                 final RuleConditionElement source,
                                                  MVELDialect dialect,
                                                  Map<String, Declaration> decls,
                                                  Map<String, Declaration> sourceOuterDeclr,
@@ -262,8 +283,6 @@ public class MVELAccumulateBuilder
 
         // need to copy boundIds, as this as a "this" object.
         final MVELAnalysisResult actionCodeAnalysis = (MVELAnalysisResult) dialect.analyzeBlock( context,
-                                                                                                 accumDescr,
-                                                                                                 null,
                                                                                                  accumDescr.getActionCode(),
                                                                                                  boundIds,
                                                                                                  initCodeAnalysis.getMvelVariables(),
@@ -276,20 +295,8 @@ public class MVELAccumulateBuilder
                                                                                                       boundIds,
                                                                                                       initCodeAnalysis.getMvelVariables() );
 
-//        MVELAnalysisResult reverseCodeAnalysis = null;
-//        if ( accumDescr.getReverseCode() != null ) {
-//            reverseCodeAnalysis = (MVELAnalysisResult) dialect.analyzeBlock( context,
-//                                                                             accumDescr,
-//                                                                             null,
-//                                                                             accumDescr.getActionCode(),
-//                                                                             boundIds,
-//                                                                             initCodeAnalysis.getMvelVariables(),
-//                                                                             "drools",
-//                                                                             KnowledgeHelper.class );
-//        }
-
         context.setTypesafe( initCodeAnalysis.isTypesafe() );
-        MVELCompilationUnit initUnit = dialect.getMVELCompilationUnit( (String) accumDescr.getInitCode(),
+        MVELCompilationUnit initUnit = dialect.getMVELCompilationUnit( accumDescr.getInitCode(),
                                                                        initCodeAnalysis,
                                                                        getUsedDeclarations( decls,
                                                                                             initCodeAnalysis ),
@@ -299,10 +306,11 @@ public class MVELAccumulateBuilder
                                                                        context,
                                                                        "drools",
                                                                        KnowledgeHelper.class,
-                                                                       readLocalsFromTuple );
+                                                                       readLocalsFromTuple,
+                                                                       MVELCompilationUnit.Scope.CONSTRAINT );
 
         context.setTypesafe( actionCodeAnalysis.isTypesafe() );
-        MVELCompilationUnit actionUnit = dialect.getMVELCompilationUnit( (String) accumDescr.getActionCode(),
+        MVELCompilationUnit actionUnit = dialect.getMVELCompilationUnit( accumDescr.getActionCode(),
                                                                          actionCodeAnalysis,
                                                                          getUsedDeclarations( decls,
                                                                                               actionCodeAnalysis ),
@@ -312,12 +320,13 @@ public class MVELAccumulateBuilder
                                                                          context,
                                                                          "drools",
                                                                          KnowledgeHelper.class,
-                                                                         readLocalsFromTuple );
+                                                                         readLocalsFromTuple,
+                                                                         MVELCompilationUnit.Scope.CONSTRAINT );
 
         MVELCompilationUnit reverseUnit = null;
         if ( accumDescr.getReverseCode() != null ) {
             context.setTypesafe( actionCodeAnalysis.isTypesafe() );
-            reverseUnit = dialect.getMVELCompilationUnit( (String) accumDescr.getReverseCode(),
+            reverseUnit = dialect.getMVELCompilationUnit( accumDescr.getReverseCode(),
                                                           actionCodeAnalysis,
                                                           getUsedDeclarations( decls,
                                                                                actionCodeAnalysis ),
@@ -327,11 +336,12 @@ public class MVELAccumulateBuilder
                                                           context,
                                                           "drools",
                                                           KnowledgeHelper.class,
-                                                          readLocalsFromTuple );
+                                                          readLocalsFromTuple,
+                                                          MVELCompilationUnit.Scope.CONSTRAINT );
         }
 
         context.setTypesafe( resultCodeAnalysis.isTypesafe() );
-        MVELCompilationUnit resultUnit = dialect.getMVELCompilationUnit( (String) accumDescr.getResultCode(),
+        MVELCompilationUnit resultUnit = dialect.getMVELCompilationUnit( accumDescr.getResultCode(),
                                                                          resultCodeAnalysis,
                                                                          getUsedDeclarations( decls,
                                                                                               resultCodeAnalysis ),
@@ -341,18 +351,8 @@ public class MVELAccumulateBuilder
                                                                          context,
                                                                          "drools",
                                                                          KnowledgeHelper.class,
-                                                                         readLocalsFromTuple );
-
-//        if ( reverseUnit != null ) {
-//            Set<String> shadow = new HashSet<String>( source.getOuterDeclarations().keySet() );
-//            shadow.retainAll( reverseCodeAnalysis.getNotBoundedIdentifiers() );
-//            shadow.addAll( reverseCodeAnalysis.getBoundIdentifiers().getDeclrClasses().keySet() );
-//
-//            String[] shadowVars = (String[]) shadow.toArray( new String[shadow.size()] );
-//
-//            actionUnit.setShadowIdentifiers( shadowVars );
-//            reverseUnit.setShadowIdentifiers( shadowVars );
-//        }
+                                                                         readLocalsFromTuple,
+                                                                         MVELCompilationUnit.Scope.CONSTRAINT );
 
         accumulators = new Accumulator[]{new MVELAccumulator( initUnit,
                                                               actionUnit,

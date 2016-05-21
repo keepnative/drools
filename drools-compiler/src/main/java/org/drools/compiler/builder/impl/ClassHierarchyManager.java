@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
 
 import org.drools.compiler.compiler.PackageRegistry;
@@ -17,6 +32,7 @@ import org.drools.core.rule.TypeDeclaration;
 import org.drools.core.util.HierarchySorter;
 import org.drools.core.util.asm.ClassFieldInspector;
 import org.kie.api.definition.type.Key;
+import org.kie.api.io.Resource;
 
 import java.io.IOException;
 import java.lang.reflect.Modifier;
@@ -56,8 +72,11 @@ public class ClassHierarchyManager {
         Map<QualifiedName, AbstractClassTypeDeclarationDescr> cache = new HashMap<QualifiedName, AbstractClassTypeDeclarationDescr>();
 
         for (AbstractClassTypeDeclarationDescr tdescr : unsortedDescrs) {
+            cache.put(tdescr.getType(), tdescr);
+        }
+
+        for (AbstractClassTypeDeclarationDescr tdescr : unsortedDescrs) {
             QualifiedName name = tdescr.getType();
-            cache.put(name, tdescr);
 
             Collection<QualifiedName> supers = taxonomy.get(name);
             if (supers == null) {
@@ -72,7 +91,9 @@ public class ClassHierarchyManager {
             for (QualifiedName sup : tdescr.getSuperTypes()) {
                 if (!Object.class.getName().equals(name.getFullName())) {
                     if (!hasCircularDependency(tdescr.getType(), sup, taxonomy)) {
-                        supers.add(sup);
+                        if ( cache.containsKey( sup ) ) {
+                            supers.add( sup );
+                        }
                     } else {
                         circular = true;
                         kbuilder.addBuilderResult(new TypeDeclarationError(tdescr,
@@ -91,7 +112,9 @@ public class ClassHierarchyManager {
                 QualifiedName name = tdescr.getType();
                 QualifiedName typeName = new QualifiedName(field.getPattern().getObjectType());
                 if (!hasCircularDependency(name, typeName, taxonomy)) {
-                    taxonomy.get(name).add(typeName);
+                    if ( cache.containsKey( typeName ) ) {
+                        taxonomy.get( name ).add( typeName );
+                    }
                 } else {
                     field.setRecursive( true );
                 }
@@ -160,23 +183,7 @@ public class ClassHierarchyManager {
             // after inheriting the fields from supertypes, now we fill in the locally declared fields
             try {
                 Class existingClass = TypeDeclarationUtils.getExistingDeclarationClass( typeDescr, pkgRegistry );
-                ClassFieldInspector inspector = new ClassFieldInspector( existingClass );
-                for (String name : inspector.getGetterMethods().keySet()) {
-                    // classFieldAccessor requires both getter and setter
-                    if (inspector.getSetterMethods().containsKey(name)) {
-                        if (!inspector.isNonGetter(name) && !"class".equals(name)) {
-                            TypeFieldDescr inheritedFlDescr = new TypeFieldDescr(
-                                    name,
-                                    new PatternDescr(
-                                            inspector.getFieldTypes().get(name).getName()));
-                            inheritedFlDescr.setInherited(!Modifier.isAbstract( inspector.getGetterMethods().get( name ).getModifiers() ));
-
-                            if (!tDescr.getFields().containsKey(inheritedFlDescr.getFieldName()))
-                                tDescr.getFields().put(inheritedFlDescr.getFieldName(),
-                                                       inheritedFlDescr);
-                        }
-                    }
-                }
+                buildDescrsFromFields( existingClass, tDescr, pkgRegistry, tDescr.getFields());
             } catch ( Exception e ) {
                 // can't happen as we know that the class is not novel - that is, it has been resolved before
             }
@@ -185,6 +192,27 @@ public class ClassHierarchyManager {
 
     }
 
+    private static void buildDescrsFromFields( Class klass, TypeDeclarationDescr typeDescr, PackageRegistry pkgRegistry,
+            Map<String, TypeFieldDescr> fieldMap ) throws IOException {
+        ClassFieldInspector inspector = new ClassFieldInspector( klass );
+        for (String name : inspector.getGetterMethods().keySet()) {
+            // classFieldAccessor requires both getter and setter
+            if (inspector.getSetterMethods().containsKey(name)) {
+                if (!inspector.isNonGetter(name) && !"class".equals(name)) {
+                    Resource resource = typeDescr.getResource();
+                    PatternDescr patternDescr = new PatternDescr( inspector.getFieldType(name).getName());
+                    patternDescr.setResource(resource);
+                    TypeFieldDescr inheritedFlDescr = new TypeFieldDescr( name, patternDescr);
+                    inheritedFlDescr.setResource(resource);
+                    inheritedFlDescr.setInherited(!Modifier.isAbstract( inspector.getGetterMethods().get( name ).getModifiers() ));
+
+                    if (!fieldMap.containsKey(inheritedFlDescr.getFieldName()))
+                        fieldMap.put(inheritedFlDescr.getFieldName(),
+                                               inheritedFlDescr);
+                }
+            }
+        }
+    }
 
     /**
      * In order to build a declared class, the fields inherited from its
@@ -316,24 +344,7 @@ public class ClassHierarchyManager {
                     // if the supertype has not been declared, and we have got so far, it means that this class is not novel
                     superKlass = resolver.resolveType( fullSuper );
                 }
-                ClassFieldInspector inspector = new ClassFieldInspector(superKlass);
-                for (String name : inspector.getGetterMethods().keySet()) {
-                    // classFieldAccessor requires both getter and setter
-                    if (inspector.getSetterMethods().containsKey(name)) {
-                        if (!inspector.isNonGetter(name) && !"class".equals(name)) {
-                            TypeFieldDescr inheritedFlDescr = new TypeFieldDescr(
-                                    name,
-                                    new PatternDescr(
-                                            inspector.getFieldTypes().get(name).getName()));
-                            inheritedFlDescr.setInherited(!Modifier.isAbstract(inspector.getGetterMethods().get(name).getModifiers()));
-
-                            if (!fieldMap.containsKey(inheritedFlDescr.getFieldName()))
-                                fieldMap.put(inheritedFlDescr.getFieldName(),
-                                             inheritedFlDescr);
-                        }
-                    }
-                }
-
+                buildDescrsFromFields( superKlass, typeDescr, registry, fieldMap);
             } catch (ClassNotFoundException cnfe) {
                 throw new RuntimeException("Unable to resolve Type Declaration superclass '" + fullSuper + "'");
             } catch ( IOException e ) {
@@ -360,32 +371,51 @@ public class ClassHierarchyManager {
                     }
                 }
 
-                if (!type1.equals(type2)) {
+                boolean clash = ! type1.equals(type2);
+                TypeFieldDescr overriding = null;
+                if ( clash ) {
+                    // this may still be an override using a subclass of the original type
+                    try {
+                        Class<?> sup = resolver.resolveType( type1 );
+                        Class<?> loc = resolver.resolveType( type2 );
+                        if ( sup.isAssignableFrom( loc ) ) {
+                            clash = false;
+                            // mark as non inherited so that a new field is actually built
+                            overriding = fieldMap.get( fieldName );
+                        }
+                    } catch ( ClassNotFoundException cnfe ) {
+                        // not much to do
+                    }
+                }
+                if ( clash ) {
                     kbuilder.addBuilderResult(new TypeDeclarationError(typeDescr,
                                                                        "Cannot redeclare field '" + fieldName + " from " + type1 + " to " + type2));
-                    typeDescr.setType(null,
-                                      null);
+                    typeDescr.setType(null,null);
                     return false;
                 } else {
                     String initVal = fieldMap.get(fieldName).getInitExpr();
-                    if (typeDescr.getFields().get(fieldName).getInitExpr() == null) {
-                        typeDescr.getFields().get(fieldName).setInitExpr(initVal);
+                    TypeFieldDescr fd = typeDescr.getFields().get(fieldName);
+                    if (fd.getInitExpr() == null) {
+                        fd.setInitExpr( initVal );
                     }
-                    typeDescr.getFields().get(fieldName).setInherited(fieldMap.get(fieldName).isInherited());
+
+                    fd.setInherited( fieldMap.get( fieldName ).isInherited() );
+                    fd.setOverriding( overriding );
+
 
                     for (String key : fieldMap.get(fieldName).getAnnotationNames()) {
-                        if (typeDescr.getFields().get(fieldName).getAnnotation(key) == null) {
-                            typeDescr.getFields().get(fieldName).addAnnotation(fieldMap.get(fieldName).getAnnotation(key));
+                        if (fd.getAnnotation( key ) == null) {
+                            fd.addAnnotation( fieldMap.get( fieldName ).getAnnotation( key ) );
                         }
                     }
 
-                    if (typeDescr.getFields().get(fieldName).getIndex() < 0) {
-                        typeDescr.getFields().get(fieldName).setIndex(fieldMap.get(fieldName).getIndex());
+                    if (fd.getIndex() < 0) {
+                        fd.setIndex( fieldMap.get( fieldName ).getIndex() );
                     }
                 }
             }
-            fieldMap.put(fieldName,
-                         typeDescr.getFields().get(fieldName));
+            fieldMap.put( fieldName,
+                          typeDescr.getFields().get( fieldName ) );
         }
 
         typeDescr.setFields(fieldMap);
@@ -394,14 +424,16 @@ public class ClassHierarchyManager {
     }
 
     protected TypeFieldDescr buildInheritedFieldDescrFromDefinition(org.kie.api.definition.type.FactField fld, TypeDeclarationDescr typeDescr) {
-        PatternDescr fldType = new PatternDescr();
         TypeFieldDescr inheritedFldDescr = new TypeFieldDescr();
         inheritedFldDescr.setFieldName(fld.getName());
+        inheritedFldDescr.setResource(typeDescr.getResource());
+        PatternDescr fldType = new PatternDescr();
         fldType.setObjectType( ( (FieldDefinition) fld ).getTypeName() );
-        inheritedFldDescr.setPattern(fldType);
+        inheritedFldDescr.setPattern(fldType); // also sets resource for PatternDescr fldType
         if (fld.isKey()) {
             AnnotationDescr keyAnnotation = new AnnotationDescr(Key.class.getCanonicalName());
             keyAnnotation.setFullyQualifiedName(Key.class.getCanonicalName());
+            keyAnnotation.setResource(typeDescr.getResource());
             inheritedFldDescr.addAnnotation(keyAnnotation);
         }
         inheritedFldDescr.setIndex(((FieldDefinition) fld).getDeclIndex());

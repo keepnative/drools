@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 
 
 package org.drools.compiler.factmodel.traits;
@@ -203,33 +218,22 @@ public class LegacyTraitTest {
 
     @Traitable
     @PropertyReactive
-    public static class BarImpl implements Foo {
+    public static class BarImpl implements Foo { }
 
-    }
+    public static interface Root { }
 
-
-
-
-    public static interface Root {
-
-    }
-
-    public static interface Trunk extends Root {
-
-    }
+    public static interface Trunk extends Root { }
 
     @PropertyReactive
     @Trait
-    public static interface Foo extends Trunk {
-
-    }
+    public static interface Foo extends Trunk { }
 
     @Test
     public void traitWithMixedInterfacesExtendingEachOther() {
         String source = "package org.drools.compiler.test;" +
-                        "import " + LegacyTraitTest.class.getName() + ".BarImpl; " +
-                        "import " + LegacyTraitTest.class.getName() + ".Foo; " +
-                        "import " + LegacyTraitTest.class.getName() + ".Trunk; " +
+                        "import " + BarImpl.class.getCanonicalName() + "; " +
+                        "import " + Foo.class.getCanonicalName() + "; " +
+                        "import " + Trunk.class.getCanonicalName() + "; " +
                         "global java.util.List list; " +
 
                         // We need to redeclare the interfaces as traits, the annotation on the original class is not enough here
@@ -241,9 +245,10 @@ public class LegacyTraitTest {
                         "  @propertyReactive " +
                         "end " +
 
-                        "rule 'Bar Don' " +
+                        "rule 'Bar Don'" +
                         "when " +
-                        "   $b : BarImpl( this isA Foo.class, this not isA Foo2.class ) " +
+                        "   $b : BarImpl( this isA Foo.class, this not isA Foo2.class )\n" +
+                        "   String()\n" +
                         "then " +
                         "   list.add( 3 ); " +
                         "   retract( $b ); " +
@@ -264,6 +269,7 @@ public class LegacyTraitTest {
                         "then " +
                         "   list.add( 2 ); " +
                         "   shed( $b, Foo.class ); " +
+                        "   insert( \"done\" );" +
                          "end " +
 
                         "";

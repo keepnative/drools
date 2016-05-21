@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import org.drools.core.marshalling.impl.ProtobufOutputMarshaller;
 import org.drools.core.marshalling.impl.TimersInputMarshaller;
 import org.drools.core.marshalling.impl.TimersOutputMarshaller;
 import org.drools.core.reteoo.LeftTuple;
+import org.drools.core.spi.Tuple;
 import org.drools.core.time.Job;
 import org.drools.core.time.JobContext;
 import org.drools.core.time.JobHandle;
@@ -47,36 +48,12 @@ public final class Scheduler {
     private Scheduler() {
     }
 
-    /**
-     * Schedule an agenda item.
-     * 
-     * @param item
-     *            The item to schedule.
-     * @param agenda
-     * @param wm
-     *            The working memory session.
-     */
-    public static void scheduleAgendaItem(final ScheduledAgendaItem item, InternalAgenda agenda, InternalWorkingMemory wm) {
-
-        Trigger trigger = item.getRule().getTimer().createTrigger( item, wm );
-        
-        ActivationTimerJob job = new ActivationTimerJob();
-        ActivationTimerJobContext ctx = new ActivationTimerJobContext( trigger, item, agenda );
-                
-        JobHandle jobHandle = ((InternalWorkingMemory)agenda.getWorkingMemory()).getTimerService().scheduleJob( job, ctx, trigger );
-        item.setJobHandle( jobHandle );
-    }
-    
-    public static void removeAgendaItem(final ScheduledAgendaItem item, final InternalAgenda agenda) {
-        ((InternalWorkingMemory)agenda.getWorkingMemory()).getTimerService().removeJob( item.getJobHandle() );
-    }
-    
     public static class ActivationTimerJob<T extends ModedAssertion<T>> implements Job {
         public void execute(JobContext ctx) {
             InternalAgenda agenda = ( InternalAgenda ) ((ActivationTimerJobContext)ctx).getAgenda();
             ScheduledAgendaItem item  = ((ActivationTimerJobContext)ctx).getScheduledAgendaItem();
 
-            boolean wasFired = agenda.fireTimedActivation( item, false );
+            boolean wasFired = agenda.fireTimedActivation( item );
 
             if ( ((ActivationTimerJobContext)ctx).getTrigger().hasNextFireTime() == null ) {
 
@@ -107,29 +84,22 @@ public final class Scheduler {
 
             LeftTuple postponedTuple;
             if ( item.getTuple().getParent() != null ) {
-                LeftTuple lt = item.getTuple();
+                LeftTuple lt = (LeftTuple) item.getTuple();
                 if ( lt.getRightParent() != null ) {
-                    postponedTuple = item.getTerminalNode().createLeftTuple( item.getTuple().getLeftParent(), item.getTuple().getRightParent(), null, null, item.getTuple().getSink(), true );                  
+                    postponedTuple = item.getTerminalNode().createLeftTuple( lt.getLeftParent(), lt.getRightParent(), null, null, item.getTuple().getTupleSink(), true );
                 } else {
                     // eval nodes have no right parent
-                    postponedTuple = item.getTerminalNode().createLeftTuple( item.getTuple().getParent(), item.getTuple().getSink(), item.getTuple().getPropagationContext(), true);
+                    postponedTuple = item.getTerminalNode().createLeftTuple( lt.getParent(), item.getTuple().getTupleSink(), item.getTuple().getPropagationContext(), true);
                 }
-//              
-//                postponedTuple = item.getRuleTerminalNode().createLeftTuple( item.getTuple().getParent(), item.getTuple().getSink(), false );
-//
-//                item.getTuple().getLeftParent().setLastChild( postponedTuple );
-//                item.getTuple().getRightParent().getFactHandle().addLastLeftTuple( postponedTuple );
-
             } else {
-                postponedTuple = item.getTerminalNode().createLeftTuple( item.getTuple().getHandle(), item.getTuple().getSink(), true );
-//                item.getTuple().getHandle().addLastLeftTuple( postponedTuple );
+                postponedTuple = item.getTerminalNode().createLeftTuple( item.getTuple().getFactHandle(), item.getTuple().getTupleSink(), true );
             }
 
-            ((InternalAgenda) agenda).createPostponedActivation( postponedTuple,
-                                                                item.getPropagationContext(),
-                                                                (InternalWorkingMemory) agenda.getWorkingMemory(),
-                                                                item.getTerminalNode() );
-            agenda.addActivation( (AgendaItem) postponedTuple.getObject() );
+            agenda.createPostponedActivation( postponedTuple,
+                                              item.getPropagationContext(),
+                                              agenda.getWorkingMemory(),
+                                              item.getTerminalNode() );
+            agenda.addActivation( (AgendaItem) postponedTuple.getContextObject() );
             
         }
     }
@@ -178,7 +148,12 @@ public final class Scheduler {
 
         public void setTrigger(Trigger trigger) {
             this.trigger = trigger;
-        }               
+        }
+
+        @Override
+        public InternalWorkingMemory getWorkingMemory() {
+            return ((InternalAgenda)agenda).getWorkingMemory();
+        }
     }
     
     
@@ -204,7 +179,7 @@ public final class Scheduler {
                                 Timer _timer) throws ClassNotFoundException {
             ActivationTimer _activation = _timer.getActivation();
 
-            LeftTuple leftTuple = inCtx.filter.getTuplesCache().get( PersisterHelper.createActivationKey( _activation.getActivation().getPackageName(), 
+            Tuple leftTuple = inCtx.filter.getTuplesCache().get( PersisterHelper.createActivationKey( _activation.getActivation().getPackageName(),
                                                                                                           _activation.getActivation().getRuleName(), 
                                                                                                           _activation.getActivation().getTuple() ) );
             if (leftTuple == null) {
@@ -212,16 +187,13 @@ public final class Scheduler {
                 return;
             }
 
-            ScheduledAgendaItem item = (ScheduledAgendaItem) leftTuple.getObject();
+            ScheduledAgendaItem item = (ScheduledAgendaItem) leftTuple.getContextObject();
             
             Trigger trigger = ProtobufInputMarshaller.readTrigger( inCtx,
                                                                    _activation.getTrigger() );
 
-            InternalAgenda agenda = ( InternalAgenda ) inCtx.wm.getAgenda();
-            ActivationTimerJob job = new ActivationTimerJob();
-            ActivationTimerJobContext ctx = new ActivationTimerJobContext( trigger, item, agenda );
-                    
-            JobHandle jobHandle = ((InternalWorkingMemory)agenda.getWorkingMemory()).getTimerService().scheduleJob( job, ctx, trigger );
+            ActivationTimerJobContext ctx = new ActivationTimerJobContext( trigger, item, inCtx.wm.getAgenda() );
+            JobHandle jobHandle = inCtx.wm.getTimerService().scheduleJob( new ActivationTimerJob(), ctx, trigger );
             item.setJobHandle( jobHandle );            
         }
     }

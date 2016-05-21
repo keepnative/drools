@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kie.builder.impl;
 
 import org.drools.compiler.compiler.io.memory.MemoryFileSystem;
@@ -5,6 +20,7 @@ import org.drools.compiler.kproject.models.KieModuleModelImpl;
 import org.drools.core.util.IoUtils;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.KieFileSystem;
+import org.kie.api.io.ResourceType;
 import org.kie.internal.io.ResourceTypeImpl;
 import org.kie.api.io.Resource;
 import org.kie.api.io.ResourceConfiguration;
@@ -15,6 +31,7 @@ import java.util.Properties;
 
 import static org.drools.core.util.IoUtils.readBytesFromInputStream;
 
+import static org.drools.compiler.kie.builder.impl.KieBuilderImpl.JAVA_ROOT;
 import static org.drools.compiler.kie.builder.impl.KieBuilderImpl.RESOURCES_ROOT;
 
 public class KieFileSystemImpl
@@ -55,13 +72,14 @@ public class KieFileSystemImpl
         try {
             String target = resource.getTargetPath() != null ? resource.getTargetPath() : resource.getSourcePath();
             if( target != null ) {
-                write( RESOURCES_ROOT+target, readBytesFromInputStream(resource.getInputStream()) );
+                String prefix = resource.getResourceType() == ResourceType.JAVA ? JAVA_ROOT : RESOURCES_ROOT;
+                write( prefix + target, readBytesFromInputStream(resource.getInputStream()) );
                 ResourceConfiguration conf = resource.getConfiguration();
                 if( conf != null ) {
                     Properties prop = ResourceTypeImpl.toProperties(conf);
                     ByteArrayOutputStream buff = new ByteArrayOutputStream();
-                    prop.store( buff, "Configuration properties for resource: "+target );
-                    write( RESOURCES_ROOT+target+".properties", buff.toByteArray() );
+                    prop.store( buff, "Configuration properties for resource: " + target );
+                    write( prefix + target + ".properties", buff.toByteArray() );
                 }
                 return this;
             } else {

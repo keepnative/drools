@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,17 @@
 
 package org.drools.core.time;
 
+import org.drools.core.common.InternalWorkingMemory;
+
 import java.io.Serializable;
 
 public interface JobContext extends Serializable {
     /**
      * This method should only be called by the scheduler
      */    
-    public void setJobHandle(JobHandle jobHandle);
+    void setJobHandle(JobHandle jobHandle);
     
-    public JobHandle getJobHandle();
+    JobHandle getJobHandle();
+
+    InternalWorkingMemory getWorkingMemory();
 }

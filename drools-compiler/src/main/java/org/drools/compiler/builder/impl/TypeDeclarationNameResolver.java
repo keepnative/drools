@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
 
 import org.drools.compiler.compiler.PackageRegistry;
@@ -14,7 +29,6 @@ import org.drools.core.util.ClassUtils;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 public class TypeDeclarationNameResolver {
 
@@ -27,39 +41,36 @@ public class TypeDeclarationNameResolver {
 
 
     public void resolveTypes( Collection<? extends PackageDescr> packageDescrs,
-                              Collection<AbstractClassTypeDeclarationDescr> unsortedDescrs,
-                              List<TypeDefinition> unresolvedTypes,
-                              Map<String,AbstractClassTypeDeclarationDescr> unprocesseableDescrs ) {
-        ensureQualifiedNames( packageDescrs, unresolvedTypes, unprocesseableDescrs );
+                              List<TypeDefinition> unresolvedTypes ) {
+        ensureQualifiedNames( packageDescrs, unresolvedTypes );
     }
 
     protected void ensureQualifiedNames( Collection<? extends PackageDescr> packageDescrs,
-                                         List<TypeDefinition> unresolvedTypes,
-                                         Map<String,AbstractClassTypeDeclarationDescr> unprocesseableDescrs ) {
+                                         List<TypeDefinition> unresolvedTypes ) {
         for ( PackageDescr packageDescr : packageDescrs ) {
+            TypeResolver typeResolver = kbuilder.getPackageRegistry( packageDescr.getName() ).getTypeResolver();
             for ( AbstractClassTypeDeclarationDescr descr : packageDescr.getClassAndEnumDeclarationDescrs() ) {
                 ensureQualifiedDeclarationName( descr,
                                                 packageDescr,
-                                                kbuilder.getPackageRegistry( packageDescr.getName() ).getTypeResolver(),
+                                                typeResolver,
                                                 unresolvedTypes );
             }
         }
 
         for ( PackageDescr packageDescr : packageDescrs ) {
             for ( TypeDeclarationDescr declarationDescr : packageDescr.getTypeDeclarations() ) {
-                qualifyNames( declarationDescr, packageDescr, unresolvedTypes, unprocesseableDescrs );
+                qualifyNames( declarationDescr, packageDescr, unresolvedTypes );
                 discoverHierarchyForRedeclarations( declarationDescr, packageDescr );
             }
             for ( EnumDeclarationDescr enumDeclarationDescr : packageDescr.getEnumDeclarations() ) {
-                qualifyNames( enumDeclarationDescr, packageDescr, unresolvedTypes, unprocesseableDescrs );
+                qualifyNames( enumDeclarationDescr, packageDescr, unresolvedTypes );
             }
         }
     }
 
     private void qualifyNames( AbstractClassTypeDeclarationDescr declarationDescr,
                                PackageDescr packageDescr,
-                               List<TypeDefinition> unresolvedTypes,
-                               Map<String,AbstractClassTypeDeclarationDescr> unprocesseableDescrs ) {
+                               List<TypeDefinition> unresolvedTypes ) {
         ensureQualifiedSuperType( declarationDescr,
                                   packageDescr,
                                   kbuilder.getPackageRegistry( packageDescr.getName() ).getTypeResolver(),
@@ -72,9 +83,9 @@ public class TypeDeclarationNameResolver {
 
     private void discoverHierarchyForRedeclarations( TypeDeclarationDescr typeDescr, PackageDescr packageDescr ) {
         PackageRegistry pkReg = kbuilder.getPackageRegistry( packageDescr.getName() );
-        if ( ! TypeDeclarationUtils.isNovelClass( typeDescr, pkReg ) ) {
-            Class typeClass = TypeDeclarationUtils.getExistingDeclarationClass( typeDescr, pkReg );
-            if ( typeClass != null && typeDescr.isTrait() ) {
+        Class typeClass = TypeDeclarationUtils.getExistingDeclarationClass( typeDescr, pkReg );
+        if ( typeClass != null ) {
+            if ( typeDescr.isTrait() ) {
                 fillStaticInterfaces( typeDescr, typeClass );
             } else {
                 typeDescr.getSuperTypes().clear();
@@ -82,6 +93,10 @@ public class TypeDeclarationNameResolver {
                                         Object.class.getName() :
                                         typeClass.getSuperclass().getName() );
             }
+        } else {
+            // avoid to cache in the type resolver that this class doesn't exist
+            // since we may still look for it in the wrong package
+            pkReg.getTypeResolver().registerClass( typeDescr.getFullTypeName(), null );
         }
     }
 
@@ -89,16 +104,16 @@ public class TypeDeclarationNameResolver {
                                                  PackageDescr packageDescr,
                                                  TypeResolver typeResolver,
                                                  List<TypeDefinition> unresolvedTypes ) {
-        if ( ! declarationDescr.getType().isFullyQualified() ) {
-            String resolved = resolveName( declarationDescr.getType().getFullName(),
+        String resolvedName = resolveName( declarationDescr.getType().getFullName(),
                                            declarationDescr,
                                            packageDescr,
                                            typeResolver,
                                            unresolvedTypes,
                                            false );
 
-            if ( resolved != null && ! alreadyDefinedInPackage( resolved, declarationDescr, packageDescr ) ) {
-                declarationDescr.setTypeName( resolved );
+        if ( !declarationDescr.getType().getFullName().equals( resolvedName ) || !declarationDescr.getType().isFullyQualified() ) {
+            if ( resolvedName != null && ! alreadyDefinedInPackage( resolvedName, declarationDescr, packageDescr ) ) {
+                declarationDescr.setTypeName( resolvedName );
             } else {
                 // fall back to declaring package name - this should actually be the default in general
                 declarationDescr.setNamespace( packageDescr.getNamespace() );
@@ -206,7 +221,7 @@ public class TypeDeclarationNameResolver {
 
 
     private void fillStaticInterfaces( TypeDeclarationDescr typeDescr, Class<?> typeClass ) {
-        for ( Class iKlass : ClassUtils.getAllImplementedInterfaceNames( typeClass ) ) {
+        for ( Class iKlass : ClassUtils.getMinimalImplementedInterfaceNames( typeClass ) ) {
             typeDescr.addSuperType( iKlass.getName() );
         }
 

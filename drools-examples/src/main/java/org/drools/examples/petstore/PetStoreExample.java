@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,19 +50,19 @@ import org.kie.api.runtime.KieSession;
 public class PetStoreExample {
 
     public static void main(String[] args) {
-        new PetStoreExample().init(true);
+        // KieServices is the factory for all KIE services
+        KieServices ks = KieServices.Factory.get();
+
+        // From the kie services, a container is created from the classpath
+        KieContainer kc = ks.getKieClasspathContainer();
+
+        new PetStoreExample().init(kc, true);
     }
 
     public PetStoreExample() {
     }
 
-    public void init(boolean exitOnClose) {
-        // KieServices is the factory for all KIE services 
-        KieServices ks = KieServices.Factory.get();
-        
-        // From the kie services, a container is created from the classpath
-        KieContainer kc = ks.getKieClasspathContainer();
-        
+    public void init(KieContainer kc, boolean exitOnClose) {
         //RuleB
         Vector<Product> stock = new Vector<Product>();
         stock.add( new Product( "Gold Fish",

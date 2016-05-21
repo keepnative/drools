@@ -25,10 +25,13 @@ import org.drools.core.common.EqualityKey;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.NamedEntryPoint;
 import org.drools.core.common.TruthMaintenanceSystem;
+import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.util.Iterator;
 import org.drools.core.util.ObjectHashMap;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.KieBaseConfiguration;
+import org.kie.api.conf.EqualityBehaviorOption;
 import org.kie.api.definition.type.FactType;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSessionConfiguration;
@@ -54,14 +57,23 @@ public class DefeasibilityTest {
 
     protected StatefulKnowledgeSession getSessionFromString( String drlString) {
         KnowledgeBuilder kBuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kBuilder.add( ResourceFactory.newByteArrayResource(drlString.getBytes()),
-                      ResourceType.DRL );
-        if ( kBuilder.hasErrors() ) {
-            System.err.println( kBuilder.getErrors() );
-            fail();
+
+        try {
+            System.setProperty("drools.negatable", "on");
+            kBuilder.add(ResourceFactory.newByteArrayResource(drlString.getBytes()),
+                         ResourceType.DRL);
+            if (kBuilder.hasErrors()) {
+                System.err.println(kBuilder.getErrors());
+                fail();
+            }
+        } finally {
+            System.setProperty("drools.negatable", "off");
         }
 
-        KnowledgeBase kBase = KnowledgeBaseFactory.newKnowledgeBase( );
+        KieBaseConfiguration kieBaseConfiguration = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieBaseConfiguration.setOption( EqualityBehaviorOption.EQUALITY );
+
+        KnowledgeBase kBase = KnowledgeBaseFactory.newKnowledgeBase( kieBaseConfiguration );
         kBase.addKnowledgePackages( kBuilder.getKnowledgePackages() );
 
         KieSessionConfiguration ksConf = KnowledgeBaseFactory.newKnowledgeSessionConfiguration();
@@ -74,11 +86,17 @@ public class DefeasibilityTest {
 
     protected StatefulKnowledgeSession getSession( String ruleFile ) {
         KnowledgeBuilder kBuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kBuilder.add( ResourceFactory.newClassPathResource( ruleFile ),
-                ResourceType.DRL );
-        if ( kBuilder.hasErrors() ) {
-            System.err.println( kBuilder.getErrors() );
-            fail();
+
+        try {
+            System.setProperty("drools.negatable", "on");
+            kBuilder.add(ResourceFactory.newClassPathResource(ruleFile),
+                         ResourceType.DRL);
+            if (kBuilder.hasErrors()) {
+                System.err.println(kBuilder.getErrors());
+                fail();
+            }
+        } finally {
+            System.setProperty("drools.negatable", "off");
         }
 
         KnowledgeBase kBase = KnowledgeBaseFactory.newKnowledgeBase();
@@ -98,11 +116,6 @@ public class DefeasibilityTest {
         BeliefSet set = key.getBeliefSet();
         assertTrue( set instanceof DefeasibleBeliefSet );
         DefeasibleBeliefSet dfs = ( DefeasibleBeliefSet ) set;
-//        LinkedListNode n = dfs.getFirst();
-//        do {
-//            System.out.println( n );
-//            n = (LinkedListNode) n.getNext();
-//        } while ( n != null );
 
         assertEquals( support, dfs.size() );
         assertEquals( status, dfs.getStatus() );
@@ -110,12 +123,10 @@ public class DefeasibilityTest {
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testStrictEntailment() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/strict.drl" );
         kSession.fireAllRules();
-
-//        TruthMaintenanceSystem tms = ( (StatefulKnowledgeSessionImpl) kSession ).session.getTruthMaintenanceSystem();
 
         TruthMaintenanceSystem tms = ((NamedEntryPoint) kSession.getEntryPoint( "DEFAULT" )).getTruthMaintenanceSystem();
         FactType Ctype = kSession.getKieBase().getFactType( "org.drools.defeasible", "C" );
@@ -143,7 +154,7 @@ public class DefeasibilityTest {
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testDefeasibleEntailmentWithStrictOverride() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/strictOverride.drl" );
         kSession.fireAllRules();
@@ -169,16 +180,13 @@ public class DefeasibilityTest {
             }
         }
 
-        for ( Object o : kSession.getObjects() ) {
-            System.out.println( o );
-        }
         assertEquals( 5, kSession.getObjects().size() );
 
     }
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void defeasibleEntailmentMultiActivation() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeat.drl" );
         kSession.fireAllRules();
@@ -201,75 +209,10 @@ public class DefeasibilityTest {
             }
         }
 
-        for ( Object o : kSession.getObjects() ) {
-            System.out.println( o );
-        }
         assertEquals( 3, kSession.getObjects().size() );
     }
 
-
-
-
-
-    @Test
-    public void testDefeasibleEntailmentMultiActivationWithDefeatComposite() {
-        StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeatDefeater.drl" );
-        ArrayList list = new ArrayList();
-        kSession.setGlobal( "list", list );
-        kSession.fireAllRules();
-
-        TruthMaintenanceSystem tms = ((NamedEntryPoint) kSession.getEntryPoint( "DEFAULT" )).getTruthMaintenanceSystem();
-        FactType Xtype = kSession.getKieBase().getFactType( "org.drools.defeasible", "X" );
-
-
-        ObjectHashMap keys = tms.getEqualityKeyMap();
-        Iterator iter = keys.iterator();
-        ObjectHashMap.ObjectEntry entry;
-        while ( ( entry = ( ObjectHashMap.ObjectEntry) iter.next() ) != null ) {
-            EqualityKey key = (EqualityKey) entry.getValue();
-
-            Class factClass = key.getFactHandle().getObject().getClass();
-            if ( factClass == Xtype.getFactClass() ) {
-                checkStatus( key, 1, DefeasibilityStatus.DEFEATEDLY );
-            } else {
-                fail( "Unrecognized object has been logically justified : " + factClass );
-            }
-        }
-
-
-        for ( Object o : kSession.getObjects() ) {
-            System.out.println( o );
-        }
-        assertEquals( 4, kSession.getObjects().size() );
-        assertEquals( 1, list.size() );
-        assertTrue( list.contains( "Stage1" ) );
-
-
-
-        kSession.insert( "go" );
-        kSession.fireAllRules();
-
-        keys = tms.getEqualityKeyMap();
-        iter = keys.iterator();
-        while ( ( entry = ( ObjectHashMap.ObjectEntry) iter.next() ) != null ) {
-            EqualityKey key = (EqualityKey) entry.getValue();
-
-            Class factClass = key.getFactHandle().getObject().getClass();
-            if ( factClass == Xtype.getFactClass() ) {
-                checkStatus( key, 3, DefeasibilityStatus.DEFEASIBLY );
-            } else {
-                fail( "Unrecognized object has been logically justified : " + factClass );
-            }
-        }
-
-        assertEquals( 3, list.size() );
-        assertTrue( list.contains( "Stage1" ) );
-        assertTrue( list.contains( "Stage2" ) );
-
-    }
-
-
-    @Test
+    @Test(timeout = 10000 )
     public void testDefeaterNeutrality() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeaterOnly.drl" );
         ArrayList list = new ArrayList();
@@ -301,7 +244,7 @@ public class DefeasibilityTest {
     }
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testMultipleDefeats() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/multiDefeat.drl" );
         kSession.fireAllRules();
@@ -334,7 +277,7 @@ public class DefeasibilityTest {
     }
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testRemoveDefiniteJustifier() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/strictRetract.drl" );
 
@@ -379,7 +322,7 @@ public class DefeasibilityTest {
 
     }
 
-    @Test
+    @Test(timeout = 10000 )
     public void testRemoveDefeasibleJustifier() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeaterRetract.drl" );
 
@@ -426,7 +369,7 @@ public class DefeasibilityTest {
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testRemoveDefeasibleEntailmentMultiActivationWithDefeat() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeatDefeaterRetract.drl" );
         ArrayList list = new ArrayList();
@@ -453,7 +396,11 @@ public class DefeasibilityTest {
 
         assertEquals( 1, list.size() );
         assertTrue( list.contains( "Stage1" ) );
-        assertEquals( 4, kSession.getObjects().size() );
+        assertEquals( 3, kSession.getObjects().size() );
+
+        for ( Object o : kSession.getObjects() ) {
+            System.out.println( o );
+        }
 
         FactHandle h = kSession.insert( "go" );
         kSession.fireAllRules();
@@ -471,8 +418,23 @@ public class DefeasibilityTest {
             }
         }
 
+        for ( Object o : kSession.getObjects() ) {
+            System.out.println( o );
+        }
+
+        assertEquals( 5, kSession.getObjects().size() ); // A, A, B, X, GO
+        assertEquals( 3, list.size() );
+        assertTrue( list.contains( "Stage1" ) );
+        assertTrue( list.contains( "Stage2" ) );
+
         kSession.retract( h );
         kSession.fireAllRules();
+
+        for ( Object o : kSession.getObjects() ) {
+            System.out.println( o );
+        }
+
+        assertEquals( 3, kSession.getObjects().size() ); // A, A, B, X, GO
 
         keys = tms.getEqualityKeyMap();
         iter = keys.iterator();
@@ -486,17 +448,11 @@ public class DefeasibilityTest {
                 fail( "Unrecognized object has been logically justified : " + factClass );
             }
         }
-
-
-//        checkDefeasibilityByHandleId(4, DEFEASIBILITY_STATUS.DEFEATEDLY, 3, 1, tms);
-
-
-
     }
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testDefeaterPositiveVsNegative() {
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/defeatersPosNeg.drl" );
         ArrayList list = new ArrayList();
@@ -537,22 +493,18 @@ public class DefeasibilityTest {
             }
         }
 
-        for ( Object o : kSession.getObjects() ) {
-            System.out.println( o );
-        }
-        System.err.println( list );
-
         assertEquals( 1, list.size() );
         assertTrue( list.contains( -44 ) );
         assertTrue( ! list.contains( -35 ) );
-        assertEquals( 4, kSession.getFactCount() );
+        assertEquals( 2, kSession.getFactCount() );
+        assertEquals( 1, getNegativeObjects(kSession).size() );
     }
 
 
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testDefeatOutcomePosNeg() {
 
         StatefulKnowledgeSession kSession = getSession( "org/drools/compiler/beliefsystem/defeasible/negDefeatPos.drl" );
@@ -577,17 +529,15 @@ public class DefeasibilityTest {
             }
         }
 
-        for ( Object o : kSession.getObjects() ) {
-            System.out.println( o );
-        }
         assertEquals( 2, kSession.getObjects().size() );
+        assertEquals( 1, getNegativeObjects(kSession).size() );
         assertEquals( 1, list.size() );
         assertTrue( list.contains( "-1" ) );
 
     }
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testPrimeJustificationWithEqualityMode() {
         String droolsSource =
                 "package org.drools.tms.test; \n" +
@@ -617,8 +567,6 @@ public class DefeasibilityTest {
                 " System.out.println( $b );  \n" +
                 "end \n" ;
 
-        /////////////////////////////////////
-
         StatefulKnowledgeSession session = getSessionFromString( droolsSource );
 
         FactHandle handle1 = session.insert( 10 );
@@ -632,7 +580,7 @@ public class DefeasibilityTest {
 
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testWMStatusOnNegativeDefeat() {
         String droolsSource =
                 "package org.drools.tms.test; " +
@@ -640,8 +588,6 @@ public class DefeasibilityTest {
                 "global java.util.List negList;" +
 
                 "declare Bar value : int @key end " +
-
-                "declare entry-point 'neg' end " +
 
                 "rule Top " +
                 "@Defeasible " +
@@ -679,15 +625,13 @@ public class DefeasibilityTest {
 
                 "rule React_Neg " +
                 "when " +
-                "   $b : Bar() from entry-point 'neg' " +
+                "   $b : Bar( _.neg )" +
                 "then " +
                 "   negList.add( $b ); " +
                 "   System.out.println( ' ---- ' + $b ); " +
                 "end " +
 
                 "";
-
-        /////////////////////////////////////
 
         StatefulKnowledgeSession session = getSessionFromString( droolsSource );
         List posList = new ArrayList();
@@ -708,32 +652,35 @@ public class DefeasibilityTest {
         DefeasibleBeliefSet dbs = (DefeasibleBeliefSet) posHandle.getEqualityKey().getBeliefSet();
         assertEquals( 1, dbs.size() );
         assertFalse( dbs.isNegated() );
-        assertFalse( dbs.isUndecided() );
+        assertTrue( dbs.isDecided() );
         assertTrue( dbs.isPositive() );
-        assertSame( posHandle, dbs.getPositiveFactHandle() );
-        assertNull( dbs.getNegativeFactHandle() );
-        assertTrue(  dbs.isDefeasiblyPosProveable() );
+
+        assertSame( posHandle, dbs.getFactHandle() );
+        assertFalse(posHandle.isNegated());
+        assertTrue(  dbs.isDefeasiblyPosProveable());
         assertTrue( session.getObjects().contains( posBar ) );
 
         Object negBar = negList.get( 0 );
-        InternalFactHandle negHandle = (InternalFactHandle) session.getEntryPoint( "neg" ).getFactHandle( negBar );
+
+        InternalFactHandle negHandle = (InternalFactHandle) getNegativeHandles(session).get(0);
         dbs = (DefeasibleBeliefSet) negHandle.getEqualityKey().getBeliefSet();
         assertEquals( 1, dbs.size() );
         assertFalse( dbs.isPositive() );
-        assertFalse( dbs.isUndecided() );
+        assertTrue( dbs.isDecided() );
         assertTrue( dbs.isNegated() );
-        assertSame( negHandle, dbs.getNegativeFactHandle() );
-        assertNull( dbs.getPositiveFactHandle() );
+
+        assertSame( negHandle, dbs.getFactHandle() );
+        assertTrue( negHandle.isNegated());
+
         assertTrue(  dbs.isDefeasiblyNegProveable() );
-        assertFalse( session.getObjects().contains( negBar ) );
+        assertTrue( session.getObjects().contains( negBar ) );
 
     }
 
 
 
 
-    @Test( timeout = 10000)
-    @Ignore
+    @Test
     public void testSelfDefeatWithRebuttal() {
         String droolsSource =
                 "package org.drools.tms.test; " +
@@ -742,19 +689,13 @@ public class DefeasibilityTest {
 
                 "declare Bar value : int @key end " +
 
-                "declare entry-point 'neg' end " +
-
-                "query bar( Integer $i, Bar $b ) " +
-                "   $b := Bar( $i ; ) " +
-                "end " +
-
                 "rule Create " +
                 "@Defeasible " +
                 "when " +
                 "   $i : Integer() " +
                 "then " +
                 "   System.out.println( 'Create Bar ' + $i ); " +
-                "   insertLogical( new Bar( $i ) ); " +
+                "   bolster( new Bar( $i ) ); " +
                 "end " +
 
                 "rule Defeater " +
@@ -766,10 +707,11 @@ public class DefeasibilityTest {
                 "   $b2 : Bar( $val2 : value > $val1, value - $val1 < 15 ) " +
                 "then " +
                 "   System.out.println( $b2 + ' defeats ' + $b1 ); " +
-                "   insertLogical( new Bar( $val1 ), 'neg' ); " +
+                "   bolster( new Bar( $val1 ), 'neg' ); " +
                 "end " +
 
                 "rule ReactP " +
+                "salience 100 " +
                 "when " +
                 "   $b : Bar() " +
                 "then " +
@@ -778,14 +720,13 @@ public class DefeasibilityTest {
                 "end " +
 
                 "rule ReactN " +
+                "salience 100 " +
                 "when " +
-                "   $b : Bar() from entry-point 'neg' " +
+                "   $b : Bar( _.neg )  " +
                 "then " +
                 "   negList.add( $b ); " +
                 "   System.out.println( ' ---- ' + $b ); " +
                 "end " ;
-
-        /////////////////////////////////////
 
         StatefulKnowledgeSession session = getSessionFromString( droolsSource );
         List posList = new ArrayList();
@@ -838,8 +779,6 @@ public class DefeasibilityTest {
                 "   System.out.println( ' ++++ ' + $b ); " +
                 "end " ;
 
-        /////////////////////////////////////
-
         StatefulKnowledgeSession session = getSessionFromString( droolsSource );
         List posList = new ArrayList();
         session.setGlobal( "posList", posList );
@@ -851,7 +790,7 @@ public class DefeasibilityTest {
     }
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testManyDefeasibles() {
         String drl = "package org.drools.defeasible; " +
                      "declare Fact " +
@@ -912,7 +851,7 @@ public class DefeasibilityTest {
     }
 
 
-    @Test
+    @Test(timeout = 10000 )
     public void testRetractNegativeDefeaters() {
 
         String drl = "declare Foo end " +
@@ -935,6 +874,25 @@ public class DefeasibilityTest {
 
         session.fireAllRules();
         assertEquals( 0, session.getObjects().size() );
+    }
+
+
+    public List getNegativeObjects(StatefulKnowledgeSession kSession) {
+        List list = new ArrayList();
+        java.util.Iterator it = ((StatefulKnowledgeSessionImpl) kSession).getObjectStore().iterateNegObjects(null);
+        while ( it.hasNext() ) {
+            list.add(  it.next() );
+        }
+        return list;
+    }
+
+    public List getNegativeHandles(StatefulKnowledgeSession kSession) {
+        List list = new ArrayList();
+        java.util.Iterator it = ((StatefulKnowledgeSessionImpl) kSession).getObjectStore().iterateNegFactHandles(null);
+        while ( it.hasNext() ) {
+            list.add(  it.next() );
+        }
+        return list;
     }
 
 

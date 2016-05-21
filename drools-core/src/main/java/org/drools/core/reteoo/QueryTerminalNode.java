@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package org.drools.core.reteoo;
 
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.UpdateContext;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.Declaration;
@@ -50,8 +49,9 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
     /** The rule to invoke upon match. */
     protected QueryImpl query;
     private GroupElement      subrule;
-    private int               subruleIndex;    
-    private Declaration[]     declarations;
+    private int               subruleIndex;
+    private Declaration[]     allDeclarations;
+    private Declaration[]     requiredDeclarations;
 
     private LeftTupleSinkNode previousTupleSinkNode;
     private LeftTupleSinkNode nextTupleSinkNode;
@@ -82,13 +82,17 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
         super( id,
                context.getPartitionId(),
                context.getKnowledgeBase().getConfiguration().isMultithreadEvaluation(),
-               source );
+               source,
+               context);
         this.query = (QueryImpl) rule;
         this.subrule = subrule;
         this.subruleIndex = subruleIndex;
         
         initDeclaredMask(context);        
-        initInferredMask();        
+        initInferredMask();
+        initDeclarations();
+
+        hashcode = calculateHashCode();
     }
 
     // ------------------------------------------------------------
@@ -99,7 +103,8 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
         super.readExternal( in );
         query = (QueryImpl) in.readObject();
         subrule = (GroupElement) in.readObject();
-        subruleIndex = in.readInt();        
+        subruleIndex = in.readInt();
+        initDeclarations();
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -117,32 +122,25 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
         return this.query;
     }
 
+    private int calculateHashCode() {
+        return this.query.hashCode();
+    }
 
+    @Override
+    public boolean equals(final Object object) {
+        return this == object || internalEquals( (Rete) object );
+    }
+
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof QueryTerminalNode) || this.hashCode() != object.hashCode() ) {
+            return false;
+        }
+        return query.equals(((QueryTerminalNode) object).query);
+    }
 
     public String toString() {
         return "[QueryTerminalNode(" + this.getId() + "): query=" + this.query.getName() + "]";
-    }
-
-
-    public void networkUpdated(UpdateContext updateContext) {
-        getLeftTupleSource().networkUpdated(updateContext);
-    }
-
-    public boolean isInUse() {
-        return false;
-    }
-
-    public void updateNewNode(final InternalWorkingMemory workingMemory,
-                              final PropagationContext context) {
-        // There are no child nodes to update, do nothing.
-    }
-
-    public boolean isLeftTupleMemoryEnabled() {
-        return false;
-    }
-
-    public void setLeftTupleMemoryEnabled(boolean tupleMemoryEnabled) {
-        // do nothing, this can only ever be false
     }
 
     /**
@@ -155,18 +153,25 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
     @Override
     public boolean isFireDirect() {
         return false;
-    }    
-    
-    public Declaration[] getDeclarations() {     
-        if ( declarations == null ) {
-            declarations = new Declaration[ query.getParameters().length ];
-            Map<String, Declaration> declMap = subrule.getOuterDeclarations();
-            int i = 0;
-            for ( Declaration declr : query.getParameters() ) {
-                declarations[i++] =  declMap.get( declr.getIdentifier() );
-            }
+    }
+
+    public Declaration[] getAllDeclarations() {
+        return this.allDeclarations;
+    }
+
+    public Declaration[] getRequiredDeclarations() {
+        return this.requiredDeclarations;
+    }
+
+    private void initDeclarations() {
+        Map<String, Declaration> declMap = subrule.getOuterDeclarations();
+        this.allDeclarations = declMap.values().toArray( new Declaration[declMap.size()] );
+
+        this.requiredDeclarations = new Declaration[ query.getParameters().length ];
+        int i = 0;
+        for ( Declaration declr : query.getParameters() ) {
+            this.requiredDeclarations[i++] =  declMap.get( declr.getIdentifier() );
         }
-        return declarations;
     }
     
     public int getSubruleIndex() {
@@ -214,19 +219,19 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
     }
 
     public LeftTuple createLeftTuple(InternalFactHandle factHandle,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple(factHandle, sink, leftTupleMemoryEnabled );
     }
 
     public LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                                      final LeftTuple leftTuple,
-                                     final LeftTupleSink sink) {
+                                     final Sink sink) {
         return new RuleTerminalNodeLeftTuple(factHandle,leftTuple, sink );
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      PropagationContext pctx,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple(leftTuple,sink, pctx, leftTupleMemoryEnabled );
@@ -234,7 +239,7 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
                                      RightTuple rightTuple,
-                                     LeftTupleSink sink) {
+                                     Sink sink) {
         return new RuleTerminalNodeLeftTuple(leftTuple, rightTuple, sink );
     }   
     
@@ -242,7 +247,7 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
                                      RightTuple rightTuple,
                                      LeftTuple currentLeftChild,
                                      LeftTuple currentRightChild,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple(leftTuple, rightTuple, currentLeftChild, currentRightChild, sink, leftTupleMemoryEnabled );        
     }    
@@ -287,5 +292,6 @@ public class QueryTerminalNode extends AbstractTerminalNode implements LeftTuple
 
     public void attach( BuildContext context ) {
         getLeftTupleSource().addTupleSink( this, context );
+        addAssociation( context.getRule() );
     }
 }

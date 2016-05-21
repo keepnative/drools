@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,15 @@
 
 package org.drools.core.base;
 
+import org.drools.core.common.DroolsObjectInput;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.util.ClassUtils;
 import org.drools.core.util.MathUtils;
 
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -28,7 +33,8 @@ import java.math.BigInteger;
  */
 abstract public class BaseClassFieldReader
     implements
-    org.drools.core.spi.InternalReadAccessor {
+    org.drools.core.spi.InternalReadAccessor,
+    Externalizable {
 
     private int        index;
 
@@ -42,10 +48,6 @@ abstract public class BaseClassFieldReader
 
     /**
      * This constructor is not supposed to be used from outside the class hirarchy
-     *
-     * @param index
-     * @param fieldType
-     * @param valueType
      */
     protected BaseClassFieldReader(final int index,
                                    final Class< ? > fieldType,
@@ -188,4 +190,24 @@ abstract public class BaseClassFieldReader
                             object );
     }
 
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeInt( index );
+        out.writeObject( valueType );
+        out.writeUTF( fieldType.getName() );
+    }
+
+    public void readExternal(ObjectInput in) throws IOException,
+                                                    ClassNotFoundException {
+        index = in.readInt();
+        valueType = (ValueType) in.readObject();
+        String clsName = in.readUTF();
+
+        try {
+            fieldType = in instanceof DroolsObjectInput ?
+                        ClassUtils.getClassFromName( clsName, false, ( (DroolsObjectInput) in ).getClassLoader() ) :
+                        ClassUtils.getClassFromName( clsName );
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException( e );
+        }
+    }
 }

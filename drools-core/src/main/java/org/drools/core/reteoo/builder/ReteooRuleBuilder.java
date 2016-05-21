@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,7 @@ import org.drools.core.common.UpdateContext;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.phreak.AddRemoveRule;
-import org.drools.core.reteoo.ReteooBuilder;
-import org.drools.core.reteoo.RuleBuilder;
-import org.drools.core.reteoo.TerminalNode;
-import org.drools.core.reteoo.WindowNode;
+import org.drools.core.reteoo.*;
 import org.drools.core.rule.Collect;
 import org.drools.core.rule.ConditionalBranch;
 import org.drools.core.rule.EntryPointId;
@@ -42,6 +39,7 @@ import org.drools.core.rule.QueryElement;
 import org.drools.core.rule.SingleAccumulate;
 import org.drools.core.rule.WindowDeclaration;
 import org.drools.core.rule.WindowReference;
+import org.drools.core.rule.constraint.XpathConstraint;
 import org.drools.core.time.TemporalDependencyMatrix;
 import org.drools.core.time.impl.Timer;
 import org.kie.api.conf.EventProcessingOption;
@@ -84,6 +82,8 @@ public class ReteooRuleBuilder implements RuleBuilder {
                                new NamedConsequenceBuilder() );
         this.utils.addBuilder( ConditionalBranch.class,
                                new ConditionalBranchBuilder() );
+        this.utils.addBuilder( XpathConstraint.class,
+                               new ReactiveFromBuilder() );
     }
 
     /**
@@ -162,6 +162,11 @@ public class ReteooRuleBuilder implements RuleBuilder {
                        this.utils,
                        subrule );
 
+        if (context.isTerminated()) {
+            context.setTerminated(false);
+            return ((TerminalNode) context.getLastNode());
+        }
+
         if  ( context.getKnowledgeBase().getConfiguration().isPhreakEnabled() && rule.getTimer() != null ) {
             builder = this.utils.getBuilderFor( Timer.class );
             builder.build( context, this.utils, rule.getTimer() );
@@ -178,6 +183,9 @@ public class ReteooRuleBuilder implements RuleBuilder {
         BaseNode baseTerminalNode = (BaseNode) terminal;
         baseTerminalNode.networkUpdated(new UpdateContext());
         baseTerminalNode.attach(context);
+
+        setPathEndNodes(context);
+
         if ( context.getKnowledgeBase().getConfiguration().isPhreakEnabled() ) {
             AddRemoveRule.addRule( terminal, context.getWorkingMemories(), context.getKnowledgeBase() );
         }
@@ -189,6 +197,16 @@ public class ReteooRuleBuilder implements RuleBuilder {
         //assignPartitionId(context);
 
         return terminal;
+    }
+
+    private void setPathEndNodes(BuildContext context) {
+        // Store the paths in reverse order, from the outermost (the main path) to the innermost subnetwork paths
+        PathEndNode[] pathEndNodes = context.getPathEndNodes().toArray(new PathEndNode[context.getPathEndNodes().size()]);
+        for ( int i = 0; i < pathEndNodes.length; i++ ) {
+            PathEndNode node = context.getPathEndNodes().get(pathEndNodes.length-1-i);
+            node.setPathEndNodes(pathEndNodes);
+            pathEndNodes[i] = node;
+        }
     }
 
     /**

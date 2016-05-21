@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,20 +82,25 @@ public class ActionCallMethod extends ActionSetField {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (!(o instanceof ActionCallMethod)) return false;
+        if (!super.equals(o)) return false;
 
         ActionCallMethod that = (ActionCallMethod) o;
 
         if (state != that.state) return false;
-        if (methodName != null ? !methodName.equals(that.methodName) : that.methodName != null) return false;
+        if (!methodName.equals(that.methodName)) return false;
 
         return true;
     }
 
     @Override
     public int hashCode() {
-        int result = state;
-        result = 31 * result + (methodName != null ? methodName.hashCode() : 0);
+        int result = super.hashCode();
+        result = ~~result;
+        result = 31 * result + state;
+        result = ~~result;
+        result = 31 * result + methodName.hashCode();
+        result = ~~result;
         return result;
     }
 }

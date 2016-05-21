@@ -1,14 +1,27 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.asm;
 
-import org.kie.api.runtime.rule.FactHandle;
+import org.drools.compiler.rule.builder.RuleBuildContext;
 import org.drools.core.WorkingMemory;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.RuleTerminalNode;
+import org.drools.core.reteoo.Sink;
 import org.drools.core.rule.Declaration;
-import org.drools.compiler.rule.builder.RuleBuildContext;
 import org.drools.core.rule.builder.dialect.asm.ClassGenerator;
 import org.drools.core.rule.builder.dialect.asm.GeneratorHelper;
 import org.drools.core.rule.builder.dialect.asm.InvokerDataProvider;
@@ -17,19 +30,12 @@ import org.drools.core.spi.CompiledInvoker;
 import org.drools.core.spi.Consequence;
 import org.drools.core.spi.KnowledgeHelper;
 import org.drools.core.spi.Tuple;
+import org.kie.api.runtime.rule.FactHandle;
 import org.mvel2.asm.MethodVisitor;
 
 import java.util.Map;
 
-import static org.mvel2.asm.Opcodes.AALOAD;
-import static org.mvel2.asm.Opcodes.ACC_PUBLIC;
-import static org.mvel2.asm.Opcodes.ALOAD;
-import static org.mvel2.asm.Opcodes.ARETURN;
-import static org.mvel2.asm.Opcodes.ASTORE;
-import static org.mvel2.asm.Opcodes.CHECKCAST;
-import static org.mvel2.asm.Opcodes.INVOKESTATIC;
-import static org.mvel2.asm.Opcodes.INVOKEVIRTUAL;
-import static org.mvel2.asm.Opcodes.RETURN;
+import static org.mvel2.asm.Opcodes.*;
 
 public class ASMConsequenceBuilder extends AbstractASMConsequenceBuilder {
 
@@ -53,13 +59,13 @@ public class ASMConsequenceBuilder extends AbstractASMConsequenceBuilder {
                 invokeInterface(KnowledgeHelper.class, "getTuple", Tuple.class);
                 mv.visitVarInsn(ASTORE, 3);
 
-                // Declaration[] declarations = ((RuleTerminalNode)knowledgeHelper.getMatch().getTuple().getLeftTupleSink()).getDeclarations();
+                // Declaration[] declarations = ((RuleTerminalNode)knowledgeHelper.getMatch().getTuple().getTupleSink()).getDeclarations();
                 mv.visitVarInsn(ALOAD, 1);
                 invokeInterface(KnowledgeHelper.class, "getMatch", Activation.class);
-                invokeInterface(Activation.class, "getTuple", LeftTuple.class);
-                invokeInterface(LeftTuple.class, "getLeftTupleSink", LeftTupleSink.class);
+                invokeInterface(Activation.class, "getTuple", Tuple.class);
+                invokeInterface(Tuple.class, "getTupleSink", Sink.class);
                 cast(RuleTerminalNode.class);
-                invokeVirtual(RuleTerminalNode.class, "getDeclarations", Declaration[].class);
+                invokeVirtual(RuleTerminalNode.class, "getRequiredDeclarations", Declaration[].class);
                 mv.visitVarInsn(ASTORE, 4);
 
                 final String[] globals = data.getGlobals();
@@ -73,22 +79,21 @@ public class ASMConsequenceBuilder extends AbstractASMConsequenceBuilder {
                     int objPos = ++offset;
                     paramsPos[i] = factPos;
 
-                    // InternalFactHandle fact[i] = tuple.get(declarations[i]);
+                    // Object obj[i] = tuple.get(declarations[i]);
                     mv.visitVarInsn(ALOAD, 3); // org.kie.spi.Tuple
                     mv.visitVarInsn(ALOAD, 4); // org.kie.rule.Declaration[]
                     push(i); // i
                     mv.visitInsn(AALOAD); // declarations[i]
-                    invokeInterface(Tuple.class, "get", InternalFactHandle.class, Declaration.class);
-                    mv.visitVarInsn(ASTORE, factPos); // fact[i]
+                    invokeInterface(Tuple.class, "getObject", Object.class, Declaration.class);
+                    mv.visitVarInsn(ASTORE, factPos); // obj[i]
 
-                    // declarations[i].getValue((org.kie.common.InternalWorkingMemory)workingMemory, fact[i].getObject() );
+                    // declarations[i].getValue((org.kie.common.InternalWorkingMemory)workingMemory, obj[i] );
                     mv.visitVarInsn(ALOAD, 4); // org.kie.rule.Declaration[]
                     push(i); // i
                     mv.visitInsn(AALOAD); // declarations[i]
                     mv.visitVarInsn(ALOAD, 2); // WorkingMemory
                     cast(InternalWorkingMemory.class);
-                    mv.visitVarInsn(ALOAD, factPos); // fact[i]
-                    invokeInterface(InternalFactHandle.class, "getObject", Object.class);
+                    mv.visitVarInsn(ALOAD, factPos); // obj[i]
                     String readMethod = declarations[i].getNativeReadMethodName();
                     boolean isObject = readMethod.equals("getValue");
                     String returnedType = isObject ? "Ljava/lang/Object;" : typeDescr(declarations[i].getTypeName());

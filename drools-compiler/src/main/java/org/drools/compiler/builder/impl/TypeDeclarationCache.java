@@ -1,7 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
 
 import org.drools.compiler.compiler.PackageRegistry;
 import org.drools.compiler.compiler.TypeDeclarationError;
+import org.drools.compiler.lang.descr.Annotated;
 import org.drools.compiler.lang.descr.PackageDescr;
 import org.drools.core.factmodel.ClassDefinition;
 import org.drools.core.factmodel.FieldDefinition;
@@ -9,14 +25,11 @@ import org.drools.core.factmodel.traits.Thing;
 import org.drools.core.factmodel.traits.Trait;
 import org.drools.core.rule.TypeDeclaration;
 import org.drools.core.util.ClassUtils;
-import org.kie.api.definition.type.ClassReactive;
 import org.kie.api.definition.type.Modifies;
 import org.kie.api.definition.type.Position;
-import org.kie.api.definition.type.PropertyReactive;
 import org.kie.api.definition.type.Role;
 import org.kie.api.io.Resource;
 import org.kie.api.runtime.rule.Match;
-import org.kie.internal.builder.conf.PropertySpecificOption;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -30,13 +43,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.drools.compiler.builder.impl.TypeDeclarationConfigurator.processTypeAnnotations;
 import static org.drools.core.util.BitMaskUtil.isSet;
 
 public class TypeDeclarationCache {
 
     private KnowledgeBuilderImpl kbuilder;
     private Map<String, TypeDeclaration> cacheTypes = new HashMap<String, TypeDeclaration>();
-    private final Map<String, TypeDeclaration> builtinTypes = new HashMap<String, TypeDeclaration>();
 
     TypeDeclarationCache( KnowledgeBuilderImpl kbuilder ) {
         this.kbuilder = kbuilder;
@@ -44,29 +57,19 @@ public class TypeDeclarationCache {
     }
 
     private void initBuiltinTypeDeclarations() {
-        TypeDeclaration colType = new TypeDeclaration( Collection.class.getSimpleName() );
-        colType.setTypesafe( false );
-        colType.setTypeClass( Collection.class );
-        builtinTypes.put( Collection.class.getCanonicalName(),
-                          colType );
+        initBuiltinTypeDeclaration( Collection.class );
+        initBuiltinTypeDeclaration( Map.class );
+        initBuiltinTypeDeclaration( Match.class );
+        initBuiltinTypeDeclaration(Thing.class).setKind( TypeDeclaration.Kind.TRAIT );
+    }
 
-        TypeDeclaration mapType = new TypeDeclaration( Map.class.getSimpleName() );
-        mapType.setTypesafe( false );
-        mapType.setTypeClass( Map.class );
-        builtinTypes.put( Map.class.getCanonicalName(),
-                          mapType );
-
-        TypeDeclaration activationType = new TypeDeclaration( Match.class.getSimpleName() );
-        activationType.setTypesafe( false );
-        activationType.setTypeClass( Match.class );
-        builtinTypes.put( Match.class.getCanonicalName(),
-                          activationType );
-
-        TypeDeclaration thingType = new TypeDeclaration( Thing.class.getSimpleName() );
-        thingType.setKind( TypeDeclaration.Kind.TRAIT );
-        thingType.setTypeClass( Thing.class );
-        builtinTypes.put( Thing.class.getCanonicalName(),
-                          thingType );
+    private TypeDeclaration initBuiltinTypeDeclaration(Class<?> cls) {
+        TypeDeclaration type = new TypeDeclaration( cls.getSimpleName() );
+        type.setTypesafe( false );
+        type.setTypeClass( cls );
+        setClassDefinitionOnTypeDeclaration( cls, type );
+        cacheTypes.put( cls.getCanonicalName(), type );
+        return type;
     }
 
 
@@ -86,8 +89,8 @@ public class TypeDeclarationCache {
         }
 
         typeDeclaration = createTypeDeclarationForBean(cls);
-        initTypeDeclaration(cls, typeDeclaration);
-        registerTypeDeclaration(packageName, typeDeclaration);
+        initTypeDeclaration( cls, typeDeclaration );
+        registerTypeDeclaration( packageName, typeDeclaration );
         return typeDeclaration;
     }
 
@@ -103,7 +106,7 @@ public class TypeDeclarationCache {
 
     private void registerTypeDeclaration( String packageName,
                                           TypeDeclaration typeDeclaration ) {
-        if (typeDeclaration.getNature() == TypeDeclaration.Nature.DECLARATION || packageName.equals(typeDeclaration.getTypeClass().getPackage().getName())) {
+        if (typeDeclaration.getNature() == TypeDeclaration.Nature.DECLARATION || packageName.equals( typeDeclaration.getTypeClass().getPackage().getName() )) {
             PackageRegistry packageRegistry = kbuilder.getPackageRegistry(packageName);
             if (packageRegistry != null) {
                 packageRegistry.getPackage().addTypeDeclaration(typeDeclaration);
@@ -126,27 +129,21 @@ public class TypeDeclarationCache {
         return typeDeclaration;
     }
 
-    private TypeDeclaration getCachedTypeDeclaration(Class<?> cls) {
-        if (this.cacheTypes == null) {
-            this.cacheTypes = new HashMap<String, TypeDeclaration>();
-            return null;
-        } else {
-            return cacheTypes.get(cls.getName());
-        }
+    public TypeDeclaration getCachedTypeDeclaration(Class<?> cls) {
+        return getCachedTypeDeclaration( cls.getName() );
+    }
+
+    public TypeDeclaration getCachedTypeDeclaration(String className) {
+        return cacheTypes.get(className);
     }
 
     private TypeDeclaration getExistingTypeDeclaration(Class<?> cls) {
-        // Check if we are in the built-ins
-        TypeDeclaration typeDeclaration = this.builtinTypes.get((cls.getName()));
-        if (typeDeclaration == null) {
-            // No built-in
-            // Check if there is a user specified typedeclr
-            PackageRegistry pkgReg = kbuilder.getPackageRegistry( ClassUtils.getPackage( cls ));
-            if (pkgReg != null) {
-                String className = cls.getName();
-                String typeName = className.substring(className.lastIndexOf(".") + 1);
-                typeDeclaration = pkgReg.getPackage().getTypeDeclaration(typeName);
-            }
+        TypeDeclaration typeDeclaration = null;
+        PackageRegistry pkgReg = kbuilder.getPackageRegistry( ClassUtils.getPackage( cls ) );
+        if (pkgReg != null) {
+            String className = cls.getName();
+            String typeName = className.substring(className.lastIndexOf( "." ) + 1 );
+            typeDeclaration = pkgReg.getPackage().getTypeDeclaration(typeName);
         }
         return typeDeclaration;
     }
@@ -155,9 +152,7 @@ public class TypeDeclarationCache {
                                      TypeDeclaration typeDeclaration) {
         ClassDefinition clsDef = typeDeclaration.getTypeClassDef();
         if (clsDef == null) {
-            clsDef = new ClassDefinition();
-            ClassDefinitionFactory.populateDefinitionFromClass( clsDef, cls, cls.getAnnotation( Trait.class ) != null );
-            typeDeclaration.setTypeClassDef(clsDef);
+            clsDef = setClassDefinitionOnTypeDeclaration( cls, typeDeclaration );
         } else {
             processFieldsPosition( cls, clsDef, typeDeclaration );
         }
@@ -198,6 +193,13 @@ public class TypeDeclarationCache {
 
         this.cacheTypes.put(cls.getName(),
                             typeDeclaration);
+    }
+
+    private ClassDefinition setClassDefinitionOnTypeDeclaration( Class<?> cls, TypeDeclaration typeDeclaration ) {
+        ClassDefinition clsDef = new ClassDefinition();
+        ClassDefinitionFactory.populateDefinitionFromClass( clsDef, typeDeclaration.getResource(), cls, cls.getAnnotation( Trait.class ) != null );
+        typeDeclaration.setTypeClassDef(clsDef);
+        return clsDef;
     }
 
     private void processFieldsPosition( Class<?> cls,
@@ -261,16 +263,18 @@ public class TypeDeclarationCache {
     private TypeDeclaration createTypeDeclarationForBean(Class<?> cls) {
         TypeDeclaration typeDeclaration = new TypeDeclaration(cls);
 
-        PropertySpecificOption propertySpecificOption = kbuilder.getBuilderConfiguration().getPropertySpecificOption();
-        boolean propertyReactive = propertySpecificOption.isPropSpecific(cls.isAnnotationPresent(PropertyReactive.class),
-                                                                         cls.isAnnotationPresent(ClassReactive.class));
-        typeDeclaration.setPropertyReactive(propertyReactive);
-
         Role role = cls.getAnnotation(Role.class);
         if (role != null) {
             typeDeclaration.setRole(role.value());
         }
 
+        String namespace = ClassUtils.getPackage( cls );
+        PackageRegistry pkgRegistry = kbuilder.getPackageRegistry( namespace );
+        if (pkgRegistry == null) {
+            pkgRegistry = kbuilder.createPackageRegistry( new PackageDescr(namespace) );
+        }
+
+        processTypeAnnotations( kbuilder, pkgRegistry, new Annotated.ClassAdapter(cls), typeDeclaration );
         return typeDeclaration;
     }
 
@@ -299,7 +303,7 @@ public class TypeDeclarationCache {
                                                    Set<TypeDeclaration> tdecls) {
         PackageRegistry pkgReg;
 
-        TypeDeclaration tdecl = this.builtinTypes.get((cls.getName()));
+        TypeDeclaration tdecl = this.cacheTypes.get((cls.getName()));
         if (tdecl == null) {
             pkgReg = kbuilder.getPackageRegistry(ClassUtils.getPackage(cls));
             if (pkgReg != null) {

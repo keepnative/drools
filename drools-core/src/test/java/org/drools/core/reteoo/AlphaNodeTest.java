@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import org.drools.core.common.PropagationContextFactory;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.reteoo.AlphaNode.AlphaMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.MvelConstraintTestUtil;
 import org.drools.core.rule.constraint.MvelConstraint;
@@ -69,8 +68,7 @@ public class AlphaNodeTest extends DroolsTestCase {
         final MockObjectSource source = new MockObjectSource( buildContext.getNextId() );
 
         final ClassFieldReader extractor = store.getReader(Cheese.class,
-                "type",
-                getClass().getClassLoader());
+                "type");
 
         final FieldValue field = FieldFactory.getInstance().getFieldValue( "cheddar" );
 
@@ -92,9 +90,6 @@ public class AlphaNodeTest extends DroolsTestCase {
         // check sink is empty
         assertLength( 0,
                       sink.getAsserted() );
-
-        // check alpha memory is empty 
-        final AlphaMemory memory = (AlphaMemory) ksession.getNodeMemory( alphaNode );
 
         // object should assert as it passes text
         alphaNode.assertObject( f0,
@@ -145,8 +140,7 @@ public class AlphaNodeTest extends DroolsTestCase {
         final MockObjectSource source = new MockObjectSource( buildContext.getNextId() );
 
         final InternalReadAccessor extractor = store.getReader( Cheese.class,
-                                                                "type",
-                                                                getClass().getClassLoader() );
+                                                                "type" );
 
         final FieldValue field = FieldFactory.getInstance().getFieldValue( "cheddar" );
 
@@ -210,8 +204,7 @@ public class AlphaNodeTest extends DroolsTestCase {
         final MockObjectSource source = new MockObjectSource( buildContext.getNextId() );
 
         final InternalReadAccessor extractor = store.getReader( Cheese.class,
-                                                                "type",
-                                                                getClass().getClassLoader() );
+                                                                "type" );
 
         final FieldValue field = FieldFactory.getInstance().getFieldValue( "cheddar" );
 
@@ -222,7 +215,7 @@ public class AlphaNodeTest extends DroolsTestCase {
                                                    source,
                                                    buildContext ); // no memory
 
-        alphaNode.attach();
+        alphaNode.attach(buildContext);
 
         final MockObjectSink sink1 = new MockObjectSink();
         alphaNode.addObjectSink( sink1 );

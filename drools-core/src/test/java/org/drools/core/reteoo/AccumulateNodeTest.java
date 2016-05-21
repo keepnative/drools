@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ public class AccumulateNodeTest extends DroolsTestCase {
 
         this.node.addTupleSink( this.sink );
 
-        this.memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( this.node )).betaMemory;
+        this.memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( this.node )).getBetaMemory();
 
         // check memories are empty
         assertEquals( 0,
@@ -190,7 +190,7 @@ public class AccumulateNodeTest extends DroolsTestCase {
         assertTrue( "An empty matching objects list should be propagated",
                            this.accumulator.getMatchingObjects().isEmpty() );
 
-        final LeftTupleMemory memory = this.memory.getLeftTupleMemory();
+        final TupleMemory memory = this.memory.getLeftTupleMemory();
         assertTrue( memory.contains( tuple0 ) );
         assertTrue( memory.contains( tuple1 ) );
 
@@ -247,7 +247,7 @@ public class AccumulateNodeTest extends DroolsTestCase {
                              2,
                              this.accumulator.getMatchingObjects().size() );
 
-        final LeftTupleMemory memory = this.memory.getLeftTupleMemory();
+        final TupleMemory memory = this.memory.getLeftTupleMemory();
         assertTrue( memory.contains( tuple0 ) );
         assertTrue( memory.contains( tuple1 ) );
 
@@ -311,7 +311,7 @@ public class AccumulateNodeTest extends DroolsTestCase {
                                                                   false,
                                                                   buildContext );
 
-        final BetaMemory memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( accumulateNode )).betaMemory;
+        final BetaMemory memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( accumulateNode )).getBetaMemory();
 
         assertNotNull( memory );
     }
@@ -341,7 +341,7 @@ public class AccumulateNodeTest extends DroolsTestCase {
 
         StatefulKnowledgeSessionImpl ksession = (StatefulKnowledgeSessionImpl)KnowledgeBaseFactory.newKnowledgeBase(conf).newStatefulKnowledgeSession();
 
-        this.memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( this.node )).betaMemory;
+        this.memory = ((AccumulateMemory) this.workingMemory.getNodeMemory( this.node )).getBetaMemory();
 
         final DefaultFactHandle f0 = (DefaultFactHandle) this.workingMemory.getFactHandleFactory().newFactHandle( "cheese",
                                                                                                                   null,

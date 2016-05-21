@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.drools.compiler.lang.descr;
  * This represents a constraint in a pattern defined by an arbitrary
  * expression. The constraint can be any valid java/mvel expression.
  */
-public class ExprConstraintDescr extends BaseDescr {
+public class ExprConstraintDescr extends BaseDescr implements ExpressionDescr {
 
     private static final long serialVersionUID = 520l;
     

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.reteoo.builder;
 
 import org.drools.core.ActivationListenerFactory;
@@ -33,6 +48,8 @@ public class NamedConsequenceBuilder implements ReteooComponentBuilder {
         if  ( context.getKnowledgeBase().getConfiguration().isPhreakEnabled() && timer != null ) {
             context.setTupleSource( context.getTupleSource().getLeftTupleSource() );
         }
+
+        context.setTerminated(namedConsequence.isTerminal());
     }
 
     public boolean requiresLeftActivation(BuildUtils utils, RuleConditionElement rce) {
@@ -44,15 +61,16 @@ public class NamedConsequenceBuilder implements ReteooComponentBuilder {
         GroupElement subrule = (GroupElement) context.peek();
 
         ActivationListenerFactory factory = context.getKnowledgeBase().getConfiguration().getActivationListenerFactory( rule.getActivationListener() );
+
+        context.setConsequenceName( namedConsequence.getConsequenceName() );
         TerminalNode terminal = factory.createActivationListener( context.getNextId(),
                                                                   context.getTupleSource(),
                                                                   rule,
                                                                   subrule,
                                                                   0, // subruleIndex,
                                                                   context );
+        context.setConsequenceName( null );
 
-        RuleTerminalNode terminalNode = (RuleTerminalNode) terminal;
-        ((RuleTerminalNode) terminal).setConsequenceName( namedConsequence.getConsequenceName() );
-        return terminalNode;
+        return (RuleTerminalNode) terminal;
     }
 }

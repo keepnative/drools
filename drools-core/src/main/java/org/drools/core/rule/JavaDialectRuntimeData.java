@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.drools.core.definitions.impl.KnowledgePackageImpl;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.spi.Constraint;
 import org.drools.core.spi.Wireable;
+import org.drools.core.util.ClassUtils;
 import org.drools.core.util.KeyStoreHelper;
 import org.drools.core.util.StringUtils;
 import org.kie.internal.concurrent.ExecutorProviderFactory;
@@ -54,6 +55,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import static org.drools.core.util.ClassUtils.convertClassToResourcePath;
@@ -74,7 +76,7 @@ public class JavaDialectRuntimeData
 
     private Map<String, byte[]>            store;
 
-    private transient PackageClassLoader   classLoader;
+    private transient ClassLoader          classLoader;
 
     private transient ClassLoader          rootClassLoader;
 
@@ -238,8 +240,7 @@ public class JavaDialectRuntimeData
     public void onAdd( DialectRuntimeRegistry registry,
                        ClassLoader rootClassLoader ) {
         this.rootClassLoader = rootClassLoader;
-        this.classLoader = new PackageClassLoader( this,
-                                                   this.rootClassLoader );
+        this.classLoader = makeClassLoader();
     }
 
     public void onRemove() {
@@ -280,18 +281,18 @@ public class JavaDialectRuntimeData
         }
     }
 
-    private static void wireAll(PackageClassLoader classLoader, Map<String, Object> invokerLookups, List<String> wireList) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private static void wireAll(ClassLoader classLoader, Map<String, Object> invokerLookups, List<String> wireList) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
         for (String resourceName : wireList) {
             wire( classLoader, invokerLookups, convertResourceToClassName( resourceName ) );
         }
     }
 
     private static class WiringExecutor implements Callable<Boolean> {
-        private final PackageClassLoader classLoader;
+        private final ClassLoader classLoader;
         private final Map<String, Object> invokerLookups;
         private final List<String> wireList;
 
-        private WiringExecutor(PackageClassLoader classLoader, Map<String, Object> invokerLookups, List<String> wireList) {
+        private WiringExecutor(ClassLoader classLoader, Map<String, Object> invokerLookups, List<String> wireList) {
             this.classLoader = classLoader;
             this.invokerLookups = invokerLookups;
             this.wireList = wireList;
@@ -476,15 +477,15 @@ public class JavaDialectRuntimeData
         wire(className, getInvokers().get(className));
     }
 
-    private static void wire( PackageClassLoader classLoader, Map<String, Object> invokerLookups, String className ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
-        wire( classLoader, className, invokerLookups.get( className ) );
+    private static void wire( ClassLoader classLoader, Map<String, Object> invokerLookups, String className ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+        wire( classLoader, className, invokerLookups.get(className) );
     }
 
     public void wire( final String className, final Object invoker ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
         wire( classLoader, className, invoker );
     }
 
-    private static void wire( PackageClassLoader classLoader, String className, Object invoker ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+    private static void wire( ClassLoader classLoader, String className, Object invoker ) throws ClassNotFoundException, InstantiationException, IllegalAccessException {
         final Class clazz = classLoader.loadClass( className );
 
         if (clazz != null) {
@@ -523,8 +524,7 @@ public class JavaDialectRuntimeData
      */
     public void reload() {
         // drops the classLoader and adds a new one
-        this.classLoader = new PackageClassLoader( this,
-                                                   this.rootClassLoader );
+        this.classLoader = makeClassLoader();
 
         // Wire up invokers
         try {
@@ -613,15 +613,24 @@ public class JavaDialectRuntimeData
         getClassDefinitions().remove( className );
     }
 
+    private ClassLoader makeClassLoader() {
+        return ClassUtils.isAndroid() ?
+                (ClassLoader) ClassUtils.instantiateObject(
+                        "org.drools.android.DexPackageClassLoader", null, this, this.rootClassLoader)
+                : new PackageClassLoader( this, this.rootClassLoader );
+    }
+
     /**
      * This is an Internal Drools Class
      */
     public static class PackageClassLoader extends ClassLoader implements FastClassLoader {
 
+        private final ConcurrentHashMap<String, Object> parallelLockMap = new ConcurrentHashMap<String, Object>();
+
         protected JavaDialectRuntimeData store;
 
         private Set<String> existingPackages = new ConcurrentSkipListSet<String>();
-        
+
         public PackageClassLoader( JavaDialectRuntimeData store,
                                    ClassLoader rootClassLoader ) {
             super( rootClassLoader );
@@ -648,34 +657,46 @@ public class JavaDialectRuntimeData
             Class<?> cls = findLoadedClass( name );
 
             if (cls == null) {
-                final byte[] clazzBytes = this.store.read( convertClassToResourcePath( name ) );
-                if (clazzBytes != null) {
-                    String pkgName = name.substring( 0,
-                                                     name.lastIndexOf( '.' ) );
-
-                    if (!existingPackages.contains( pkgName )) {
-                        synchronized (this) {
-                            if (getPackage( pkgName ) == null) {
-                                definePackage( pkgName,
-                                               "", "", "", "", "", "",
-                                               null );
-                            }
-                            existingPackages.add( pkgName );
+                Object lock = getLockObject(name);
+                synchronized (lock) {
+                    cls = findLoadedClass( name );
+                    if (cls == null) {
+                        try {
+                            cls = internalDefineClass( name, this.store.read( convertClassToResourcePath( name ) ) );
+                        } finally {
+                            releaseLockObject( name );
                         }
                     }
-
-                    cls = defineClass( name,
-                                       clazzBytes,
-                                       0,
-                                       clazzBytes.length,
-                                       PROTECTION_DOMAIN );
-                }
-
-                if (cls != null) {
-                    resolveClass( cls );
                 }
             }
 
+            return cls;
+        }
+
+        private Class<?> internalDefineClass( String name, byte[] clazzBytes ) {
+            if ( clazzBytes == null ) {
+                return null;
+            }
+            String pkgName = name.substring( 0,
+                                             name.lastIndexOf( '.' ) );
+
+            if ( !existingPackages.contains( pkgName ) ) {
+                synchronized (this) {
+                    if ( getPackage( pkgName ) == null ) {
+                        definePackage( pkgName,
+                                       "", "", "", "", "", "",
+                                       null );
+                    }
+                    existingPackages.add( pkgName );
+                }
+            }
+
+            Class<?> cls = defineClass( name,
+                                        clazzBytes,
+                                        0,
+                                        clazzBytes.length,
+                                        PROTECTION_DOMAIN );
+            resolveClass( cls );
             return cls;
         }
 
@@ -704,5 +725,14 @@ public class JavaDialectRuntimeData
             };
         }
 
+        private Object getLockObject(String className) {
+            Object newLock = new Object();
+            Object lock = parallelLockMap.putIfAbsent(className, newLock);
+            return lock != null ? lock : newLock;
+        }
+
+        private void releaseLockObject(String className) {
+            parallelLockMap.remove( className );
+        }
     }
 }

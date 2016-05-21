@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,19 @@
 
 package org.drools.core.base;
 
-import java.util.Arrays;
-import java.util.List;
-
-import org.drools.core.common.LeftTupleSets;
+import org.drools.core.common.TupleSets;
 import org.drools.core.common.WorkingMemoryAction;
 import org.drools.core.phreak.StackEntry;
-import org.drools.core.reteoo.QueryElementNode.QueryElementNodeMemory;
-import org.drools.core.rule.QueryImpl;
-import org.drools.core.util.index.RightTupleList;
+import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.PathMemory;
+import org.drools.core.reteoo.QueryElementNode.QueryElementNodeMemory;
+import org.drools.core.rule.QueryImpl;
+import org.drools.core.util.index.TupleList;
 import org.kie.api.runtime.rule.Variable;
+
+import java.util.Arrays;
+import java.util.List;
 
 public final class DroolsQuery extends ArrayElements {
     private final String                           name;
@@ -37,13 +38,13 @@ public final class DroolsQuery extends ArrayElements {
 
     private Variable[] vars;
 
-    private RightTupleList resultInsertRightTupleList;
-    private RightTupleList resultUpdateRightTupleList;
-    private RightTupleList resultRetractRightTupleList;
+    private TupleList resultInsertRightTupleList;
+    private TupleList resultUpdateRightTupleList;
+    private TupleList resultRetractRightTupleList;
 
     private WorkingMemoryAction action;
 
-    private LeftTupleSets resultLeftTuples;
+    private final TupleSets<LeftTuple> resultLeftTuples;
 
     private QueryElementNodeMemory qmem;
 
@@ -53,31 +54,13 @@ public final class DroolsQuery extends ArrayElements {
 
     private LeftTupleSink sink;
 
-    //    public DroolsQuery(DroolsQuery droolsQuery) {
-    //        super( new Object[droolsQuery.getElements().length] );
-    //
-    //        this.name = droolsQuery.getName();
-    //        this.resultsCollector = droolsQuery.getQueryResultCollector();
-    //        this.open = droolsQuery.isOpen();
-    //        final Object[] params = getElements();
-    //        System.arraycopy( droolsQuery.getElements(), 0, params, 0, params.length );
-    //        originalDroolsQuery = droolsQuery;
-    //    }
-
-    public DroolsQuery(final String name,
-                       final Object[] params,
-                       final InternalViewChangedEventListener resultsCollector,
-                       final boolean open) {
-        this(name, params, resultsCollector, open, null, null, null, null, null);
-    }
-
     public DroolsQuery(final String name,
                        final Object[] params,
                        final InternalViewChangedEventListener resultsCollector,
                        final boolean open,
                        final StackEntry stackEntry,
                        final List<PathMemory> pmems,
-                       final LeftTupleSets resultLeftTuples,
+                       final TupleSets<LeftTuple> resultLeftTuples,
                        final QueryElementNodeMemory qmem,
                        final LeftTupleSink sink) {
         setParameters(params);
@@ -113,7 +96,7 @@ public final class DroolsQuery extends ArrayElements {
         return this.vars;
     }  
     
-    public LeftTupleSets getResultLeftTupleSets() {
+    public TupleSets<LeftTuple> getResultLeftTupleSets() {
         return resultLeftTuples;
     }
 
@@ -150,27 +133,27 @@ public final class DroolsQuery extends ArrayElements {
         return open;
     }
 
-    public RightTupleList getResultInsertRightTupleList() {
+    public TupleList getResultInsertRightTupleList() {
         return resultInsertRightTupleList;
     }
 
-    public void setResultInsertRightTupleList(RightTupleList evaluateActionsRightTupleList) {
+    public void setResultInsertRightTupleList(TupleList evaluateActionsRightTupleList) {
         this.resultInsertRightTupleList = evaluateActionsRightTupleList;
     }
 
-    public RightTupleList getResultUpdateRightTupleList() {
+    public TupleList getResultUpdateRightTupleList() {
         return resultUpdateRightTupleList;
     }
 
-    public void setResultUpdateRightTupleList(RightTupleList insertUpdateRightTupleList) {
+    public void setResultUpdateRightTupleList(TupleList insertUpdateRightTupleList) {
         this.resultUpdateRightTupleList = insertUpdateRightTupleList;
     }
 
-    public RightTupleList getResultRetractRightTupleList() {
+    public TupleList getResultRetractRightTupleList() {
         return resultRetractRightTupleList;
     }
 
-    public void setResultRetractRightTupleList(RightTupleList retractRightTupleList) {
+    public void setResultRetractRightTupleList(TupleList retractRightTupleList) {
         this.resultRetractRightTupleList = retractRightTupleList;
     } 
 
@@ -206,7 +189,4 @@ public final class DroolsQuery extends ArrayElements {
                     ", args=" + Arrays.toString( getElements() ) +
                     ", vars=" + Arrays.toString( vars ) + "]";
     }
-    
-
-
 }

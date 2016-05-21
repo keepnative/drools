@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,8 +32,6 @@ public class AccessorKey
     private int               hashCode;
     private AccessorType      type;
     
-    //private 
-
     public AccessorKey() {
     }
 
@@ -109,7 +107,7 @@ public class AccessorKey
         return this.className + "-" + this.fieldName;
     }
     
-    public static enum AccessorType {
-        FieldAccessor, ClassObjectType; //ObjectAccessor, GlobalAccessor;
+    public enum AccessorType {
+        FieldAccessor, ClassObjectType
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,117 +16,23 @@
 
 package org.drools.core.util;
 
+import org.drools.core.common.DefaultFactHandle;
+import org.drools.core.util.ObjectHashMap.ObjectEntry;
+import org.junit.Test;
+import org.kie.api.KieBaseConfiguration;
+import org.kie.api.conf.EqualityBehaviorOption;
+import org.kie.api.runtime.rule.FactHandle;
+import org.kie.internal.KnowledgeBase;
+import org.kie.internal.KnowledgeBaseFactory;
+import org.kie.internal.runtime.StatefulKnowledgeSession;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.Test;
-import org.kie.internal.KnowledgeBase;
-import org.kie.api.KieBaseConfiguration;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.api.conf.EqualityBehaviorOption;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.runtime.rule.FactHandle;
-
 import static org.junit.Assert.*;
 
-import org.drools.core.common.DefaultFactHandle;
-import org.drools.core.test.model.Cheese;
-import org.drools.core.util.ObjectHashMap.ObjectEntry;
-
 public class ObjectHashMapTest {
-    @Test
-    public void testChechExistsFalse() {
-        final ObjectHashMap map = new ObjectHashMap();
-        final Cheese stilton = new Cheese( "stilton",
-                                           5 );
-        map.put( new Integer( 1 ),
-                 stilton,
-                 false );
 
-        Cheese c = (Cheese) map.get( new Integer( 1 ) );
-        assertSame( stilton,
-                    c );
-
-        // we haven't told the map to check if the key exists, so we should end up with two entries.
-        // the second one is nolonger reacheable
-        final Cheese cheddar = new Cheese( "cheddar",
-                                           5 );
-        map.put( new Integer( 1 ),
-                 cheddar,
-                 false );
-        c = (Cheese) map.get( new Integer( 1 ) );
-        assertSame( cheddar,
-                    c );
-
-        Entry entry = map.getBucket( new Integer( 1 ) );
-        int size = 0;
-        while ( entry != null ) {
-            size++;
-            entry = entry.getNext();
-        }
-
-        assertEquals( 2,
-                      size );
-
-        // Check remove works, should leave one unreachable key
-        map.remove( new Integer( 1 ) );
-        entry = map.getBucket( new Integer( 1 ) );
-        size = 0;
-        while ( entry != null ) {
-            size++;
-            entry = entry.getNext();
-        }
-
-        assertEquals( 1,
-                      size );
-    }
-
-    @Test
-    public void testChechExistsTrue() {
-        final ObjectHashMap map = new ObjectHashMap();
-        final Cheese stilton = new Cheese( "stilton",
-                                           5 );
-        map.put( new Integer( 1 ),
-                 stilton,
-                 true );
-
-        Cheese c = (Cheese) map.get( new Integer( 1 ) );
-        assertSame( stilton,
-                    c );
-
-        // we haven't told the map to check if the key exists, so we should end up with two entries.
-        // the second one is nolonger reacheable
-        final Cheese cheddar = new Cheese( "cheddar",
-                                           5 );
-        map.put( new Integer( 1 ),
-                 cheddar );
-        c = (Cheese) map.get( new Integer( 1 ) );
-        assertSame( cheddar,
-                    c );
-
-        Entry entry = map.getBucket( new Integer( 1 ) );
-        int size = 0;
-        while ( entry != null ) {
-            size++;
-            entry = entry.getNext();
-        }
-
-        assertEquals( 1,
-                      size );
-
-        // Check remove works
-        map.remove( new Integer( 1 ) );
-        entry = map.getBucket( new Integer( 1 ) );
-        size = 0;
-        while ( entry != null ) {
-            size++;
-            entry = entry.getNext();
-        }
-
-        assertEquals( 0,
-                      size );
-    }
-    
     @Test
     public void testEqualityWithResize() {        
         KieBaseConfiguration kconf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
@@ -152,7 +58,7 @@ public class ObjectHashMapTest {
             assertSame( handle, ksession.getFactHandle( s ) );
             
             // now check with disconnected facthandle
-            handle = new DefaultFactHandle(((DefaultFactHandle)handle).toExternalForm());
+            handle = DefaultFactHandle.createFromExternalFormat(((DefaultFactHandle)handle).toExternalForm());
             assertEquals( s, ksession.getObject( handle ) );
         }
         
@@ -160,7 +66,7 @@ public class ObjectHashMapTest {
             FactHandle handle = handles.get( i );         
             
             // now retract with disconnected facthandle
-            handle = new DefaultFactHandle(((DefaultFactHandle)handle).toExternalForm());
+            handle = DefaultFactHandle.createFromExternalFormat(((DefaultFactHandle)handle).toExternalForm());
             ksession.retract( handle );
             assertEquals( length - i -1, ksession.getObjects().size() );
             assertEquals( length - i -1, ksession.getFactHandles().size() );            
@@ -195,7 +101,7 @@ public class ObjectHashMapTest {
             assertSame( handle, ksession.getFactHandle( s ) );
             
             // now check with disconnected facthandle
-            handle = new DefaultFactHandle(((DefaultFactHandle)handle).toExternalForm());
+            handle = DefaultFactHandle.createFromExternalFormat(((DefaultFactHandle)handle).toExternalForm());
             assertEquals( s, ksession.getObject( handle ) );            
         }
         
@@ -203,7 +109,7 @@ public class ObjectHashMapTest {
             FactHandle handle = handles.get( i );         
             
             // now retract with disconnected facthandle
-            handle = new DefaultFactHandle(((DefaultFactHandle)handle).toExternalForm());
+            handle = DefaultFactHandle.createFromExternalFormat(((DefaultFactHandle)handle).toExternalForm());
             ksession.retract( handle );
             assertEquals( length - i -1, ksession.getObjects().size() );
             assertEquals( length - i -1, ksession.getFactHandles().size() );            

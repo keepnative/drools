@@ -1,6 +1,20 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.compiler;
 
-import org.drools.compiler.integrationtests.KieHelloWorldTest;
 import org.drools.core.common.EventFactHandle;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
 import org.drools.core.rule.TypeDeclaration;
@@ -37,11 +51,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
 
 public class TypeDeclarationTest {
@@ -1059,5 +1075,203 @@ public class TypeDeclarationTest {
         assertEquals( 99, type.get( foo, "age" ) );
     }
 
+
+
+    @Test()
+    public void testTraitExtendPojo() {
+        //DROOLS-697
+        final String s1 = "package test;\n" +
+
+                          "declare Poojo " +
+                          "end " +
+
+                          "declare trait Mask extends Poojo " +
+                          "end " +
+                          "";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 1, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+    @Test()
+    public void testPojoExtendInterface() {
+        //DROOLS-697
+        final String s1 = "package test;\n" +
+
+                          "declare Poojo extends Mask " +
+                          "end " +
+
+                          "declare trait Mask " +
+                          "end " +
+                          "";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 1, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+
+    public static interface Base {
+        public Object getFld();
+        public void setFld( Object x );
+    }
+
+    public static interface Ext extends Base {
+        public String getFld();
+        public void setFld( String s );
+    }
+
+    @Test
+    public void testRedeclareWithInterfaceExtensionAndOverride() {
+        final String s1 = "package test;\n" +
+
+                          "declare trait " + Ext.class.getCanonicalName() + " extends " + Base.class.getCanonicalName() + " " +
+                          " fld : String " +
+                          "end " +
+
+                          "declare trait " + Base.class.getCanonicalName() + " " +
+                          "end " +
+                          "";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 0, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+    @Test
+    public void testDeclareWithExtensionAndOverride() {
+        final String s1 = "package test; " +
+                          "global java.util.List list; " +
+
+                          "declare Sub extends Sup " +
+                          " fld : String " +
+                          "end " +
+
+                          "declare Sup " +
+                          " fld : Object " +
+                          "end " +
+
+                          "rule Init when " +
+                          "then insert( new Sub( 'aa' ) ); end " +
+
+                          "rule CheckSup when " +
+                          " $s : Sup( $f : fld == 'aa' ) " +
+                          "then " +
+                          "  list.add( \"Sup\" + $f );  " +
+                          "end " +
+
+                          "rule CheckSub when " +
+                          " $s : Sub( $f : fld == 'aa' ) " +
+                          "then " +
+                          "  list.add( \"Sub\" + $f );  " +
+                          "end ";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 0, kh.verify().getMessages( Message.Level.ERROR ).size() );
+        assertEquals( 0, kh.verify().getMessages( Message.Level.WARNING ).size() );
+
+        KieSession ks = kh.build().newKieSession();
+        List list = new ArrayList();
+        ks.setGlobal( "list", list );
+        ks.fireAllRules();
+
+        assertEquals( 2, list.size() );
+        assertTrue( list.containsAll( asList("Supaa", "Subaa") ) );
+
+        FactType sup = ks.getKieBase().getFactType( "test", "Sup" );
+        FactType sub = ks.getKieBase().getFactType( "test", "Sub" );
+
+        try {
+            Method m1 = sup.getFactClass().getMethod( "getFld" );
+            assertNotNull( m1 );
+            assertEquals( Object.class, m1.getReturnType() );
+
+            Method m2 = sub.getFactClass().getMethod( "getFld" );
+            assertNotNull( m2 );
+            assertEquals( String.class, m2.getReturnType() );
+
+            assertEquals( 0, sub.getFactClass().getFields().length );
+            assertEquals( 0, sub.getFactClass().getDeclaredFields().length );
+            assertEquals( 1, sup.getFactClass().getDeclaredFields().length );
+        } catch ( Exception e ) {
+            e.printStackTrace();
+            fail( e.getMessage() );
+        }
+
+    }
+
+    public static class SomeClass {}
+
+    @Test
+    public void testRedeclareClassAsTrait() {
+        final String s1 = "package test; " +
+                          "global java.util.List list; " +
+
+                          "declare trait " + SomeClass.class.getCanonicalName() + " end ";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 1, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+    public static class BeanishClass {
+        private int foo;
+        public int getFoo() { return foo; }
+        public void setFoo( int x ) { foo = x; }
+        public void setFooAsString( String x ) { foo = Integer.parseInt( x ); }
+    }
+
+    @Test
+    public void testDeclarationOfClassWithNonStandardSetter() {
+        final String s1 = "package test; " +
+                          "import " + BeanishClass.class.getCanonicalName() + "; " +
+
+                          "declare " + BeanishClass.class.getSimpleName() + " @propertyReactive end " +
+
+                          "rule Check when BeanishClass() @Watch( foo ) then end ";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 0, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+    @Test
+    public void testDeclarationOfClassWithNonStandardSetterAndCanonicalName() {
+        // DROOLS-815
+        final String s1 = "package test; " +
+                          "import " + BeanishClass.class.getCanonicalName() + "; " +
+
+                          "declare " + BeanishClass.class.getCanonicalName() + " @propertyReactive end " +
+
+                          "rule Check when BeanishClass() @Watch( foo ) then end ";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 0, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
+
+    @Test
+    public void testDeclarationOfClassWithNonStandardSetterAndFulllName() {
+        final String s1 = "package test; " +
+                          "import " + BeanishClass.class.getCanonicalName() + "; " +
+
+                          "declare " + BeanishClass.class.getName() + " @propertyReactive end " +
+
+                          "rule Check when BeanishClass() @watch( foo ) then end ";
+
+        KieHelper kh = new KieHelper();
+        kh.addContent( s1, ResourceType.DRL );
+
+        assertEquals( 0, kh.verify().getMessages( Message.Level.ERROR ).size() );
+    }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,12 @@ import org.drools.core.base.mvel.MVELEnabledExpression;
 import org.drools.core.base.mvel.MVELSalienceExpression;
 import org.drools.core.common.AgendaItem;
 import org.drools.core.common.EventSupport;
-import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.InternalWorkingMemoryActions;
 import org.drools.core.common.PropagationContextFactory;
 import org.drools.core.common.ScheduledAgendaItem;
 import org.drools.core.common.TruthMaintenanceSystemHelper;
-import org.drools.core.common.UpdateContext;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.phreak.PhreakRuleTerminalNode;
 import org.drools.core.reteoo.RuleRemovalContext.CleanupAdapter;
@@ -37,8 +35,8 @@ import org.drools.core.rule.Declaration;
 import org.drools.core.rule.GroupElement;
 import org.drools.core.spi.Activation;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
 import org.drools.core.time.impl.BaseTimer;
-import org.drools.core.time.impl.ExpressionIntervalTimer;
 import org.kie.api.event.rule.MatchCancelledCause;
 
 import java.io.IOException;
@@ -66,7 +64,8 @@ public class RuleTerminalNode extends AbstractTerminalNode {
      */
     protected GroupElement                  subrule;
     protected int                           subruleIndex;
-    protected Declaration[]                 declarations;
+    protected Declaration[]                 allDeclarations;
+    protected Declaration[]                 requiredDeclarations;
 
     protected Declaration[][]               timerDeclarations;
     protected Declaration[]                 salienceDeclarations;
@@ -88,15 +87,6 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
     }
 
-    /**
-     *
-     * @param id
-     * @param source
-     * @param rule
-     * @param subrule
-     * @param subruleIndex
-     * @param context
-     */
     public RuleTerminalNode(final int id,
                             final LeftTupleSource source,
                             final RuleImpl rule,
@@ -106,9 +96,14 @@ public class RuleTerminalNode extends AbstractTerminalNode {
         super( id,
                context.getPartitionId(),
                context.getKnowledgeBase().getConfiguration().isMultithreadEvaluation(),
-               source );
+               source,
+               context );
+
         this.rule = rule;
         this.subrule = subrule;
+        this.consequenceName = context.getConsequenceName();
+        initDeclarations();
+
         this.subruleIndex = subruleIndex;
 
         setFireDirect( rule.getActivationListener().equals( "direct" ) );
@@ -120,6 +115,8 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
         initDeclaredMask(context);        
         initInferredMask();
+
+        hashcode = calculateHashCode();
     }
     
     public void setDeclarations(Map<String, Declaration> decls) {
@@ -156,15 +153,13 @@ public class RuleTerminalNode extends AbstractTerminalNode {
     // Instance methods
     // ------------------------------------------------------------
     @SuppressWarnings("unchecked")
-    public void readExternal(ObjectInput in) throws IOException,
-                                            ClassNotFoundException {
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         super.readExternal(in);
         rule = (RuleImpl) in.readObject();
         subrule = (GroupElement) in.readObject();
         subruleIndex = in.readInt();
         previousTupleSinkNode = (LeftTupleSinkNode) in.readObject();
         nextTupleSinkNode = (LeftTupleSinkNode) in.readObject();
-        declarations = ( Declaration[]) in.readObject();
 
         timerDeclarations = ( Declaration[][] ) in.readObject();
         salienceDeclarations = ( Declaration[]) in.readObject();
@@ -172,6 +167,8 @@ public class RuleTerminalNode extends AbstractTerminalNode {
         consequenceName = (String) in.readObject();
 
         fireDirect = rule.getActivationListener().equals( "direct" );
+
+        initDeclarations();
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -181,8 +178,7 @@ public class RuleTerminalNode extends AbstractTerminalNode {
         out.writeInt( subruleIndex );
         out.writeObject( previousTupleSinkNode );
         out.writeObject( nextTupleSinkNode );
-        out.writeObject( declarations );
-        
+
         out.writeObject( timerDeclarations );
         out.writeObject( salienceDeclarations );
         out.writeObject( enabledDeclarations );
@@ -203,10 +199,9 @@ public class RuleTerminalNode extends AbstractTerminalNode {
     }
 
 
-    public static PropagationContext findMostRecentPropagationContext(final LeftTuple leftTuple,
-                                                                PropagationContext context) {
+    public static PropagationContext findMostRecentPropagationContext(Tuple leftTuple, PropagationContext context) {
         // Find the most recent PropagationContext, as this caused this rule to elegible for firing
-        LeftTuple lt = leftTuple;
+        Tuple lt = leftTuple;
         while ( lt != null ) {
             if ( lt.getPropagationContext() != null && lt.getPropagationContext().getPropagationNumber() > context.getPropagationNumber() ) {
                 context = lt.getPropagationContext();
@@ -219,41 +214,40 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
 
     public String toString() {
-        return "[RuleTerminalNode(" + this.getId() + "): rule=" + this.rule.getName() + "]";
+        StringBuilder sb = new StringBuilder();
+        sb.append("[RuleTerminalNode(").append(this.getId()).append("): rule=").append(this.rule.getName());
+        if (consequenceName != null) {
+            sb.append(", consequence=").append(consequenceName);
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
     public void attach( BuildContext context ) {
         getLeftTupleSource().addTupleSink(this, context);
+        addAssociation( context.getRule() );
     }
 
-    public void networkUpdated(UpdateContext updateContext) {
-        getLeftTupleSource().networkUpdated(updateContext);
+    public Declaration[] getAllDeclarations() {
+        return this.allDeclarations;
     }
 
-    public boolean isInUse() {
-        return false;
+    public Declaration[] getRequiredDeclarations() {
+        return this.requiredDeclarations;
     }
 
-    public boolean isLeftTupleMemoryEnabled() {
-        return false;
-    }
+    private void initDeclarations() {
+        Map<String, Declaration> decls = this.subrule.getOuterDeclarations();
+        this.allDeclarations = decls.values().toArray( new Declaration[decls.size()] );
+        Arrays.sort( this.allDeclarations, SortDeclarations.instance );
 
-    public void setLeftTupleMemoryEnabled(boolean tupleMemoryEnabled) {
-
-    }
-
-    public Declaration[] getDeclarations() {
-        if ( this.declarations == null ) {
-            Map<String, Declaration> decls = this.subrule.getOuterDeclarations();
-            String[] requiredDeclarations = rule.getRequiredDeclarationsForConsequence(getConsequenceName());
-            this.declarations = new Declaration[requiredDeclarations.length];
-            int i = 0;
-            for ( String str : requiredDeclarations ) {
-                declarations[i++] = decls.get( str );
-            }
-            Arrays.sort( this.declarations, SortDeclarations.instance );
+        String[] requiredDeclarationNames = rule.getRequiredDeclarationsForConsequence(getConsequenceName());
+        this.requiredDeclarations = new Declaration[requiredDeclarationNames.length];
+        int i = 0;
+        for ( String str : requiredDeclarationNames ) {
+            this.requiredDeclarations[i++] = decls.get( str );
         }
-        return this.declarations;
+        Arrays.sort( this.requiredDeclarations, SortDeclarations.instance );
     }
     
     public Declaration[][] getTimerDeclarations() {
@@ -272,22 +266,14 @@ public class RuleTerminalNode extends AbstractTerminalNode {
         return enabledDeclarations;
     }
 
-    public void setEnabledDeclarations(Declaration[] enabledDeclarations) {
-        this.enabledDeclarations = enabledDeclarations;
-    }
-
     public String getConsequenceName() {
         return consequenceName == null ? RuleImpl.DEFAULT_CONSEQUENCE_NAME : consequenceName;
-    }
-
-    public void setConsequenceName(String consequenceName) {
-        this.consequenceName = consequenceName;
     }
 
     public void cancelMatch(AgendaItem match, InternalWorkingMemoryActions workingMemory) {
         match.cancel();
         if ( match.isQueued() ) {
-            LeftTuple leftTuple = match.getTuple();
+            Tuple leftTuple = match.getTuple();
             if ( match.getRuleAgendaItem() != null ) {
                 // phreak must also remove the LT from the rule network evaluator
                 if ( leftTuple.getMemory() != null ) {
@@ -346,19 +332,20 @@ public class RuleTerminalNode extends AbstractTerminalNode {
         this.previousTupleSinkNode = previous;
     }
 
-    public int hashCode() {
-        return this.rule.hashCode();
+    private int calculateHashCode() {
+        return 31 * this.rule.hashCode() + (consequenceName == null ? 0 : 37 * consequenceName.hashCode());
     }
 
+    @Override
     public boolean equals(final Object object) {
-        if ( object == this ) {
-            return true;
-        }
+        return this == object || internalEquals( object );
+    }
 
-        if ( !(object instanceof RuleTerminalNode) ) {
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof RuleTerminalNode) || this.hashCode() != object.hashCode() ) {
             return false;
         }
-
         final RuleTerminalNode other = (RuleTerminalNode) object;
         return rule.equals(other.rule) && (consequenceName == null ? other.consequenceName == null : consequenceName.equals(other.consequenceName));
     }
@@ -378,11 +365,11 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
         public void cleanUp(final LeftTuple leftTuple,
                             final InternalWorkingMemory workingMemory) {
-            if ( leftTuple.getLeftTupleSink() != node ) {
+            if ( leftTuple.getTupleSink() != node ) {
                 return;
             }
 
-            final Activation activation = (Activation) leftTuple.getObject();
+            final Activation activation = (Activation) leftTuple.getContextObject();
 
             // this is to catch a race condition as activations are activated and unactivated on timers
             if ( activation instanceof ScheduledAgendaItem ) {
@@ -410,18 +397,18 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
     public LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                                      final LeftTuple leftTuple,
-                                     final LeftTupleSink sink) {
+                                     final Sink sink) {
         return new RuleTerminalNodeLeftTuple(factHandle,leftTuple, sink );
     }
 
     public LeftTuple createLeftTuple(InternalFactHandle factHandle,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple( factHandle, sink, leftTupleMemoryEnabled );
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      PropagationContext pctx,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple( leftTuple, sink, pctx, leftTupleMemoryEnabled );
@@ -429,7 +416,7 @@ public class RuleTerminalNode extends AbstractTerminalNode {
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
                                      RightTuple rightTuple,
-                                     LeftTupleSink sink) {
+                                     Sink sink) {
         return new RuleTerminalNodeLeftTuple( leftTuple, rightTuple, sink );
     }
 
@@ -437,7 +424,7 @@ public class RuleTerminalNode extends AbstractTerminalNode {
                                      RightTuple rightTuple,
                                      LeftTuple currentLeftChild,
                                      LeftTuple currentRightChild,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new RuleTerminalNodeLeftTuple(leftTuple, rightTuple, currentLeftChild, currentRightChild, sink, leftTupleMemoryEnabled );        
 

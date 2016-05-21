@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.drools.core.command.runtime.process;
 
+import java.util.Map;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
@@ -26,17 +28,28 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import org.drools.core.command.impl.GenericCommand;
 import org.drools.core.command.impl.KnowledgeCommandContext;
 import org.drools.core.xml.jaxb.util.JaxbUnknownAdapter;
-import org.kie.internal.command.Context;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
+import org.kie.internal.command.Context;
+import org.kie.internal.command.ProcessInstanceIdCommand;
+import org.kie.internal.jaxb.CorrelationKeyXmlAdapter;
+import org.kie.internal.process.CorrelationAwareProcessRuntime;
+import org.kie.internal.process.CorrelationKey;
 
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
-public class SignalEventCommand implements GenericCommand<Void> {
+public class SignalEventCommand implements GenericCommand<Void>, ProcessInstanceIdCommand {
+
+    /** Generated serial version UID */
+    private static final long serialVersionUID = 2134028686669740220L;
 
     @XmlAttribute(name="process-instance-id")
     private long processInstanceId = -1;
 
+    @XmlElement(name = "correlation-key", required = false)
+    @XmlJavaTypeAdapter(value = CorrelationKeyXmlAdapter.class)
+    private CorrelationKey correlationKey;
+    
     @XmlAttribute(name="event-type", required=true)
     private String eventType;
 
@@ -62,12 +75,22 @@ public class SignalEventCommand implements GenericCommand<Void> {
     }
 
 
-    public long getProcessInstanceId() {
+    @Override
+    public Long getProcessInstanceId() {
         return processInstanceId;
     }
 
-    public void setProcessInstanceId(long processInstanceId) {
+    @Override
+    public void setProcessInstanceId(Long processInstanceId) {
         this.processInstanceId = processInstanceId;
+    }
+
+    public CorrelationKey getCorrelationKey() {
+        return correlationKey;
+    }
+
+    public void setCorrelationKey( CorrelationKey correlationKey ) {
+        this.correlationKey = correlationKey;
     }
 
     public String getEventType() {
@@ -89,10 +112,15 @@ public class SignalEventCommand implements GenericCommand<Void> {
     public Void execute(Context context) {
         KieSession ksession = ((KnowledgeCommandContext) context).getKieSession();
         
-        if (processInstanceId == -1) {
+        if (processInstanceId == -1 && correlationKey == null) {
             ksession.signalEvent(eventType, event);
         } else {
-            ProcessInstance processInstance = ksession.getProcessInstance(processInstanceId);
+            ProcessInstance processInstance;
+            if( correlationKey != null ) { 
+                processInstance = ((CorrelationAwareProcessRuntime) ksession).getProcessInstance(correlationKey);
+            } else { 
+                processInstance = ksession.getProcessInstance(processInstanceId);
+            }
             if (processInstance != null) {
                 processInstance.signalEvent(eventType, event);
             }
@@ -101,8 +129,10 @@ public class SignalEventCommand implements GenericCommand<Void> {
     }
 
     public String toString() {
-        if (processInstanceId == -1) {
-            return "ksession.signalEvent(" + eventType + ", " + event + ");";
+        if (processInstanceId == -1 && correlationKey == null) {
+            return "ksession.signalEvent(" + eventType + ", " + event + ");"; 
+        } else if (correlationKey != null) {
+            return "ksession.signalEvent(" + correlationKey + ", " + eventType + ", " + event + ");";
         } else {
             return "ksession.signalEvent(" + processInstanceId + ", " + eventType + ", " + event + ");";
         }

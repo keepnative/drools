@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,9 +60,10 @@ public class BaseNodeTest {
                                   final PropagationContext context) {
         }
 
-        protected void doRemove(final RuleRemovalContext context,
-                                final ReteooBuilder builder,
-                                final InternalWorkingMemory[] workingMemories) {
+        protected boolean doRemove(final RuleRemovalContext context,
+                                   final ReteooBuilder builder,
+                                   final InternalWorkingMemory[] workingMemories) {
+            return true;
         }
 
         public boolean isInUse() {
@@ -77,6 +78,9 @@ public class BaseNodeTest {
             return 0;
         }
 
+        @Override
+        protected boolean internalEquals( Object object ) {
+            return false;
+        }
     }
-
 }

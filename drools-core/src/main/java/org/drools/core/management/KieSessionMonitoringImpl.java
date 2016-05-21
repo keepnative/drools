@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,15 +62,15 @@ public class KieSessionMonitoringImpl implements KieSessionMonitoringMBean {
         this.agendaStats = new AgendaStats();
         this.processStats = new ProcessStats();
         this.ksession.addEventListener( agendaStats );
-        if (ksession.getProcessRuntime() != null) {
-            this.ksession.getProcessRuntime().addEventListener( processStats );
+        if (ksession.internalGetProcessRuntime() != null) {
+            this.ksession.internalGetProcessRuntime().addEventListener( processStats );
         }
     }
     
     public void dispose() {
         this.ksession.removeEventListener( agendaStats );
-        if (ksession.getProcessRuntime() != null) {
-            this.ksession.getProcessRuntime().removeEventListener( processStats );
+        if (ksession.internalGetProcessRuntime() != null) {
+            this.ksession.internalGetProcessRuntime().removeEventListener( processStats );
         }
     }
     

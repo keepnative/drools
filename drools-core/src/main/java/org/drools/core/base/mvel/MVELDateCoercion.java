@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,20 @@
 
 package org.drools.core.base.mvel;
 
-import java.util.Date;
-
 import org.drools.core.util.DateUtils;
-import org.drools.core.type.DateFormatsImpl;
 import org.mvel2.ConversionHandler;
+
+import java.util.Date;
 
 public class MVELDateCoercion implements ConversionHandler {
 
     public boolean canConvertFrom(Class cls) {
-        if (cls == String.class || cls.isAssignableFrom( Date.class )) {
-            return true;
-        } else {
-            return false;
-        }
+        return cls == String.class || cls.isAssignableFrom( Date.class );
     }
 
     public Object convertFrom(Object o) {
         if (o instanceof String) {
-            return DateUtils.parseDate( (String) o, DateFormatsImpl.DATE_FORMATS.get() );
+            return DateUtils.parseDate( (String) o );
         } else {
             return o;
         }

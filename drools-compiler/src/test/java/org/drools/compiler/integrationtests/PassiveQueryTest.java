@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
 import org.drools.core.common.InternalWorkingMemory;
@@ -302,7 +317,7 @@ public class PassiveQueryTest {
 
         for (ObjectTypeNode otn : rete.getObjectTypeNodes()) {
             if ( Integer.class == otn.getObjectType().getValueType().getClassType() ) {
-                lia = (LeftInputAdapterNode)otn.getSinkPropagator().getSinks()[0];
+                lia = (LeftInputAdapterNode)otn.getObjectSinkPropagator().getSinks()[0];
                 break;
             }
         }
@@ -312,6 +327,7 @@ public class PassiveQueryTest {
         QueryElementNode q2 = (QueryElementNode)sinks[1];
 
         InternalWorkingMemory wm = (InternalWorkingMemory)ksession;
+        wm.flushPropagations();
 
         Memory memory1 = wm.getNodeMemory(q1);
         assertTrue(memory1.getSegmentMemory().getStagedLeftTuples().isEmpty());

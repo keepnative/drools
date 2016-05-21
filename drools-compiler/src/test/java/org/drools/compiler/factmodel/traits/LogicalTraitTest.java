@@ -1,7 +1,5 @@
-package org.drools.compiler.factmodel.traits;
-
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +14,16 @@ package org.drools.compiler.factmodel.traits;
  * limitations under the License.
  */
 
+package org.drools.compiler.factmodel.traits;
+
+
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.integrationtests.SerializationHelper;
 import org.drools.core.common.InternalFactHandle;
+import org.drools.core.factmodel.traits.CoreWrapper;
 import org.drools.core.factmodel.traits.TraitFactory;
 import org.drools.core.factmodel.traits.TraitField;
+import org.drools.core.factmodel.traits.Traitable;
 import org.drools.core.factmodel.traits.TraitableBean;
 import org.drools.core.factmodel.traits.VirtualPropertyMode;
 import org.junit.Test;
@@ -488,6 +491,82 @@ public class LogicalTraitTest extends CommonTestMethodBase {
             fail( e.getMessage() );
         }
 
+        knowledgeSession.dispose();
+    }
+
+
+    @Traitable( logical = true )
+    public static class Qty {
+        private Integer num;
+
+        public Qty( Integer num ) {
+            this.num = num;
+        }
+
+        public Integer getNum() {
+            return num;
+        }
+
+        public void setNum( Integer num ) {
+            this.num = num;
+        }
+    }
+
+    @Test
+    public void testHardGetSetOnLogicallyTraitedField() {
+        String drl = "package org.drools.test; " +
+                     "import " + Qty.class.getCanonicalName() + "; " +
+                     "" +
+                     "global java.util.List list; " +
+
+                     "declare Obs @Traitable( logical = true ) value : Qty end " +
+
+                     "declare trait TObs @Trait( logical = true ) value : TQty end " +
+                     "declare trait TQty @Trait( logical = true ) num : Integer end " +
+
+                     "rule Init " +
+                     "when " +
+                     "then " +
+                     "  Obs o = new Obs( new Qty( 42 ) ); " +
+                     "  don( o, TObs.class ); " +
+                     "end " +
+
+                     "rule Log " +
+                     "when " +
+                     "  $o : TObs( $val : value.num ) " +
+                     "then " +
+                     "  list.add( $val ); " +
+                     "end " +
+
+                     "rule Change " +
+                     "when " +
+                     "  $s : String() " +
+                     "  $o : TObs() " +
+                     "then " +
+                     "  delete( $s ); " +
+                     "  modify( $o ) { getValue().setNum( 99 ); } " +
+                     "end ";
+
+        KnowledgeBase knowledgeBase = loadKnowledgeBaseFromString( drl );
+        TraitFactory.setMode( mode, knowledgeBase );
+
+        StatefulKnowledgeSession knowledgeSession = knowledgeBase.newStatefulKnowledgeSession();
+        ArrayList list = new ArrayList();
+        knowledgeSession.setGlobal( "list", list );
+
+        knowledgeSession.fireAllRules();
+        knowledgeSession.insert( "x" );
+        knowledgeSession.fireAllRules();
+
+        boolean found = false;
+        for ( Object o : knowledgeSession.getObjects( new ClassObjectFilter( Qty.class ) ) ) {
+            assertEquals( (Integer) 99, ( (Qty) o ).getNum() );
+            assertEquals( 99, ( (CoreWrapper) o )._getFieldTMS().get( "num", Integer.class ) );
+            found = true;
+        }
+        assertTrue( found );
+
+        assertEquals( Arrays.asList( 42, 99 ), list );
         knowledgeSession.dispose();
     }
 
@@ -1234,7 +1313,7 @@ public class LogicalTraitTest extends CommonTestMethodBase {
         assertTrue( list.size() == 1 && list.contains( null ) );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTraitMismatchTypes3()
     {
         String drl = "" +
@@ -1285,7 +1364,9 @@ public class LogicalTraitTest extends CommonTestMethodBase {
         ksession.setGlobal("list",list);
         ksession.fireAllRules();
 
+        System.out.println( "list" + list );
+
         assertEquals( 1, list.size() );
-        assertEquals( "org.drools.core.factmodel.traits.test.Bar", list.get( 0 ).getClass().getName() );
+        assertEquals("org.drools.core.factmodel.traits.test.Bar", list.get(0).getClass().getName());
     }
 }

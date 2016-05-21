@@ -1,17 +1,33 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.phreak;
 
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.PhreakPropagationContext;
-import org.drools.core.common.RightTupleSets;
+import org.drools.core.common.TupleSets;
 import org.drools.core.reteoo.RightTuple;
+import org.drools.core.reteoo.RightTupleImpl;
 import org.drools.core.reteoo.RightTupleSink;
 import org.drools.core.reteoo.SegmentMemory;
 
 public class RightBuilder {
     private InternalWorkingMemory      wm;
     private RightTupleSink             sink;
-    private RightTupleSets rightTuples;
+    private TupleSets<RightTuple>      rightTuples;
     private Scenario                   scenario;
 
     public RightBuilder(Scenario scenario) {
@@ -24,7 +40,7 @@ public class RightBuilder {
     public RightBuilder insert(Object... objects) {
         for (Object object : objects) {
             InternalFactHandle fh = (InternalFactHandle) wm.insert(object);
-            RightTuple rightTuple = new RightTuple( fh, sink );
+            RightTuple rightTuple = new RightTupleImpl( fh, sink );
             rightTuple.setPropagationContext( new PhreakPropagationContext() );
             rightTuples.addInsert( rightTuple );
         }
@@ -51,7 +67,7 @@ public class RightBuilder {
         return this;
     }
 
-    RightTupleSets get() {
+    TupleSets<RightTuple> get() {
         return this.rightTuples;
     }
 

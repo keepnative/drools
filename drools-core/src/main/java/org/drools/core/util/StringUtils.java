@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,6 @@
  */
 
 package org.drools.core.util;
-
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- * 
- *      http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -977,7 +960,7 @@ public class StringUtils {
         int nestedParam = 0;
         boolean isQuoted = false;
         for (int i = 0; i < string.length(); i++) {
-            if (string.charAt(i) == ch) {
+            if (string.charAt( i ) == ch) {
                 if (!isQuoted && nestedParam == 0) {
                     args.add(string.subSequence(lastStart, i).toString().trim());
                     lastStart = i+1;
@@ -996,7 +979,9 @@ public class StringUtils {
                         break;
                     case '"':
                     case '\'':
-                        isQuoted = !isQuoted;
+                        if (i == 0 || string.charAt(i-1) != '\\') {
+                            isQuoted = !isQuoted;
+                        }
                         break;
                     case '\\':
                         if (i+1 < string.length() && string.charAt(i+1) == '"') {
@@ -1062,30 +1047,34 @@ public class StringUtils {
 
     public static int indexOfOutOfQuotes(String str, String searched) {
         for ( int i = str.indexOf(searched); i >= 0; i = str.indexOf(searched, i+1) ) {
-            if ( countCharOccurrences(str, '"', 0, i) % 2 == 0 ) {
+            if ( countQuoteOccurrences( str, 0, i ) % 2 == 0 ) {
                 return i;
             }
         }
         return -1;
     }
 
-    public static int indexOfOutOfQuotes(String str, char searched) {
-        for ( int i = str.indexOf(searched); i >= 0; i = str.indexOf(searched, i+1) ) {
-            if ( countCharOccurrences(str, '"', 0, i) % 2 == 0 ) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private static int countCharOccurrences(String s, char c, int start, int end) {
+    private static int countQuoteOccurrences(String str, int start, int end) {
         int count = 0;
         for (int i = start; i < end; i++) {
-            if (s.charAt(i) == c) {
+            if (str.charAt(i) == '"' && (i == 0 || str.charAt(i-1) != '\\')) {
                 count++;
             }
         }
         return count;
+    }
+
+    public static int indexOfOutOfQuotes(String str, char searched) {
+        boolean isQuoted = false;
+        for (int i = 0; i < str.length(); i++) {
+            char ch = str.charAt( i );
+            if (ch == '"' && (i == 0 || str.charAt(i-1) != '\\')) {
+                isQuoted = !isQuoted;
+            } else if (ch == searched && !isQuoted) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public static boolean isIdentifier(String expr) {
@@ -1094,7 +1083,7 @@ public class StringUtils {
     }
 
     // To be extended in the future with more comparison strategies
-    public static enum SIMILARITY_STRATS { DICE };
+    public enum SIMILARITY_STRATS { DICE }
 
     public static double stringSimilarity( String s1, String s2, SIMILARITY_STRATS method ) {
         switch ( method ) {
@@ -1125,5 +1114,9 @@ public class StringUtils {
             acc += s2.indexOf( bigram ) >= 0 ? 1 : 0;
         }
         return acc;
+    }
+
+    public static boolean equalsIgnoreSpaces(String s1, String s2) {
+        return s1.replaceAll( "\\s+", "" ).equals( s2.replaceAll( "\\s+", "" ) );
     }
 }

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.rule.builder.dialect.asm;
 
 import org.drools.core.WorkingMemory;
@@ -7,12 +22,11 @@ import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.drools.core.util.asm.MethodComparator;
-import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.rule.*;
+import org.drools.core.rule.Declaration;
+import org.drools.core.rule.Pattern;
 import org.drools.core.spi.CompiledInvoker;
-import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.spi.Tuple;
+import org.drools.core.util.asm.MethodComparator;
 import org.mvel2.asm.Label;
 import org.mvel2.asm.MethodVisitor;
 
@@ -23,23 +37,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.drools.core.util.ClassUtils.convertPrimitiveNameToType;
-import static org.mvel2.asm.Opcodes.AALOAD;
-import static org.mvel2.asm.Opcodes.ACC_FINAL;
-import static org.mvel2.asm.Opcodes.ACC_PRIVATE;
-import static org.mvel2.asm.Opcodes.ACC_PUBLIC;
-import static org.mvel2.asm.Opcodes.ALOAD;
-import static org.mvel2.asm.Opcodes.ARETURN;
-import static org.mvel2.asm.Opcodes.ASTORE;
-import static org.mvel2.asm.Opcodes.CHECKCAST;
-import static org.mvel2.asm.Opcodes.GOTO;
-import static org.mvel2.asm.Opcodes.ICONST_0;
-import static org.mvel2.asm.Opcodes.IFNE;
-import static org.mvel2.asm.Opcodes.IFNULL;
-import static org.mvel2.asm.Opcodes.IF_ICMPLE;
-import static org.mvel2.asm.Opcodes.ILOAD;
-import static org.mvel2.asm.Opcodes.INVOKEVIRTUAL;
-import static org.mvel2.asm.Opcodes.IRETURN;
-import static org.mvel2.asm.Opcodes.ISTORE;
+import static org.mvel2.asm.Opcodes.*;
 
 public final class GeneratorHelper {
 
@@ -191,9 +189,9 @@ public final class GeneratorHelper {
             mv.visitMethodInsn(INVOKEVIRTUAL, Declaration.class.getName().replace('.', '/'), readMethod,
                                "(L" + InternalWorkingMemory.class.getName().replace('.', '/') +";Ljava/lang/Object;)" + returnedType);
             if (isObject) {
-                InternalReadAccessor extractor = declaration.getExtractor();
-                if (extractor != null) {
-                    cast(extractor.getExtractToClass());
+                Class<?> declarationClass = declaration.getDeclarationClass();
+                if (declarationClass != null) {
+                    cast(declarationClass);
                 }
             }
 
@@ -208,15 +206,15 @@ public final class GeneratorHelper {
             return store(registry, declarationType);
         }
 
-        protected LeftTuple traverseTuplesUntilDeclaration(LeftTuple currentLeftTuple, int declarOffset, int tupleReg) {
-            while ( currentLeftTuple.getLastHandle() == null || currentLeftTuple.getIndex() > declarOffset ) {
-                // FactHandle is null for eval, not and join nodes as it ahs no right input
+        protected Tuple traverseTuplesUntilDeclaration(Tuple currentTuple, int declarOffset, int tupleReg) {
+            while ( currentTuple.getFactHandle() == null || currentTuple.getIndex() > declarOffset ) {
+                // FactHandle is null for eval, not and join nodes as it has no right input
                 mv.visitVarInsn(ALOAD, tupleReg);
-                invokeInterface(LeftTuple.class, "getParent", LeftTuple.class);
+                invokeInterface(Tuple.class, "getParent", Tuple.class);
                 mv.visitVarInsn(ASTORE, tupleReg); // tuple = tuple.getParent()
-                currentLeftTuple = currentLeftTuple.getParent();
+                currentTuple = currentTuple.getParent();
             }
-            return currentLeftTuple;
+            return currentTuple;
         }
 
         protected void traverseTuplesUntilDeclarationWithOr(int declarIndex, int declarReg, int tupleReg, int declarOffsetReg) {
@@ -232,11 +230,11 @@ public final class GeneratorHelper {
             Label whileExit = new Label();
             mv.visitLabel(whileStart);
             mv.visitVarInsn(ALOAD, tupleReg);
-            invokeInterface(LeftTuple.class, "getIndex", Integer.TYPE); // tuple.getIndex()
+            invokeInterface(Tuple.class, "getIndex", Integer.TYPE); // tuple.getIndex()
             mv.visitVarInsn(ILOAD, declarOffsetReg); // declarations[i].getPattern().getOffset()
             mv.visitJumpInsn(IF_ICMPLE, whileExit); // if tuple.getQueueIndex() <= declarations[i].getPattern().getOffset() jump to whileExit
             mv.visitVarInsn(ALOAD, tupleReg);
-            invokeInterface(LeftTuple.class, "getParent", LeftTuple.class);
+            invokeInterface(Tuple.class, "getParent", Tuple.class);
             mv.visitVarInsn(ASTORE, tupleReg); // tuple = tuple.getParent()
             mv.visitJumpInsn(GOTO, whileStart);
             mv.visitLabel(whileExit);

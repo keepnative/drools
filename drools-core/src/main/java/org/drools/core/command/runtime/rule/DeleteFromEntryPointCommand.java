@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.kie.internal.command.Context;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
 
 @XmlAccessorType(XmlAccessType.NONE)
 public class DeleteFromEntryPointCommand
@@ -36,6 +37,8 @@ public class DeleteFromEntryPointCommand
 
     private DisconnectedFactHandle handle;
 
+    private FactHandle.State fhState = FactHandle.State.ALL;
+
     public DeleteFromEntryPointCommand() {
     }
 
@@ -44,9 +47,14 @@ public class DeleteFromEntryPointCommand
         this.entryPoint = entryPoint;
     }
 
+    public DeleteFromEntryPointCommand(FactHandle handle, String entryPoint, FactHandle.State fhState) {
+        this(handle, entryPoint);
+        this.fhState = fhState;
+    }
+
     public Void execute(Context context) {
         KieSession ksession = ((KnowledgeCommandContext) context).getKieSession();
-        ksession.getEntryPoint( entryPoint ).retract( handle );
+        ksession.getEntryPoint( entryPoint ).delete( handle, fhState );
         return null;
     }
 
@@ -54,7 +62,7 @@ public class DeleteFromEntryPointCommand
         return this.handle;
     }
 
-    @XmlAttribute(name="fact-handle", required=true)
+    @XmlElement(name="fact-handle", required=true)
     public void setFactHandleFromString(String factHandleId) {
         handle = new DisconnectedFactHandle(factHandleId);
     }

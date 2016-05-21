@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,19 @@
 
 package org.drools.reteoo.common;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-
 import org.drools.core.RuleBaseConfiguration;
-import org.drools.core.beliefsystem.ModedAssertion;
-import org.kie.api.runtime.rule.FactHandle;
 import org.drools.core.WorkingMemory;
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.base.DefaultKnowledgeHelper;
 import org.drools.core.beliefsystem.BeliefSet;
+import org.drools.core.beliefsystem.ModedAssertion;
+import org.drools.core.beliefsystem.simple.SimpleLogicalDependency;
 import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.EqualityKey;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.LogicalDependency;
 import org.drools.core.common.NamedEntryPoint;
-import org.drools.core.beliefsystem.simple.SimpleLogicalDependency;
 import org.drools.core.common.PropagationContextFactory;
 import org.drools.core.common.TruthMaintenanceSystem;
 import org.drools.core.definitions.rule.impl.RuleImpl;
@@ -46,9 +40,17 @@ import org.drools.core.reteoo.MockRightTupleSink;
 import org.drools.core.reteoo.MockTupleSource;
 import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.reteoo.Rete;
+import org.drools.core.reteoo.ReteooBuilder.IdGenerator;
 import org.drools.core.reteoo.RightTuple;
+import org.drools.core.reteoo.RightTupleImpl;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.reteoo.RuleTerminalNodeLeftTuple;
+import org.drools.core.reteoo.builder.BuildContext;
+import org.drools.core.rule.EntryPointId;
+import org.drools.core.spi.Activation;
+import org.drools.core.spi.Consequence;
+import org.drools.core.spi.KnowledgeHelper;
+import org.drools.core.spi.PropagationContext;
 import org.drools.core.test.model.Cheese;
 import org.drools.core.test.model.DroolsTestCase;
 import org.drools.core.util.Iterator;
@@ -56,20 +58,16 @@ import org.drools.core.util.LinkedList;
 import org.drools.core.util.LinkedListEntry;
 import org.drools.core.util.ObjectHashMap;
 import org.drools.core.util.ObjectHashMap.ObjectEntry;
-import org.drools.core.reteoo.ReteooBuilder.IdGenerator;
-import org.drools.core.reteoo.builder.BuildContext;
-import org.drools.core.rule.EntryPointId;
-import org.drools.core.spi.Activation;
-import org.drools.core.spi.Consequence;
-import org.drools.core.spi.KnowledgeHelper;
-import org.drools.core.spi.PropagationContext;
-
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.runtime.rule.Agenda;
+import org.kie.api.runtime.rule.FactHandle;
 import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.runtime.beliefs.Mode;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 
 import static org.junit.Assert.*;
 
@@ -166,16 +164,15 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                                       false,
                                                                                       true,
                                                                                       rule1,
-                                                                                      (Activation) tuple1.getObject() );
-        new RightTuple( logicalHandle,
-                        sink );
+                                                                                      (Activation) tuple1.getContextObject() );
+        new RightTupleImpl( logicalHandle, sink );
         context1.setFactHandle( handle1 );
         // Retract the tuple and test the logically asserted fact was also deleted
         node.retractLeftTuple( tuple1,
                                context1,
                                ksession );
 
-        ksession.executeQueuedActions();
+        ksession.executeQueuedActionsForRete();
 
         assertLength( 1,
                       sink.getRetracted() );
@@ -196,10 +193,9 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                    false,
                                                                    true,
                                                                    rule1,
-                                                                   (Activation) tuple1.getObject() );
+                                                                   (Activation) tuple1.getContextObject() );
 
-        new RightTuple( logicalHandle,
-                        sink );
+        new RightTupleImpl( logicalHandle, sink );
 
         agenda.fireNextItem( null, 0, -1 );
 
@@ -207,7 +203,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                context1,
                                ksession );
 
-        ksession.executeQueuedActions();
+        ksession.executeQueuedActionsForRete();
 
         assertLength( 2,
                       sink.getRetracted() );
@@ -293,7 +289,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                           false,
                                                           true,
                                                           rule1,
-                                                          (Activation) tuple1.getObject() );
+                                                          (Activation) tuple1.getContextObject() );
 
         final String logicalString2 = new String( "logical" );
         FactHandle logicalHandle2 = ksession.insert( logicalString2,
@@ -301,7 +297,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                           false,
                                                           true,
                                                           rule1,
-                                                          (Activation) tuple1.getObject() );
+                                                          (Activation) tuple1.getContextObject() );
 
         assertSame( logicalHandle1,
                     logicalHandle2 );
@@ -401,7 +397,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                           false,
                                                           true,
                                                           rule1,
-                                                          (Activation) tuple1.getObject() );
+                                                          (Activation) tuple1.getContextObject() );
 
         // This assertion is stated and should override any previous justified
         // "equals" objects.
@@ -442,7 +438,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                false,
                                                true,
                                                rule1,
-                                               (Activation) tuple1.getObject() );
+                                               (Activation) tuple1.getContextObject() );
 
         assertNull( logicalHandle1 );
 
@@ -452,7 +448,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                false,
                                                false,
                                                rule1,
-                                               (Activation) tuple1.getObject() );
+                                               (Activation) tuple1.getContextObject() );
         // return the matched handle
 
         assertSame( logicalHandle2,
@@ -552,7 +548,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                 false,
                                                                 true,
                                                                 rule1,
-                                                                (Activation) tuple1.getObject() );
+                                                                (Activation) tuple1.getContextObject() );
 
         // create the second activation to justify the "logical" fact
         final RuleImpl rule2 = new RuleImpl( "test-rule2" );
@@ -585,7 +581,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                 false,
                                                                 true,
                                                                 rule2,
-                                                                (Activation) tuple2.getObject() );
+                                                                (Activation) tuple2.getContextObject() );
 
         assertSame( logicalHandle1, logicalHandle2 );
         
@@ -597,7 +593,6 @@ public class LogicalAssertionTest extends DroolsTestCase {
 
         // retract the logical prime handle
         ksession.retract( logicalHandle1 );
-;
 
         // The logical object should now disappear appear
         assertEquals( 0,
@@ -703,9 +698,8 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                                              false,
                                                                                              true,
                                                                                              rule1,
-                                                                                             (Activation) tuple1.getObject() );
-        new RightTuple( logicalHandle1,
-                        sink );
+                                                                                             (Activation) tuple1.getContextObject() );
+        new RightTupleImpl( logicalHandle1, sink );
 
         // Create the second justifieable relationship
         final String logicalString2 = new String( "logical" );
@@ -714,7 +708,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                                                              false,
                                                                                              true,
                                                                                              rule2,
-                                                                                             (Activation) tuple2.getObject() );
+                                                                                             (Activation) tuple2.getContextObject() );
 
         assertSame( logicalHandle1, logicalHandle2 );
 
@@ -733,7 +727,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                 context2,
                                 ksession );
 
-        ksession.executeQueuedActions();
+        ksession.executeQueuedActionsForRete();
 
         // because this logical fact has two relationships it shouldn't retract yet
         assertLength( 0,
@@ -748,7 +742,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                context1,
                                ksession );
 
-        ksession.executeQueuedActions();
+        ksession.executeQueuedActionsForRete();
 
         // Should cause the logical fact to be deleted
         assertLength( 1,
@@ -845,7 +839,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                           false,
                                                           true,
                                                           rule1,
-                                                          (Activation) tuple1.getObject() );
+                                                          (Activation) tuple1.getContextObject() );
 
         // Checks that previous LogicalAssert failed
         assertNull( logicalHandle3 );
@@ -862,7 +856,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                    false,
                                                    true,
                                                    rule1,
-                                                   (Activation) tuple1.getObject() );
+                                                   (Activation) tuple1.getContextObject() );
 
             // Checks that previous LogicalAssert failed
             assertNull( logicalHandle3 );
@@ -875,7 +869,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                false,
                                                true,
                                                rule1,
-                                               (Activation) tuple1.getObject() );
+                                               (Activation) tuple1.getContextObject() );
 
         // Checks that previous LogicalAssert succeeded as there are no more
         // stated strings in the working memory
@@ -959,7 +953,7 @@ public class LogicalAssertionTest extends DroolsTestCase {
                                                               false,
                                                               true,
                                                               rule1,
-                                                              (Activation) tuple1.getObject() );
+                                                              (Activation) tuple1.getContextObject() );
 
         cheese.setType( "cheddar" );
         cheese.setPrice( 20 );

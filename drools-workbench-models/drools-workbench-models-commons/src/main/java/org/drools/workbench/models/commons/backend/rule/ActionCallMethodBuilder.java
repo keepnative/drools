@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.workbench.models.commons.backend.rule;
 
 import java.math.BigDecimal;
@@ -10,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.apache.commons.lang.NumberUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.drools.core.util.DateUtils;
 import org.drools.workbench.models.datamodel.oracle.DataType;
 import org.drools.workbench.models.datamodel.oracle.MethodInfo;
@@ -116,6 +131,8 @@ public class ActionCallMethodBuilder {
 
     private ActionFieldFunction getActionFieldFunction( String param,
                                                         String dataType ) {
+        param = removeNumericSuffix( param,
+                                     dataType );
         final int fieldNature = inferFieldNature( dataType,
                                                   param,
                                                   boundParams,
@@ -127,6 +144,9 @@ public class ActionCallMethodBuilder {
             case FieldNatureType.TYPE_FORMULA:
                 break;
             case FieldNatureType.TYPE_VARIABLE:
+                break;
+            case FieldNatureType.TYPE_TEMPLATE:
+                paramValue = unwrapTemplateKey( param );
                 break;
             default:
                 paramValue = adjustParam( dataType,
@@ -218,9 +238,11 @@ public class ActionCallMethodBuilder {
     private String assertParamDataType( final String methodParamDataType,
                                         final String paramValue ) {
         if ( boundParams.containsKey( paramValue ) ) {
-            final String boundParamDataType = boundParams.get( paramValue );
-            return boundParamDataType;
+            //If the parameter is a bound variable use the MethodInfo data-type
+            return methodParamDataType;
+
         } else {
+            //Otherwise try coercing the parameter value into the method data-type until a match is found
             if ( DataType.TYPE_BOOLEAN.equals( methodParamDataType ) ) {
                 if ( Boolean.TRUE.equals( Boolean.parseBoolean( paramValue ) ) || Boolean.FALSE.equals( Boolean.parseBoolean( paramValue ) ) ) {
                     return methodParamDataType;

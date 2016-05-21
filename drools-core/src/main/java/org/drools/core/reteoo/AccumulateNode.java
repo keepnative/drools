@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,6 +81,12 @@ public class AccumulateNode extends BetaNode {
         this.accumulate = accumulate;
         this.unwrapRightObject = unwrapRightObject;
         this.tupleMemoryEnabled = context.isTupleMemoryEnabled();
+
+        hashcode = this.leftInput.hashCode() ^
+                   this.rightInput.hashCode() ^
+                   this.accumulate.hashCode() ^
+                   this.resultBinder.hashCode() ^
+                   Arrays.hashCode( this.resultConstraints );
     }
 
     public void readExternal( ObjectInput in ) throws IOException,
@@ -125,7 +131,7 @@ public class AccumulateNode extends BetaNode {
                                                      final InternalWorkingMemory workingMemory,
                                                      final LeftTuple leftTuple,
                                                      final Object result) {
-        InternalFactHandle handle = null;
+        InternalFactHandle handle;
         ProtobufMessages.FactHandle _handle = null;
         if( context.getReaderContext() != null ) {
             Map<TupleKey, FactHandle> map = (Map<ProtobufInputMarshaller.TupleKey, ProtobufMessages.FactHandle>) context.getReaderContext().nodeMemories.get( getId() );
@@ -152,55 +158,50 @@ public class AccumulateNode extends BetaNode {
         return handle;
     }
 
-    /* (non-Javadoc)
-     * @see org.kie.reteoo.BaseNode#hashCode()
-     */
-    public int hashCode() {
-        return this.leftInput.hashCode() ^ this.rightInput.hashCode() ^ this.accumulate.hashCode() ^ this.resultBinder.hashCode() ^ Arrays.hashCode( this.resultConstraints );
+    @Override
+    public void attach( BuildContext context ) {
+        this.resultBinder.init( context, getType() );
+        super.attach( context );
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
+    protected int calculateHashCode() {
+        return 0;
+    }
+
+    @Override
     public boolean equals( final Object object ) {
-        if ( this == object ) {
-            return true;
-        }
+        return this == object ||
+               ( internalEquals( object ) &&
+               this.leftInput.thisNodeEquals( ((AccumulateNode) object).leftInput ) &&
+               this.rightInput.thisNodeEquals( ((AccumulateNode) object).rightInput ) );
+    }
 
-        if ( object == null || !(object instanceof AccumulateNode) ) {
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof AccumulateNode ) || this.hashCode() != object.hashCode() ) {
             return false;
         }
 
-        final AccumulateNode other = (AccumulateNode) object;
-
-        if ( this.getClass() != other.getClass() || (!this.leftInput.equals( other.leftInput )) || (!this.rightInput.equals( other.rightInput )) || (!this.constraints.equals( other.constraints )) ) {
-            return false;
-        }
-
-        return this.accumulate.equals( other.accumulate ) && resultBinder.equals( other.resultBinder ) && Arrays.equals( this.resultConstraints,
-                                                                                                                         other.resultConstraints );
+        AccumulateNode other = (AccumulateNode) object;
+        return this.constraints.equals( other.constraints ) &&
+               this.accumulate.equals( other.accumulate ) &&
+               resultBinder.equals( other.resultBinder ) &&
+               Arrays.equals( this.resultConstraints, other.resultConstraints );
     }
 
     /**
      * Creates a BetaMemory for the BetaNode's memory.
      */
     public Memory createMemory(final RuleBaseConfiguration config, InternalWorkingMemory wm) {
+        BetaMemory betaMemory = this.constraints.createBetaMemory(config,
+                                                                  NodeTypeEnums.AccumulateNode);
         AccumulateMemory memory = this.accumulate.isMultiFunction() ?
-                                  new MultiAccumulateMemory(this.accumulate.getAccumulators()) :
-                                  new SingleAccumulateMemory(this.accumulate.getAccumulators()[0]);
-        memory.betaMemory = this.constraints.createBetaMemory(config,
-                                                              NodeTypeEnums.AccumulateNode);
+                                  new MultiAccumulateMemory(betaMemory, this.accumulate.getAccumulators()) :
+                                  new SingleAccumulateMemory(betaMemory, this.accumulate.getAccumulators()[0]);
+
         memory.workingMemoryContext = this.accumulate.createWorkingMemoryContext();
         memory.resultsContext = this.resultBinder.createContext();
-        memory.alphaContexts = new ContextEntry[this.resultConstraints.length];
-        for ( int i = 0; i < this.resultConstraints.length; i++ ) {
-            memory.alphaContexts[i] = this.resultConstraints[i].createContextEntry();
-        }
         return memory;
-    }
-
-    public void doRemove(InternalWorkingMemory workingMemory, AccumulateMemory object) {
-
     }
 
     public static abstract class AccumulateMemory extends AbstractBaseLinkedListNode<Memory>
@@ -208,10 +209,13 @@ public class AccumulateNode extends BetaNode {
         Memory {
 
         public Object             workingMemoryContext;
-        public BetaMemory         betaMemory;
+        private final BetaMemory  betaMemory;
         public ContextEntry[]     resultsContext;
-        public ContextEntry[]     alphaContexts;
-        
+
+        protected AccumulateMemory( BetaMemory betaMemory ) {
+            this.betaMemory = betaMemory;
+        }
+
         public BetaMemory getBetaMemory() {
             return this.betaMemory;
         }
@@ -235,12 +239,13 @@ public class AccumulateNode extends BetaNode {
 
         private final Accumulator accumulator;
 
-        public SingleAccumulateMemory(Accumulator accumulator) {
+        public SingleAccumulateMemory(BetaMemory betaMemory, Accumulator accumulator) {
+            super( betaMemory );
             this.accumulator = accumulator;
         }
 
         public void reset() {
-            betaMemory.reset();
+            getBetaMemory().reset();
             workingMemoryContext = this.accumulator.createWorkingMemoryContext();
         }
     }
@@ -249,12 +254,13 @@ public class AccumulateNode extends BetaNode {
 
         private final Accumulator[] accumulators;
 
-        public MultiAccumulateMemory(Accumulator[] accumulators) {
+        public MultiAccumulateMemory(BetaMemory betaMemory, Accumulator[] accumulators) {
+            super( betaMemory );
             this.accumulators = accumulators;
         }
 
         public void reset() {
-            betaMemory.reset();
+            getBetaMemory().reset();
             workingMemoryContext = new Object[ this.accumulators.length ];
             for( int i = 0; i < this.accumulators.length; i++ ) {
                 ((Object[])workingMemoryContext)[i] = this.accumulators[i].createWorkingMemoryContext();
@@ -322,19 +328,19 @@ public class AccumulateNode extends BetaNode {
     }
 
     public LeftTuple createLeftTuple(InternalFactHandle factHandle,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new FromNodeLeftTuple(factHandle, sink, leftTupleMemoryEnabled);
     }
 
     public LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                                      final LeftTuple leftTuple,
-                                     final LeftTupleSink sink) {
+                                     final Sink sink) {
         return new FromNodeLeftTuple(factHandle, leftTuple, sink);
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      PropagationContext pctx,
                                      boolean leftTupleMemoryEnabled) {
         return new FromNodeLeftTuple(leftTuple, sink, pctx, leftTupleMemoryEnabled);
@@ -342,7 +348,7 @@ public class AccumulateNode extends BetaNode {
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
                                      RightTuple rightTuple,
-                                     LeftTupleSink sink) {
+                                     Sink sink) {
         return new FromNodeLeftTuple(leftTuple, rightTuple, sink);
     }
 
@@ -350,7 +356,7 @@ public class AccumulateNode extends BetaNode {
                                      RightTuple rightTuple,
                                      LeftTuple currentLeftChild,
                                      LeftTuple currentRightChild,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new FromNodeLeftTuple(leftTuple, rightTuple, currentLeftChild, currentRightChild, sink, leftTupleMemoryEnabled);
     }
@@ -363,10 +369,9 @@ public class AccumulateNode extends BetaNode {
         return peer;
     }
 
-    public static enum ActivitySource {
+    public enum ActivitySource {
         LEFT, RIGHT
     }
-
 
     @Override
     public void assertRightTuple(RightTuple rightTuple, PropagationContext context, InternalWorkingMemory workingMemory) {
@@ -420,12 +425,13 @@ public class AccumulateNode extends BetaNode {
         throw new UnsupportedOperationException();
     }
 
-
     @Override
-    public void doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
+    public boolean doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
         if ( !isInUse() ) {
             getLeftTupleSource().removeTupleSink( this );
             getRightInput().removeObjectSink( this );
+            return true;
         }
+        return false;
     }
 }

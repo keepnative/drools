@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kproject.memory;
 
 import static org.junit.Assert.*;
@@ -110,7 +125,7 @@ public class MemoryFolderTest {
         f2.create();
         
         assertEquals( "../../..", f2.getPath().toRelativePortableString( f1.getPath() ) );                
-    }      
+    }
     
     @Test
     public void testNestedRelativeDifferentPath() {
@@ -174,7 +189,14 @@ public class MemoryFolderTest {
         assertFalse( fs.getFile( "src/main/resources/org/MyClass3.java" ).exists() );
         assertFalse( fs.getFile( "src/main/resources/org/MyClass4.java" ).exists() );        
         assertFalse( fs.getFile( "src/main/resources/org/domain/MyClass4.java" ).exists() );
-
-                 
     }
+
+    @Test
+    public void trimLeadingAndTrailing() {
+        assertEquals("", MemoryFolder.trimLeadingAndTrailing(""));
+        assertEquals("src/main", MemoryFolder.trimLeadingAndTrailing("/src/main"));
+        assertEquals("src/main", MemoryFolder.trimLeadingAndTrailing("src/main/"));
+        assertEquals("src/main", MemoryFolder.trimLeadingAndTrailing("/src/main/"));
+    }
+
 }

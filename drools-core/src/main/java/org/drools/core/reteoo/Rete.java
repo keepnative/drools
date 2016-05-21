@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,9 +78,11 @@ public class Rete extends ObjectSource
     // ------------------------------------------------------------
 
     public Rete(InternalKnowledgeBase kBase) {
-        super( 0, RuleBasePartitionId.MAIN_PARTITION, kBase != null ? kBase.getConfiguration().isMultithreadEvaluation() : false );
+        super( 0, RuleBasePartitionId.MAIN_PARTITION, kBase != null && kBase.getConfiguration().isMultithreadEvaluation() );
         this.entryPoints = Collections.synchronizedMap( new HashMap<EntryPointId, EntryPointNode>() );
         this.kBase = kBase;
+
+        hashcode = calculateHashCode();
     }
 
     public short getType() {
@@ -156,10 +158,11 @@ public class Rete extends ObjectSource
         kBase.registerAddedEntryNodeCache(node);
     }
 
-    public void removeObjectSink(final ObjectSink objectSink) {
+    public boolean removeObjectSink(final ObjectSink objectSink) {
         final EntryPointNode node = (EntryPointNode) objectSink;
         entryPoints.remove(node.getEntryPoint());
         kBase.registeRremovedEntryNodeCache(node);
+        return false;
     }
 
     public void attach( BuildContext context ) {
@@ -170,10 +173,11 @@ public class Rete extends ObjectSource
         // nothing to do
     }
 
-    protected void doRemove(final RuleRemovalContext context,
-                            final ReteooBuilder builder,
-                            final InternalWorkingMemory[] workingMemories) {
+    protected boolean doRemove(final RuleRemovalContext context,
+                               final ReteooBuilder builder,
+                               final InternalWorkingMemory[] workingMemories) {
         // for now, we don't remove EntryPointNodes because they might be referenced by external sources
+        return false;
     }
 
     public EntryPointNode getEntryPointNode(final EntryPointId entryPoint) {
@@ -192,39 +196,31 @@ public class Rete extends ObjectSource
         return this.entryPoints.get( entryPoint ).getObjectTypeNodes();
     }
 
+    @Override
     public InternalKnowledgeBase getKnowledgeBase() {
         return this.kBase;
     }
 
-    public int hashCode() {
+    private int calculateHashCode() {
         return this.entryPoints.hashCode();
     }
 
     public boolean equals(final Object object) {
-        if ( object == this ) {
-            return true;
-        }
+        return this == object || internalEquals( object );
+    }
 
-        if ( object == null || !(object instanceof Rete) ) {
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof Rete) || this.hashCode() != object.hashCode() ) {
             return false;
         }
-
-        final Rete other = (Rete) object;
-        return this.entryPoints.equals( other.entryPoints );
+        return this.entryPoints.equals( ((Rete)object).entryPoints );
     }
 
     public void updateSink(final ObjectSink sink,
                            final PropagationContext context,
                            final InternalWorkingMemory workingMemory) {
         // nothing to do, since Rete object itself holds no facts to propagate.
-    }
-
-    public boolean isObjectMemoryEnabled() {
-        throw new UnsupportedOperationException( "Rete has no Object memory" );
-    }
-
-    public void setObjectMemoryEnabled(boolean objectMemoryEnabled) {
-        throw new UnsupportedOperationException( "ORete has no Object memory" );
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {

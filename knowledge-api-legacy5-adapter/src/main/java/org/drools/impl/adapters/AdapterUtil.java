@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.impl.adapters;
 
 import org.drools.builder.conf.AccumulateFunctionOption;
@@ -39,13 +54,10 @@ import org.kie.api.runtime.conf.QueryListenerOption;
 import org.kie.api.runtime.conf.SingleValueKieSessionOption;
 import org.kie.api.runtime.conf.TimerJobFactoryOption;
 import org.kie.api.runtime.conf.WorkItemHandlerOption;
-import org.kie.api.runtime.rule.AccumulateFunction;
 import org.kie.api.runtime.rule.EvaluatorDefinition;
-import org.kie.internal.builder.KnowledgeBuilderErrors;
 import org.kie.internal.builder.ResultSeverity;
 import org.kie.internal.conf.AlphaThresholdOption;
 import org.kie.internal.conf.CompositeKeyDepthOption;
-import org.kie.internal.conf.ConsequenceExceptionHandlerOption;
 import org.kie.internal.conf.IndexLeftBetaMemoryOption;
 import org.kie.internal.conf.IndexPrecedenceOption;
 import org.kie.internal.conf.IndexRightBetaMemoryOption;
@@ -415,7 +427,7 @@ public class AdapterUtil {
     public static SingleValueKnowledgeSessionOption adaptOption(SingleValueKieSessionOption option) {
         if (option instanceof BeliefSystemTypeOption) {
             BeliefSystemTypeOption kieOption = (BeliefSystemTypeOption)option;
-            return org.drools.runtime.conf.BeliefSystemTypeOption.get(kieOption.getBelieSystemType());
+            return org.drools.runtime.conf.BeliefSystemTypeOption.get(kieOption.getBeliefSystemType());
         }
         if (option instanceof ClockTypeOption) {
             ClockTypeOption kieOption = (ClockTypeOption)option;

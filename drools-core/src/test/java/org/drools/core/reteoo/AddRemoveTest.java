@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,9 +37,8 @@ public class
         BuildContext context = new BuildContext(kBase, kBase.getReteooBuilder().getIdGenerator() );
 
         NodeFactory nFacotry = kBase.getConfiguration().getComponentFactory().getNodeFactoryService();
-        final EntryPointNode entryPoint = nFacotry.buildEntryPointNode( -1, kBase.getRete(), context );
-        entryPoint.attach(context);
-                        
+        EntryPointNode entryPoint = context.getKnowledgeBase().getRete().getEntryPointNodes().values().iterator().next();
+
         final ObjectTypeNode objectTypeNode = nFacotry.buildObjectTypeNode( 0, entryPoint, new ClassObjectType( Object.class ), context );
         objectTypeNode.attach(context);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,13 +35,14 @@ public class DTCellValue52 {
     private Boolean valueBoolean;
     private Date valueDate;
     private Number valueNumeric;
-    private String valueString = "";
+    private String valueString;
     private DataTypes dataType = DataTypes.STRING;
 
     //Does this cell represent "all other values" to those explicitly defined for the column
     private boolean isOtherwise;
 
     public DTCellValue52() {
+        this( "" );
     }
 
     public DTCellValue52( final DTCellValue52 sourceCell ) {
@@ -295,18 +296,30 @@ public class DTCellValue52 {
     }
 
     public Boolean getBooleanValue() {
+        if ( !this.getDataType().equals( DataTypes.BOOLEAN ) ) {
+            valueBoolean = null;
+        }
         return valueBoolean;
     }
 
     public Date getDateValue() {
+        if ( !this.getDataType().equals( DataTypes.DATE ) ) {
+            valueDate = null;
+        }
         return valueDate;
     }
 
     public Number getNumericValue() {
+        if ( !isNumeric() ) {
+            valueNumeric = null;
+        }
         return valueNumeric;
     }
 
     public String getStringValue() {
+        if ( !this.getDataType().equals( DataTypes.STRING ) ) {
+            valueString = null;
+        }
         return valueString;
     }
 
@@ -401,8 +414,31 @@ public class DTCellValue52 {
         return valueBoolean != null
                 || valueDate != null
                 || valueNumeric != null
-                || valueString != null
+                || ( valueString != null && !valueString.isEmpty() )
                 || isOtherwise;
+    }
+
+    private boolean isNumeric() {
+        if ( dataType.equals( DataTypes.NUMERIC ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_BIGDECIMAL ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_BIGINTEGER ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_BYTE ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_DOUBLE ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_FLOAT ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_INTEGER ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_LONG ) ) {
+            return true;
+        } else if ( dataType.equals( DataTypes.NUMERIC_SHORT ) ) {
+            return true;
+        }
+        return false;
     }
 
     @Override

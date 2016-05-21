@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,27 +21,27 @@ import org.drools.core.time.TimeUtils;
 /**
  * A parameters parser that uses JodaTime for time units parsing.
  */
-public class TimeIntervalParser
-    implements
-    EvaluatorParametersParser {
+public class TimeIntervalParser {
 
-    public Long[] parse(String paramText) {
+    private TimeIntervalParser() { }
+
+    public static long[] parse(String paramText) {
         if ( paramText == null || paramText.trim().length() == 0 ) {
-            return new Long[0];
+            return new long[0];
         }
         String[] params = paramText.split( "," );
-        Long[] result = new Long[params.length];
-        int index = 0;
-        for ( String param : params ) {
-            String trimmed = param.trim();
-            if ( trimmed.length() > 0 ) {
-                result[index++] = TimeUtils.parseTimeString( param );
-            } else {
-                throw new RuntimeException( "Empty parameters not allowed in: [" + paramText + "]" );
-            }
+        long[] result = new long[params.length];
+        for ( int i = 0; i < params.length; i++ ) {
+            result[i] = parseSingle( params[i] );
         }
         return result;
     }
 
-
+    public static long parseSingle(String param) {
+        param = param.trim();
+        if ( param.length() > 0 ) {
+            return TimeUtils.parseTimeString( param );
+        }
+        throw new RuntimeException( "Empty parameters not allowed in: [" + param + "]" );
+    }
 }

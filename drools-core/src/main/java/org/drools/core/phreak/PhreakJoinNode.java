@@ -1,18 +1,31 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.phreak;
 
 import org.drools.core.common.BetaConstraints;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.LeftTupleSets;
-import org.drools.core.common.RightTupleSets;
+import org.drools.core.common.TupleSets;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.JoinNode;
 import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.LeftTupleMemory;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.RightTuple;
-import org.drools.core.reteoo.RightTupleMemory;
+import org.drools.core.reteoo.TupleMemory;
 import org.drools.core.rule.ContextEntry;
-import org.drools.core.spi.PropagationContext;
+import org.drools.core.util.AbstractHashTable;
 import org.drools.core.util.FastIterator;
 
 public class PhreakJoinNode {
@@ -20,11 +33,14 @@ public class PhreakJoinNode {
                        LeftTupleSink sink,
                        BetaMemory bm,
                        InternalWorkingMemory wm,
-                       LeftTupleSets srcLeftTuples,
-                       LeftTupleSets trgLeftTuples,
-                       LeftTupleSets stagedLeftTuples) {
+                       TupleSets<LeftTuple> srcLeftTuples,
+                       TupleSets<LeftTuple> trgLeftTuples,
+                       TupleSets<LeftTuple> stagedLeftTuples) {
 
-        RightTupleSets srcRightTuples = bm.getStagedRightTuples().takeAll();
+        if ( !bm.getStagedRightTuples().isEmpty() ) {
+            bm.setNodeDirtyWithoutNotify();
+        }
+        TupleSets<RightTuple> srcRightTuples = bm.getStagedRightTuples().takeAll();
 
         if (srcRightTuples.getDeleteFirst() != null) {
             doRightDeletes(bm, srcRightTuples, trgLeftTuples, stagedLeftTuples);
@@ -68,34 +84,34 @@ public class PhreakJoinNode {
                               LeftTupleSink sink,
                               BetaMemory bm,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples) {
-        LeftTupleMemory ltm = bm.getLeftTupleMemory();
-        RightTupleMemory rtm = bm.getRightTupleMemory();
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples) {
+        TupleMemory ltm = bm.getLeftTupleMemory();
+        TupleMemory rtm = bm.getRightTupleMemory();
         ContextEntry[] contextEntry = bm.getContext();
         BetaConstraints constraints = joinNode.getRawConstraints();
 
         for (LeftTuple leftTuple = srcLeftTuples.getInsertFirst(); leftTuple != null; ) {
             LeftTuple next = leftTuple.getStagedNext();
 
-            boolean useLeftMemory = RuleNetworkEvaluator.useLeftMemory(joinNode, leftTuple);
+            boolean useLeftMemory = RuleNetworkEvaluator.useLeftMemory( joinNode, leftTuple );
 
             if (useLeftMemory) {
                 ltm.add(leftTuple);
             }
 
-            FastIterator it = joinNode.getRightIterator(rtm);
+            FastIterator it = joinNode.getRightIterator( rtm );
 
-            constraints.updateFromTuple(contextEntry,
-                                        wm,
-                                        leftTuple);
+            constraints.updateFromTuple( contextEntry,
+                                         wm,
+                                         leftTuple );
 
-            for (RightTuple rightTuple = joinNode.getFirstRightTuple(leftTuple,
-                                                                     rtm,
-                                                                     null,
-                                                                     it); rightTuple != null; rightTuple = (RightTuple) it.next(rightTuple)) {
-                if (constraints.isAllowedCachedLeft(contextEntry,
-                                                    rightTuple.getFactHandle())) {
+            for (RightTuple rightTuple = joinNode.getFirstRightTuple( leftTuple,
+                                                                      rtm,
+                                                                      null,
+                                                                      it ); rightTuple != null; rightTuple = (RightTuple) it.next(rightTuple)) {
+                if (constraints.isAllowedCachedLeft( contextEntry,
+                                                     rightTuple.getFactHandle() )) {
                     trgLeftTuples.addInsert(sink.createLeftTuple(leftTuple,
                                                                  rightTuple,
                                                                  null,
@@ -108,68 +124,66 @@ public class PhreakJoinNode {
             leftTuple.clearStaged();
             leftTuple = next;
         }
-        constraints.resetTuple(contextEntry);
+        constraints.resetTuple( contextEntry );
     }
 
     public void doRightInserts(JoinNode joinNode,
                                LeftTupleSink sink,
                                BetaMemory bm,
                                InternalWorkingMemory wm,
-                               RightTupleSets srcRightTuples,
-                               LeftTupleSets trgLeftTuples) {
-        LeftTupleMemory ltm = bm.getLeftTupleMemory();
-        RightTupleMemory rtm = bm.getRightTupleMemory();
+                               TupleSets<RightTuple> srcRightTuples,
+                               TupleSets<LeftTuple> trgLeftTuples) {
+        TupleMemory ltm = bm.getLeftTupleMemory();
+        TupleMemory rtm = bm.getRightTupleMemory();
         ContextEntry[] contextEntry = bm.getContext();
         BetaConstraints constraints = joinNode.getRawConstraints();
 
+        if (srcRightTuples.getInsertSize() > 32 && rtm instanceof AbstractHashTable ) {
+            ((AbstractHashTable) rtm).ensureCapacity(srcRightTuples.getInsertSize());
+        }
+
         for (RightTuple rightTuple = srcRightTuples.getInsertFirst(); rightTuple != null; ) {
             RightTuple next = rightTuple.getStagedNext();
+            rtm.add( rightTuple );
 
-            rtm.add(rightTuple);
-            if ( ltm == null || ltm.size() == 0 ) {
-                // do nothing here, as no left memory
-                rightTuple.clearStaged();
-                rightTuple = next;
-                continue;
-            }
+            if ( ltm != null && ltm.size() > 0 ) {
+                FastIterator it = joinNode.getLeftIterator( ltm );
 
-            FastIterator it = joinNode.getLeftIterator(ltm);
-            PropagationContext context = rightTuple.getPropagationContext();
+                constraints.updateFromFactHandle( contextEntry,
+                                                  wm,
+                                                  rightTuple.getFactHandleForEvaluation() );
 
-            constraints.updateFromFactHandle(contextEntry,
-                                             wm,
-                                             rightTuple.getFactHandle());
+                for ( LeftTuple leftTuple = joinNode.getFirstLeftTuple( rightTuple, ltm, it ); leftTuple != null; leftTuple = (LeftTuple) it.next( leftTuple ) ) {
+                    if ( leftTuple.getStagedType() == LeftTuple.UPDATE ) {
+                        // ignore, as it will get processed via left iteration. Children cannot be processed twice
+                        continue;
+                    }
 
-            for (LeftTuple leftTuple = joinNode.getFirstLeftTuple(rightTuple, ltm, context, it); leftTuple != null; leftTuple = (LeftTuple) it.next(leftTuple)) {
-                if (leftTuple.getStagedType() == LeftTuple.UPDATE) {
-                    // ignore, as it will get processed via left iteration. Children cannot be processed twice
-                    continue;
-                }
-
-                if (constraints.isAllowedCachedRight(contextEntry,
-                                                     leftTuple)) {
-                    trgLeftTuples.addInsert(sink.createLeftTuple(leftTuple,
-                                                                 rightTuple,
-                                                                 null,
-                                                                 null,
-                                                                 sink,
-                                                                 true));
+                    if ( constraints.isAllowedCachedRight( contextEntry,
+                                                           leftTuple ) ) {
+                        trgLeftTuples.addInsert( sink.createLeftTuple( leftTuple,
+                                                                       rightTuple,
+                                                                       null,
+                                                                       null,
+                                                                       sink,
+                                                                       true ) );
+                    }
                 }
             }
             rightTuple.clearStaged();
             rightTuple = next;
         }
-        constraints.resetFactHandle(contextEntry);
+        constraints.resetFactHandle( contextEntry );
     }
 
     public void doLeftUpdates(JoinNode joinNode,
                               LeftTupleSink sink,
                               BetaMemory bm,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples,
-                              LeftTupleSets stagedLeftTuples) {
-        RightTupleMemory rtm = bm.getRightTupleMemory();
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples,
+                              TupleSets<LeftTuple> stagedLeftTuples) {
+        TupleMemory rtm = bm.getRightTupleMemory();
         ContextEntry[] contextEntry = bm.getContext();
         BetaConstraints constraints = joinNode.getRawConstraints();
 
@@ -193,7 +207,9 @@ public class PhreakJoinNode {
             if (childLeftTuple != null && rtm.isIndexed() && !it.isFullIterator() && (rightTuple == null || (rightTuple.getMemory() != childLeftTuple.getRightParent().getMemory()))) {
                 // our index has changed, so delete all the previous propagations
                 while (childLeftTuple != null) {
-                    childLeftTuple = RuleNetworkEvaluator.deleteLeftChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                    LeftTuple nextChild = childLeftTuple.getHandleNext();
+                    RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    childLeftTuple = nextChild;
                 }
                 // childLeftTuple is now null, so the next check will attempt matches for new bucket
             }
@@ -211,12 +227,12 @@ public class PhreakJoinNode {
     public LeftTuple doLeftUpdatesProcessChildren(LeftTuple childLeftTuple,
                                                   LeftTuple leftTuple,
                                                   RightTuple rightTuple,
-                                                  LeftTupleSets stagedLeftTuples,
+                                                  TupleSets<LeftTuple> stagedLeftTuples,
                                                   ContextEntry[] contextEntry,
                                                   BetaConstraints constraints,
                                                   LeftTupleSink sink,
                                                   FastIterator it,
-                                                  LeftTupleSets trgLeftTuples) {
+                                                  TupleSets<LeftTuple> trgLeftTuples) {
         if (childLeftTuple == null) {
             // either we are indexed and changed buckets or
             // we had no children before, but there is a bucket to potentially match, so try as normal assert
@@ -249,13 +265,15 @@ public class PhreakJoinNode {
                         childLeftTuple.setPropagationContext(rightTuple.getPropagationContext());
                         updateChildLeftTuple(childLeftTuple, stagedLeftTuples, trgLeftTuples);
 
-                        LeftTuple nextChildLeftTuple = childLeftTuple.getLeftParentNext();
+                        LeftTuple nextChildLeftTuple = childLeftTuple.getHandleNext();
                         childLeftTuple.reAddRight();
                         childLeftTuple = nextChildLeftTuple;
                     }
                 } else if (childLeftTuple != null && childLeftTuple.getRightParent() == rightTuple) {
                     // delete, childLeftTuple is updated
-                    childLeftTuple = RuleNetworkEvaluator.deleteLeftChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                    LeftTuple nextChild = childLeftTuple.getHandleNext();
+                    RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    childLeftTuple = nextChild;
                 }
             }
         }
@@ -267,41 +285,42 @@ public class PhreakJoinNode {
                                LeftTupleSink sink,
                                BetaMemory bm,
                                InternalWorkingMemory wm,
-                               RightTupleSets srcRightTuples,
-                               LeftTupleSets trgLeftTuples,
-                               LeftTupleSets stagedLeftTuples) {
-        LeftTupleMemory ltm = bm.getLeftTupleMemory();
+                               TupleSets<RightTuple> srcRightTuples,
+                               TupleSets<LeftTuple> trgLeftTuples,
+                               TupleSets<LeftTuple> stagedLeftTuples) {
+        TupleMemory ltm = bm.getLeftTupleMemory();
         ContextEntry[] contextEntry = bm.getContext();
         BetaConstraints constraints = joinNode.getRawConstraints();
 
         for (RightTuple rightTuple = srcRightTuples.getUpdateFirst(); rightTuple != null; ) {
             RightTuple next = rightTuple.getStagedNext();
 
-            PropagationContext context = rightTuple.getPropagationContext();
+            if ( ltm != null && ltm.size() > 0 ) {
+                FastIterator it = joinNode.getLeftIterator( ltm );
+                LeftTuple leftTuple = joinNode.getFirstLeftTuple( rightTuple, ltm, it );
 
-            LeftTuple childLeftTuple = rightTuple.getFirstChild();
+                constraints.updateFromFactHandle( contextEntry,
+                                                  wm,
+                                                  rightTuple.getFactHandleForEvaluation() );
 
-            FastIterator it = joinNode.getLeftIterator(ltm);
-            LeftTuple leftTuple = joinNode.getFirstLeftTuple(rightTuple, ltm, context, it);
-
-            constraints.updateFromFactHandle(contextEntry,
-                                             wm,
-                                             rightTuple.getFactHandle());
-
-            // first check our index (for indexed nodes only) hasn't changed and we are returning the same bucket
-            // We assume a bucket change if leftTuple == null
-            if (childLeftTuple != null && ltm.isIndexed() && !it.isFullIterator() && (leftTuple == null || (leftTuple.getMemory() != childLeftTuple.getLeftParent().getMemory()))) {
-                // our index has changed, so delete all the previous propagations
-                while (childLeftTuple != null) {
-                    childLeftTuple.setPropagationContext(rightTuple.getPropagationContext());
-                    childLeftTuple = RuleNetworkEvaluator.deleteRightChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                // first check our index (for indexed nodes only) hasn't changed and we are returning the same bucket
+                // We assume a bucket change if leftTuple == null
+                LeftTuple childLeftTuple = rightTuple.getFirstChild();
+                if ( childLeftTuple != null && ltm.isIndexed() && !it.isFullIterator() && ( leftTuple == null || ( leftTuple.getMemory() != childLeftTuple.getLeftParent().getMemory() ) ) ) {
+                    // our index has changed, so delete all the previous propagations
+                    while ( childLeftTuple != null ) {
+                        childLeftTuple.setPropagationContext( rightTuple.getPropagationContext() );
+                        LeftTuple nextChild = childLeftTuple.getRightParentNext();
+                        RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                        childLeftTuple = nextChild;
+                    }
+                    // childLeftTuple is now null, so the next check will attempt matches for new bucket
                 }
-                // childLeftTuple is now null, so the next check will attempt matches for new bucket
-            }
 
-            // we can't do anything if LeftTupleMemory is empty
-            if (leftTuple != null) {
-                doRightUpdatesProcessChildren(childLeftTuple, leftTuple, rightTuple, stagedLeftTuples, contextEntry, constraints, sink, it, trgLeftTuples);
+                // we can't do anything if LeftTupleMemory is empty
+                if ( leftTuple != null ) {
+                    doRightUpdatesProcessChildren( childLeftTuple, leftTuple, rightTuple, stagedLeftTuples, contextEntry, constraints, sink, it, trgLeftTuples );
+                }
             }
             rightTuple.clearStaged();
             rightTuple = next;
@@ -312,12 +331,12 @@ public class PhreakJoinNode {
     public LeftTuple doRightUpdatesProcessChildren(LeftTuple childLeftTuple,
                                                    LeftTuple leftTuple,
                                                    RightTuple rightTuple,
-                                                   LeftTupleSets stagedLeftTuples,
+                                                   TupleSets<LeftTuple> stagedLeftTuples,
                                                    ContextEntry[] contextEntry,
                                                    BetaConstraints constraints,
                                                    LeftTupleSink sink,
                                                    FastIterator it,
-                                                   LeftTupleSets trgLeftTuples) {
+                                                   TupleSets<LeftTuple> trgLeftTuples) {
         if (childLeftTuple == null) {
             // either we are indexed and changed buckets or
             // we had no children before, but there is a bucket to potentially match, so try as normal assert
@@ -366,7 +385,9 @@ public class PhreakJoinNode {
                 } else if (childLeftTuple != null && childLeftTuple.getLeftParent() == leftTuple) {
                     // delete, childLeftTuple is updated
                     childLeftTuple.setPropagationContext(rightTuple.getPropagationContext());
-                    childLeftTuple = RuleNetworkEvaluator.deleteRightChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                    LeftTuple nextChild = childLeftTuple.getRightParentNext();
+                    RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    childLeftTuple = nextChild;
                 }
             }
         }
@@ -375,10 +396,10 @@ public class PhreakJoinNode {
     }
 
     public void doLeftDeletes(BetaMemory bm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples,
-                              LeftTupleSets stagedLeftTuples) {
-        LeftTupleMemory ltm = bm.getLeftTupleMemory();
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples,
+                              TupleSets<LeftTuple> stagedLeftTuples) {
+        TupleMemory ltm = bm.getLeftTupleMemory();
 
         for (LeftTuple leftTuple = srcLeftTuples.getDeleteFirst(); leftTuple != null; ) {
             LeftTuple next = leftTuple.getStagedNext();
@@ -391,7 +412,9 @@ public class PhreakJoinNode {
                 LeftTuple childLeftTuple = leftTuple.getFirstChild();
 
                 while (childLeftTuple != null) {
-                    childLeftTuple = RuleNetworkEvaluator.deleteLeftChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                    LeftTuple nextChild = childLeftTuple.getHandleNext();
+                    RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    childLeftTuple = nextChild;
                 }
             }
             leftTuple.clearStaged();
@@ -400,10 +423,10 @@ public class PhreakJoinNode {
     }
 
     public void doRightDeletes(BetaMemory bm,
-                               RightTupleSets srcRightTuples,
-                               LeftTupleSets trgLeftTuples,
-                               LeftTupleSets stagedLeftTuples) {
-        RightTupleMemory rtm = bm.getRightTupleMemory();
+                               TupleSets<RightTuple> srcRightTuples,
+                               TupleSets<LeftTuple> trgLeftTuples,
+                               TupleSets<LeftTuple> stagedLeftTuples) {
+        TupleMemory rtm = bm.getRightTupleMemory();
 
         for (RightTuple rightTuple = srcRightTuples.getDeleteFirst(); rightTuple != null; ) {
             RightTuple next = rightTuple.getStagedNext();
@@ -416,7 +439,9 @@ public class PhreakJoinNode {
                 LeftTuple childLeftTuple = rightTuple.getFirstChild();
                 childLeftTuple.setPropagationContext(rightTuple.getPropagationContext());
                 while (childLeftTuple != null) {
-                    childLeftTuple = RuleNetworkEvaluator.deleteRightChild(childLeftTuple, trgLeftTuples, stagedLeftTuples);
+                    LeftTuple nextChild = childLeftTuple.getRightParentNext();
+                    RuleNetworkEvaluator.unlinkAndDeleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    childLeftTuple = nextChild;
                 }
             }
             rightTuple.clearStaged();
@@ -425,8 +450,8 @@ public class PhreakJoinNode {
     }
 
     public static void updateChildLeftTuple(LeftTuple childLeftTuple,
-                                            LeftTupleSets stagedLeftTuples,
-                                            LeftTupleSets trgLeftTuples) {
+                                            TupleSets<LeftTuple> stagedLeftTuples,
+                                            TupleSets<LeftTuple> trgLeftTuples) {
         switch (childLeftTuple.getStagedType()) {
             // handle clash with already staged entries
             case LeftTuple.INSERT:

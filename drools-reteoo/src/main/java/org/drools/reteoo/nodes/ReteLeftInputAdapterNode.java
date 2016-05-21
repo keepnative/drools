@@ -1,9 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.nodes;
 
 import org.drools.core.base.DroolsQuery;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.MemoryFactory;
 import org.drools.core.reteoo.LIANodePropagation;
 import org.drools.core.reteoo.LeftInputAdapterNode;
 import org.drools.core.reteoo.LeftTuple;
@@ -56,9 +70,7 @@ public class ReteLeftInputAdapterNode extends LeftInputAdapterNode {
     public void retractLeftTuple(LeftTuple leftTuple,
                                  PropagationContext context,
                                  InternalWorkingMemory workingMemory) {
-        leftTuple.getLeftTupleSink().retractLeftTuple( leftTuple,
-                                                       context,
-                                                       workingMemory );
+        leftTuple.retractTuple( context, workingMemory );
 
     }
 
@@ -92,15 +104,17 @@ public class ReteLeftInputAdapterNode extends LeftInputAdapterNode {
                                      workingMemory);
     }
 
-    protected void doRemove(final RuleRemovalContext context,
-                            final ReteooBuilder builder,
-                            final InternalWorkingMemory[] workingMemories) {
+    protected boolean doRemove(final RuleRemovalContext context,
+                               final ReteooBuilder builder,
+                               final InternalWorkingMemory[] workingMemories) {
         if (!isInUse()) {
             getObjectSource().removeObjectSink(this);
             for ( InternalWorkingMemory wm : workingMemories ) {
-                wm.clearNodeMemory( (MemoryFactory) this);
+                wm.clearNodeMemory( this );
             }
+            return true;
         }
+        return false;
     }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,6 @@
 
 package org.drools.core.base.evaluators;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.drools.core.base.BaseEvaluator;
 import org.drools.core.base.ValueType;
 import org.drools.core.common.EventFactHandle;
@@ -34,6 +27,13 @@ import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.time.Interval;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * <p>The implementation of the <code>startedby</code> evaluator definition.</p>
@@ -81,7 +81,6 @@ public class StartedByEvaluatorDefinition
     private static String[]         SUPPORTED_IDS;
 
     private Map<String, StartedByEvaluator> cache     = Collections.emptyMap();
-    private volatile TimeIntervalParser parser        = new TimeIntervalParser();
 
     { init(); }
 
@@ -156,7 +155,7 @@ public class StartedByEvaluatorDefinition
         String key = isNegated + ":" + parameterText;
         StartedByEvaluator eval = this.cache.get( key );
         if ( eval == null ) {
-            Long[] params = parser.parse( parameterText );
+            long[] params = TimeIntervalParser.parse( parameterText );
             eval = new StartedByEvaluator( type,
                                        isNegated,
                                        params,
@@ -215,7 +214,7 @@ public class StartedByEvaluatorDefinition
 
         public StartedByEvaluator(final ValueType type,
                               final boolean isNegated,
-                              final Long[] params,
+                              final long[] params,
                               final String paramText) {
             super( type,
                    isNegated ? NOT_STARTED_BY : STARTED_BY );
@@ -329,13 +328,13 @@ public class StartedByEvaluatorDefinition
          *
          * @param parameters
          */
-        private void setParameters(Long[] parameters) {
+        private void setParameters(long[] parameters) {
             if ( parameters == null || parameters.length == 0 ) {
                 this.startDev = 0;
             } else if ( parameters.length == 1 ) {
-                if( parameters[0].longValue() >= 0 ) {
+                if( parameters[0] >= 0 ) {
                     // defined deviation for end timestamp
-                    this.startDev = parameters[0].longValue();
+                    this.startDev = parameters[0];
                 } else {
                     throw new RuntimeException("[StartedBy Evaluator]: Not possible to use negative parameter: '" + paramText + "'");
                 }

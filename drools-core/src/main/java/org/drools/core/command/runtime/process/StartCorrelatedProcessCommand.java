@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,12 +36,17 @@ import org.drools.core.xml.jaxb.util.JaxbMapAdapter;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.internal.command.Context;
+import org.kie.internal.command.CorrelationKeyCommand;
+import org.kie.internal.jaxb.CorrelationKeyXmlAdapter;
 import org.kie.internal.process.CorrelationAwareProcessRuntime;
 import org.kie.internal.process.CorrelationKey;
 
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.NONE)
-public class StartCorrelatedProcessCommand implements GenericCommand<ProcessInstance>, IdentifiableResult {
+public class StartCorrelatedProcessCommand implements GenericCommand<ProcessInstance>, IdentifiableResult, CorrelationKeyCommand {
+
+    /** Generated serial version UID */
+    private static final long serialVersionUID = 4032503589773486738L;
 
     @XmlAttribute(required = true)
     private String processId;
@@ -119,11 +124,13 @@ public class StartCorrelatedProcessCommand implements GenericCommand<ProcessInst
     public String getOutIdentifier() {
         return outIdentifier;
     }
-    
+   
+    @Override
     public CorrelationKey getCorrelationKey() {
         return correlationKey;
     }
 
+    @Override
     public void setCorrelationKey(CorrelationKey correlationKey) {
         this.correlationKey = correlationKey;
     }

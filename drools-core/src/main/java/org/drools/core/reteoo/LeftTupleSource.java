@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import static org.drools.core.reteoo.PropertySpecificUtil.*;
  */
 public abstract class LeftTupleSource extends BaseNode
         implements
+        LeftTupleNode,
         Externalizable {
 
     private BitMask                   leftDeclaredMask = EmptyBitMask.get();
@@ -68,6 +69,8 @@ public abstract class LeftTupleSource extends BaseNode
     protected LeftTupleSinkPropagator sink;
 
     private transient ObjectTypeNode.Id leftInputOtnId;
+
+    private int positionInPath;
 
     // ------------------------------------------------------------
     // Constructors
@@ -99,6 +102,7 @@ public abstract class LeftTupleSource extends BaseNode
         leftDeclaredMask = (BitMask) in.readObject();
         leftInferredMask = (BitMask) in.readObject();
         leftNegativeMask = (BitMask) in.readObject();
+        positionInPath = in.readInt();
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -108,6 +112,11 @@ public abstract class LeftTupleSource extends BaseNode
         out.writeObject(leftDeclaredMask);
         out.writeObject(leftInferredMask);
         out.writeObject(leftNegativeMask);
+        out.writeInt( positionInPath );
+    }
+
+    public int getPositionInPath() {
+        return positionInPath;
     }
 
     public abstract short getType();
@@ -124,6 +133,7 @@ public abstract class LeftTupleSource extends BaseNode
 
     public void setLeftTupleSource(LeftTupleSource leftInput) {
         this.leftInput = leftInput;
+        positionInPath = leftInput.getPositionInPath() + 1;
     }
 
 	/**
@@ -145,8 +155,7 @@ public abstract class LeftTupleSource extends BaseNode
         }
 
         if ( sinkPropagator instanceof SingleLeftTupleSinkAdapter ) {
-            final CompositeLeftTupleSinkAdapter sinkAdapter;
-            sinkAdapter = new CompositeLeftTupleSinkAdapter( this.getPartitionId() );
+            CompositeLeftTupleSinkAdapter sinkAdapter = new CompositeLeftTupleSinkAdapter( this.getPartitionId() );
             sinkAdapter.addTupleSink( sinkPropagator.getSinks()[0] );
             sinkAdapter.addTupleSink( tupleSink );
             return sinkAdapter;
@@ -252,8 +261,8 @@ public abstract class LeftTupleSource extends BaseNode
     }
 
     private LeftTupleSource unwrapLeftInput(LeftTupleSource leftInput) {
-        if (leftInput.getType() == NodeTypeEnums.FromNode) {
-            return ((FromNode)leftInput).getLeftTupleSource();
+        if (leftInput.getType() == NodeTypeEnums.FromNode || leftInput.getType() == NodeTypeEnums.ReactiveFromNode) {
+            return leftInput.getLeftTupleSource();
         }
         return leftInput;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.kie.api.runtime.rule.Match;
 public class RuleNameEndsWithAgendaFilter
     implements
     AgendaFilter {
+
     private final String  suffix;
 
     private final boolean accept;
@@ -39,6 +40,14 @@ public class RuleNameEndsWithAgendaFilter
                                         final boolean accept) {
         this.suffix = suffix;
         this.accept = accept;
+    }
+
+    public String getSuffix() {
+        return suffix;
+    }
+
+    public boolean isAccept() {
+        return accept;
     }
 
     public boolean accept( Match activation ) {

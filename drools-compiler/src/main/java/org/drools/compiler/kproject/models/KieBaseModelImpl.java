@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kproject.models;
 
 import com.thoughtworks.xstream.converters.MarshallingContext;
@@ -9,10 +24,11 @@ import org.drools.core.util.Predicate;
 import org.kie.api.builder.model.KieBaseModel;
 import org.kie.api.builder.model.KieModuleModel;
 import org.kie.api.builder.model.KieSessionModel;
+import org.kie.api.builder.model.RuleTemplateModel;
+import org.kie.api.conf.DeclarativeAgendaOption;
 import org.kie.api.conf.EqualityBehaviorOption;
 import org.kie.api.conf.EventProcessingOption;
 import org.kie.api.io.ResourceType;
-import org.kie.api.conf.DeclarativeAgendaOption;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,6 +64,8 @@ public class KieBaseModelImpl
     private KieModuleModel               kModule;
     
     private String                       scope = "javax.enterprise.context.ApplicationScoped";
+
+    private List<RuleTemplateModel>      ruleTemplates = new ArrayList<RuleTemplateModel>();
 
     private boolean                      isDefault = false;
 
@@ -147,6 +165,19 @@ public class KieBaseModelImpl
         KieSessionModel kieSessionModel = newMap.remove( oldQName );
         newMap.put(newQName, kieSessionModel);
         setKSessions( newMap );
+    }
+
+    public List<RuleTemplateModel> getRuleTemplates() {
+        return Collections.unmodifiableList( ruleTemplates );
+    }
+
+    public List<RuleTemplateModel> getRawRuleTemplates() {
+        return ruleTemplates;
+    }
+
+    public KieBaseModel addRuleTemplate(String dtable, String template, int row, int col) {
+        ruleTemplates.add( new RuleTemplateModelImpl( this, dtable, template, row, col ) );
+        return this;
     }
 
     /* (non-Javadoc)
@@ -323,9 +354,13 @@ public class KieBaseModelImpl
                 writer.addAttribute( "includes", sb.toString() );
             }
             
-            for ( KieSessionModel kSessionModel :  kBase.getKieSessionModels().values()) {
-                writeObject( writer, context, "ksession", kSessionModel);
+            for ( RuleTemplateModel ruleTemplateModel : kBase.getRuleTemplates()) {
+                writeObject( writer, context, "ruleTemplate", ruleTemplateModel);
             }            
+
+            for ( KieSessionModel kSessionModel : kBase.getKieSessionModels().values()) {
+                writeObject( writer, context, "ksession", kSessionModel);
+            }
         }
 
         public Object unmarshal(HierarchicalStreamReader reader,
@@ -376,6 +411,10 @@ public class KieBaseModelImpl
                         KieSessionModelImpl kSession = readObject( reader, context, KieSessionModelImpl.class );
                         kBase.getRawKieSessionModels().put( kSession.getName(), kSession );
                         kSession.setKBase(kBase);
+                    } else if ( "ruleTemplate".equals( name ) ) {
+                        RuleTemplateModelImpl ruleTemplate = readObject( reader, context, RuleTemplateModelImpl.class );
+                        kBase.getRawRuleTemplates().add( ruleTemplate );
+                        ruleTemplate.setKBase( kBase );
                     }
                     
                    // @TODO we don't use support nested includes

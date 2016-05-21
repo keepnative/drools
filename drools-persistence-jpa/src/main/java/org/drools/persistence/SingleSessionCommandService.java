@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,19 +22,20 @@ import org.drools.core.command.impl.AbstractInterceptor;
 import org.drools.core.command.impl.ContextImpl;
 import org.drools.core.command.impl.DefaultCommandService;
 import org.drools.core.command.impl.FixedKnowledgeCommandContext;
-import org.drools.core.command.impl.GenericCommand;
 import org.drools.core.command.impl.KnowledgeCommandContext;
 import org.drools.core.command.runtime.DisposeCommand;
 import org.drools.core.command.runtime.UnpersistableCommand;
 import org.drools.core.common.EndOperationListener;
 import org.drools.core.common.InternalKnowledgeRuntime;
+import org.drools.core.common.InternalWorkingMemory;
+import org.drools.core.marshalling.impl.KieSessionInitializer;
 import org.drools.core.marshalling.impl.MarshallingConfigurationImpl;
 import org.drools.core.runtime.process.InternalProcessRuntime;
-import org.drools.core.time.AcceptsTimerJobFactoryManager;
+import org.drools.core.time.impl.CommandServiceTimerJobFactoryManager;
+import org.drools.core.time.impl.TimerJobFactoryManager;
 import org.drools.persistence.info.SessionInfo;
 import org.drools.persistence.jpa.JpaPersistenceContextManager;
 import org.drools.persistence.jpa.processinstance.JPAWorkItemManager;
-import org.drools.persistence.jta.JtaTransactionManager;
 import org.kie.api.KieBase;
 import org.kie.api.command.BatchExecutionCommand;
 import org.kie.api.command.Command;
@@ -44,13 +45,13 @@ import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.KieSessionConfiguration;
 import org.kie.internal.command.Context;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.util.Date;
-import javax.persistence.EntityManager;
+import java.util.Iterator;
+import java.util.LinkedList;
 
 public class SingleSessionCommandService
     implements
@@ -71,6 +72,8 @@ public class SingleSessionCommandService
 
     private volatile boolean           doRollback;
 
+    private LinkedList<Interceptor> interceptors = new LinkedList<Interceptor>();
+
     public void checkEnvironment(Environment env) {
         if ( env.get( EnvironmentName.ENTITY_MANAGER_FACTORY ) == null &&
              env.get( EnvironmentName.PERSISTENCE_CONTEXT_MANAGER ) == null ) {
@@ -83,7 +86,7 @@ public class SingleSessionCommandService
                                        KieSessionConfiguration conf,
                                        Environment env) {
         if ( conf == null ) {
-            conf = new SessionConfiguration();
+            conf = SessionConfiguration.newInstance();
         }
         this.env = env;
 
@@ -145,15 +148,18 @@ public class SingleSessionCommandService
 
         this.commandService = new TransactionInterceptor(kContext);
 
-        ((AcceptsTimerJobFactoryManager) ((InternalKnowledgeRuntime) ksession).getTimerService()).getTimerJobFactoryManager().setCommandService( this );
+        TimerJobFactoryManager timerJobFactoryManager = ((InternalKnowledgeRuntime) ksession ).getTimerService().getTimerJobFactoryManager();
+        if (timerJobFactoryManager instanceof CommandServiceTimerJobFactoryManager) {
+           ( (CommandServiceTimerJobFactoryManager) timerJobFactoryManager ).setCommandService( this );
+        }
     }
     
-    public SingleSessionCommandService(Long sessionId,
+    public SingleSessionCommandService( Long sessionId,
                                        KieBase kbase,
                                        KieSessionConfiguration conf,
                                        Environment env) {
         if ( conf == null ) {
-            conf = new SessionConfiguration();
+            conf = SessionConfiguration.newInstance();
         }
 
         this.env = env;
@@ -181,7 +187,7 @@ public class SingleSessionCommandService
             // do not rollback transaction otherwise it will mark it as aborted
             // making the whole operation to fail  if not transaction owner
             if (transactionOwner) {
-                rollbackTransaction( e, transactionOwner );
+                rollbackTransaction( e, transactionOwner, false );
             }
             throw e;
 
@@ -232,20 +238,13 @@ public class SingleSessionCommandService
 
         this.sessionInfo.setJPASessionMashallingHelper(this.marshallingHelper);
 
-        // The CommandService for the TimerJobFactoryManager must be set before any timer jobs are scheduled. 
-        // Otherwise, if overdue jobs are scheduled (and then run before the .commandService field can be set), 
-        //  they will retrieve a null commandService (instead of a reference to this) and fail.
-        ((SessionConfiguration) conf).getTimerJobFactoryManager().setCommandService(this);
-
         // if this.ksession is null, it'll create a new one, else it'll use the existing one
-        this.ksession = (StatefulKnowledgeSession)
-            this.marshallingHelper.loadSnapshot( this.sessionInfo.getData(),
-                                                 this.ksession );
+        this.ksession = this.marshallingHelper.loadSnapshot( this.sessionInfo.getData(), this.ksession, new JpaSessionInitializer(this) );
 
         // update the session id to be the same as the session info id
-        ((InternalKnowledgeRuntime) ksession).setId( this.sessionInfo.getId() );
-
-        ((InternalKnowledgeRuntime) this.ksession).setEndOperationListener( new EndOperationListenerImpl( this.txm, this.sessionInfo ) );
+        InternalKnowledgeRuntime kruntime = ((InternalKnowledgeRuntime) ksession);
+        kruntime.setId( this.sessionInfo.getId() );
+        kruntime.setEndOperationListener( new EndOperationListenerImpl( this.txm, this.sessionInfo ) );
 
         if ( this.kContext == null ) {
             // this should only happen when this class is first constructed
@@ -257,6 +256,32 @@ public class SingleSessionCommandService
         }
 
         this.commandService = new TransactionInterceptor(kContext);
+        // apply interceptors
+        Iterator<Interceptor> iterator = this.interceptors.descendingIterator();
+        while (iterator.hasNext()) {
+            addInterceptor(iterator.next(), false);
+        }
+
+    }
+
+    public class JpaSessionInitializer implements KieSessionInitializer {
+
+        private final SingleSessionCommandService commandService;
+
+        public JpaSessionInitializer( SingleSessionCommandService commandService ) {
+            this.commandService = commandService;
+        }
+
+        @Override
+        public void init( KieSession ksession ) {
+            // The CommandService for the TimerJobFactoryManager must be set before any timer jobs are scheduled.
+            // Otherwise, if overdue jobs are scheduled (and then run before the .commandService field can be set),
+            //  they will retrieve a null commandService (instead of a reference to this) and fail.
+            TimerJobFactoryManager timerJobFactoryManager = ((InternalKnowledgeRuntime) ksession ).getTimerService().getTimerJobFactoryManager();
+            if (timerJobFactoryManager instanceof CommandServiceTimerJobFactoryManager) {
+                ( (CommandServiceTimerJobFactoryManager) timerJobFactoryManager ).setCommandService( commandService );
+            }
+        }
     }
 
     public void initTransactionManager(Environment env) {
@@ -275,7 +300,7 @@ public class SingleSessionCommandService
                     env.set( EnvironmentName.TRANSACTION_MANAGER, this.txm );
                     cls = Class.forName( "org.kie.spring.persistence.KieSpringJpaManager" );
                     con = cls.getConstructors()[0];
-                    this.jpm = (PersistenceContextManager) con.newInstance( new Object[]{this.env} );
+                    this.jpm = (PersistenceContextManager) con.newInstance( this.env );
                 } catch ( Exception e ) {
                     //fall back for drools5-legacy spring module
                     logger.warn( "Could not instantiate KieSpringTransactionManager. Trying with DroolsSpringTransactionManager." );
@@ -289,7 +314,7 @@ public class SingleSessionCommandService
                         // configure spring for JPA and local transactions
                         cls = Class.forName( "org.drools.container.spring.beans.persistence.DroolsSpringJpaManager" );
                         con = cls.getConstructors()[0];
-                        this.jpm = (PersistenceContextManager) con.newInstance( new Object[]{this.env} );
+                        this.jpm = (PersistenceContextManager) con.newInstance( this.env );
                     } catch ( Exception ex ) {
                         logger.warn( "Could not instantiate DroolsSpringTransactionManager" );
                         throw new RuntimeException( "Could not instantiate org.kie.container.spring.beans.persistence.DroolsSpringTransactionManager", ex );
@@ -297,14 +322,12 @@ public class SingleSessionCommandService
                 }
             } else {
                 logger.debug( "Instantiating JtaTransactionManager" );
-                this.txm = new JtaTransactionManager( env.get( EnvironmentName.TRANSACTION ),
-                                                      env.get( EnvironmentName.TRANSACTION_SYNCHRONIZATION_REGISTRY ),
-                                                      tm );
+                this.txm = TransactionManagerFactory.get().newTransactionManager(env);
                 env.set( EnvironmentName.TRANSACTION_MANAGER, this.txm );
                 try {
                     Class< ? > jpaPersistenceCtxMngrClass = Class.forName( "org.jbpm.persistence.JpaProcessPersistenceContextManager" );
                     Constructor< ? > jpaPersistenceCtxMngrCtor = jpaPersistenceCtxMngrClass.getConstructors()[0];
-                    this.jpm = (PersistenceContextManager) jpaPersistenceCtxMngrCtor.newInstance( new Object[]{this.env} );
+                    this.jpm = (PersistenceContextManager) jpaPersistenceCtxMngrCtor.newInstance( this.env );
                 } catch ( ClassNotFoundException e ) {
                     this.jpm = new JpaPersistenceContextManager( this.env );
                 } catch ( Exception e ) {
@@ -354,21 +377,33 @@ public class SingleSessionCommandService
         return this.kContext;
     }
 
+    public CommandService getCommandService() {
+        return this.commandService;
+    }
+
     public synchronized <T> T execute(Command<T> command) {
         return commandService.execute(command);
     }
 
+    private void rollbackTransaction(Exception t1, boolean transactionOwner) {
+        rollbackTransaction(t1, transactionOwner, true);
+    }
+
     private void rollbackTransaction(Exception t1,
-                                     boolean transactionOwner) {
+            boolean transactionOwner, boolean logstack) {
         try {
-            logger.warn( "Could not commit session",
-                          t1 );
+
+            if (logstack) {
+                logger.warn( "Could not commit session", t1 );
+            } else {
+                logger.warn( "Could not commit session due to {}", t1.getMessage() );
+            }
             txm.rollback( transactionOwner );
         } catch ( Exception t2 ) {
             logger.error( "Could not rollback",
-                          t2 );
+                    t2 );
             throw new RuntimeException( "Could not commit session or rollback",
-                                        t2 );
+                    t2 );
         }
     }
 
@@ -376,6 +411,7 @@ public class SingleSessionCommandService
         if ( ksession != null ) {
             ksession.dispose();
         }
+        this.interceptors.clear();
     }
 
     @Override
@@ -446,7 +482,7 @@ public class SingleSessionCommandService
             KieSession ksession = this.service.ksession;
             // clean up cached process and work item instances
             if ( ksession != null ) {
-                InternalProcessRuntime internalProcessRuntime = ((InternalKnowledgeRuntime) ksession).getProcessRuntime();
+                InternalProcessRuntime internalProcessRuntime = ((InternalWorkingMemory) ksession).internalGetProcessRuntime();
                 if ( internalProcessRuntime != null ) {
                     if (this.service.doRollback) {
                         internalProcessRuntime.clearProcessInstancesState();
@@ -476,8 +512,16 @@ public class SingleSessionCommandService
     }
 
     public void addInterceptor(Interceptor interceptor) {
+        addInterceptor(interceptor, true);
+    }
+
+    protected void addInterceptor(Interceptor interceptor, boolean store) {
         interceptor.setNext( this.commandService );
         this.commandService = interceptor;
+        if (store) {
+            // put it on a stack so it can be recreated upon rollback
+            this.interceptors.push(interceptor);
+        }
     }
 
     private void rollback() {
@@ -504,7 +548,7 @@ public class SingleSessionCommandService
             }
 
             if (command instanceof DisposeCommand) {
-                T result = executeNext( (GenericCommand<T>) command );
+                T result = executeNext( command );
                 jpm.dispose();
                 return result;
             }
@@ -545,7 +589,7 @@ public class SingleSessionCommandService
                 }
                 else {
                     logger.trace("Executing " + command.getClass().getSimpleName());
-                    result = executeNext((GenericCommand<T>) command);
+                    result = executeNext(command);
                 }
                 registerUpdateSync();
                 txm.commit( transactionOwner );
@@ -561,11 +605,6 @@ public class SingleSessionCommandService
                         transactionOwner );
                 throw new RuntimeException( "Wrapped exception see cause",
                         t1 );
-            } finally {
-                if ( command instanceof DisposeCommand) {
-                    executeNext((GenericCommand<T>) command);
-                    jpm.dispose();
-                }
             }
         }
     }

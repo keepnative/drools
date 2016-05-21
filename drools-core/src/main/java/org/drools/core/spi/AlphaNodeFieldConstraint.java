@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,13 @@ package org.drools.core.spi;
 
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.rule.ContextEntry;
 
 public interface AlphaNodeFieldConstraint
     extends
     Constraint {
     
-    ContextEntry createContextEntry();
+    boolean isAllowed(InternalFactHandle handle, InternalWorkingMemory workingMemory);
 
-    boolean isAllowed(InternalFactHandle handle,
-                             InternalWorkingMemory workingMemory,
-                             ContextEntry context);
     /**
      * Clone this constraints only if it is already used by a different node, otherwise returns this
      */

@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.decisiontable.parser;
 
 import org.drools.decisiontable.parser.LhsBuilder.FieldType;
@@ -127,13 +142,13 @@ public class LhsBuilderTest {
         assertEquals(FieldType.SINGLE_FIELD, builder.calcFieldType("age"));
         assertEquals(FieldType.OPERATOR_FIELD, builder.calcFieldType("age <"));
         assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("age < $param"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("forall(||){age < $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("forall(&&){age < $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("forall(,){age < $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("forall(){age < $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("forall(){age < $} && forall(){age == $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("x && forall(){age < $} && forall(){age == $}"));
-        assertEquals(FieldType.NORMAL_FIELD, builder.calcFieldType("x && forall(){age < $} && forall(){age == $} && y"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("forall(||){age < $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("forall(&&){age < $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("forall(,){age < $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("forall(){age < $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("forall(){age < $} && forall(){age == $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("x && forall(){age < $} && forall(){age == $}"));
+        assertEquals(FieldType.FORALL_FIELD, builder.calcFieldType("x && forall(){age < $} && forall(){age == $} && y"));
         assertEquals(FieldType.SINGLE_FIELD, builder.calcFieldType("age < $para"));
         assertEquals(FieldType.SINGLE_FIELD, builder.calcFieldType("forall{||}{age < $}"));
         assertEquals(FieldType.SINGLE_FIELD, builder.calcFieldType("forall(){}"));

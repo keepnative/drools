@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,14 @@ package org.drools.core.reteoo;
 
 import org.drools.core.RuleBaseConfiguration;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.Memory;
 import org.drools.core.common.MemoryFactory;
 import org.drools.core.common.WorkingMemoryAction;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
 import org.drools.core.marshalling.impl.MarshallerWriteContext;
 import org.drools.core.marshalling.impl.ProtobufMessages;
+import org.drools.core.phreak.PropagationEntry;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.util.bitmask.BitMask;
@@ -48,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class PropagationQueuingNode extends ObjectSource
     implements
     ObjectSinkNode,
-    MemoryFactory {
+    MemoryFactory<PropagationQueuingNode.PropagationQueueingNodeMemory> {
 
     private static final long serialVersionUID        = 510l;
 
@@ -66,10 +65,6 @@ public class PropagationQueuingNode extends ObjectSource
      * Construct a <code>PropagationQueuingNode</code> that will queue up
      * propagations until it the engine reaches a safe propagation point,
      * when all the queued facts are propagated.
-     *
-     * @param id           Node's ID
-     * @param objectSource Node's object source
-     * @param context
      */
     public PropagationQueuingNode(final int id,
                                   final ObjectSource objectSource,
@@ -81,6 +76,8 @@ public class PropagationQueuingNode extends ObjectSource
                context.getKnowledgeBase().getConfiguration().getAlphaNodeHashingThreshold() );
         this.action = new PropagateAction( this );
         initDeclaredMask(context);
+
+        hashcode = calculateHashCode();
     }
     
     @Override
@@ -107,7 +104,7 @@ public class PropagationQueuingNode extends ObjectSource
                             PropagationContext context,
                             InternalWorkingMemory workingMemory ) {
 
-        final PropagationQueueingNodeMemory memory = (PropagationQueueingNodeMemory) workingMemory.getNodeMemory( this );
+        final PropagationQueueingNodeMemory memory = workingMemory.getNodeMemory( this );
 
         // this is just sanity code. We may remove it in the future, but keeping it for now.
         if ( !memory.isEmpty() ) {
@@ -148,7 +145,7 @@ public class PropagationQueuingNode extends ObjectSource
     public void assertObject( InternalFactHandle factHandle,
                               PropagationContext context,
                               InternalWorkingMemory workingMemory ) {
-        final PropagationQueueingNodeMemory memory = (PropagationQueueingNodeMemory) workingMemory.getNodeMemory( this );
+        final PropagationQueueingNodeMemory memory = workingMemory.getNodeMemory( this );
         memory.addAction( new AssertAction( factHandle,
                                             context ) );
 
@@ -162,7 +159,7 @@ public class PropagationQueuingNode extends ObjectSource
     public void retractObject( InternalFactHandle handle,
                                PropagationContext context,
                                InternalWorkingMemory workingMemory ) {
-        final PropagationQueueingNodeMemory memory = (PropagationQueueingNodeMemory) workingMemory.getNodeMemory( this );
+        final PropagationQueueingNodeMemory memory = workingMemory.getNodeMemory( this );
         memory.addAction( new RetractAction( handle,
                                              context ) );
 
@@ -177,38 +174,20 @@ public class PropagationQueuingNode extends ObjectSource
                              ModifyPreviousTuples modifyPreviousTuples,
                              PropagationContext context,
                              InternalWorkingMemory workingMemory) {
-        final PropagationQueueingNodeMemory memory = (PropagationQueueingNodeMemory) workingMemory.getNodeMemory( this );
-
-        //        for ( ObjectSink s : this.sink.getSinks() ) {
-        //            RightTuple rightTuple = modifyPreviousTuples.removeRightTuple( (RightTupleSink) s );
-        //            if ( rightTuple != null ) {
-        //                rightTuple.reAdd();
-        //                // RightTuple previously existed, so continue as modify
-        //                memory.addAction( new ModifyToSinkAction( rightTuple,
-        //                                                          context,
-        //                                                          (RightTupleSink) s ) );
-        //            } else {
-        //                // RightTuple does not exist, so create and continue as assert
-        //                memory.addAction( new AssertToSinkAction( factHandle,
-        //                                                          context,
-        //                                                          s ) );
-        //            }
-        //        }
+        final PropagationQueueingNodeMemory memory = workingMemory.getNodeMemory( this );
 
         for ( ObjectSink s : this.sink.getSinks() ) {
             BetaNode betaNode = (BetaNode) s;
             RightTuple rightTuple = modifyPreviousTuples.peekRightTuple();
             while ( rightTuple != null &&
-                    rightTuple.getRightTupleSink().getRightInputOtnId().before( betaNode.getRightInputOtnId() ) ) {
+                    rightTuple.getInputOtnId().before( betaNode.getRightInputOtnId() ) ) {
                 modifyPreviousTuples.removeRightTuple();
                 // we skipped this node, due to alpha hashing, so retract now
-                rightTuple.getRightTupleSink().retractRightTuple( rightTuple,
-                                                                  context,
-                                                                  workingMemory );
+                rightTuple.retractTuple( context, workingMemory );
                 rightTuple = modifyPreviousTuples.peekRightTuple();
             }
 
-            if ( rightTuple != null && rightTuple.getRightTupleSink().getRightInputOtnId().equals( betaNode.getRightInputOtnId() ) ) {
+            if ( rightTuple != null && rightTuple.getInputOtnId().equals( betaNode.getRightInputOtnId() ) ) {
                 modifyPreviousTuples.removeRightTuple();
                 rightTuple.reAdd();
                 if ( context.getModificationMask().intersects( betaNode.getRightInferredMask() ) ) {
@@ -247,11 +226,9 @@ public class PropagationQueuingNode extends ObjectSource
      * This method implementation is based on optimistic behavior to avoid the
      * use of locks. There may eventually be a minimum wasted effort, but overall
      * it will be better than paying for the lock's cost.
-     *
-     * @param workingMemory
      */
     public void propagateActions( InternalWorkingMemory workingMemory ) {
-        final PropagationQueueingNodeMemory memory = (PropagationQueueingNodeMemory) workingMemory.getNodeMemory( this );
+        final PropagationQueueingNodeMemory memory = workingMemory.getNodeMemory( this );
 
         // first we clear up the action queued flag
         memory.isQueued().compareAndSet( true,
@@ -280,34 +257,27 @@ public class PropagationQueuingNode extends ObjectSource
         throw new UnsupportedOperationException( "PropagationQueueingNode must have its node memory enabled." );
     }
 
-    public Memory createMemory(RuleBaseConfiguration config, InternalWorkingMemory wm) {
+    public PropagationQueueingNodeMemory createMemory(RuleBaseConfiguration config, InternalWorkingMemory wm) {
         return new PropagationQueueingNodeMemory();
     }
     
-    public int hashCode() {
+    public int calculateHashCode() {
         return this.source.hashCode();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see java.lang.Object#equals(java.lang.Object)
-     */
+    @Override
     public boolean equals(final Object object) {
-        if ( this == object ) {
-            return true;
-        }
-
-        if ( object == null || !(object instanceof PropagationQueuingNode) ) {
-            return false;
-        }
-
-        final PropagationQueuingNode other = (PropagationQueuingNode) object;
-
-        return this.source.equals( other.source );
+        return this == object ||
+               ( internalEquals( object ) && this.source.thisNodeEquals( ((PropagationQueuingNode)object).source ) );
     }
 
-    
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof PropagationQueuingNode) || this.hashCode() != object.hashCode() ) {
+            return false;
+        }
+        return true;
+    }
 
     /**
      * Memory implementation for the node
@@ -485,17 +455,13 @@ public class PropagationQueuingNode extends ObjectSource
         public void execute( final ObjectSinkPropagator sink,
                              final InternalWorkingMemory workingMemory ) {
 
-            for ( RightTuple rightTuple = this.handle.getFirstRightTuple(); rightTuple != null; rightTuple = rightTuple.getHandleNext() ) {
-                rightTuple.getRightTupleSink().retractRightTuple( rightTuple,
-                                                                  context,
-                                                                  workingMemory );
+            for ( RightTuple rightTuple = (RightTuple) this.handle.getFirstRightTuple(); rightTuple != null; rightTuple = rightTuple.getHandleNext() ) {
+                rightTuple.retractTuple( context, workingMemory );
             }
             this.handle.clearRightTuples();
 
-            for ( LeftTuple leftTuple = this.handle.getLastLeftTuple(); leftTuple != null; leftTuple = leftTuple.getLeftParentNext() ) {
-                leftTuple.getLeftTupleSink().retractLeftTuple( leftTuple,
-                                                               context,
-                                                               workingMemory );
+            for ( LeftTuple leftTuple = (LeftTuple) this.handle.getFirstLeftTuple(); leftTuple != null; leftTuple = leftTuple.getHandleNext() ) {
+                leftTuple.retractTuple(  context, workingMemory );
             }
             this.handle.clearLeftTuples();
             context.evaluateActionQueue( workingMemory );
@@ -545,7 +511,8 @@ public class PropagationQueuingNode extends ObjectSource
      * this node propagation can be triggered at a safe point
      */
     public static class PropagateAction
-        implements
+            extends PropagationEntry.AbstractPropagationEntry
+            implements
         WorkingMemoryAction {
 
         private static final long      serialVersionUID = 6765029029501617115L;
@@ -569,11 +536,6 @@ public class PropagationQueuingNode extends ObjectSource
             this.node = (PropagationQueuingNode) context.sinks.get( _action.getPropagate().getNodeId() );
         }
 
-        public void write( MarshallerWriteContext context ) throws IOException {
-            context.writeShort( WorkingMemoryAction.PropagateAction );
-            context.write( node.getId() );
-        }
-        
         public ProtobufMessages.ActionQueue.Action serialize( MarshallerWriteContext context ) {
             return ProtobufMessages.ActionQueue.Action.newBuilder()
                     .setType( ProtobufMessages.ActionQueue.ActionType.PROPAGATE )
@@ -583,21 +545,8 @@ public class PropagationQueuingNode extends ObjectSource
                     .build();
         }
 
-        public void readExternal( ObjectInput in ) throws IOException,
-                                                  ClassNotFoundException {
-            node = (PropagationQueuingNode) in.readObject();
-        }
-
-        public void writeExternal( ObjectOutput out ) throws IOException {
-            out.writeObject( node );
-        }
-
         public void execute( InternalWorkingMemory workingMemory ) {
             this.node.propagateActions( workingMemory );
-        }
-
-        public void execute( InternalKnowledgeRuntime kruntime ) {
-            execute( ((StatefulKnowledgeSessionImpl) kruntime).getInternalWorkingMemory() );
         }
     }
 

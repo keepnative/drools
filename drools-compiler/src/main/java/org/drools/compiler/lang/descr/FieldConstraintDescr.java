@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,13 @@ public class FieldConstraintDescr extends BaseDescr {
     public RestrictionConnectiveDescr getRestriction() {
         return this.restriction;
     }
-    
+
+    @Override
+    public void setResource(org.kie.api.io.Resource resource) {
+        super.setResource(resource);
+        this.restriction.setResource(resource);
+    };
+
     @Override
     public String toString() {
         return fieldName + " " + restriction;

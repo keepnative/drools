@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ package org.drools.core.reteoo;
 import org.drools.core.common.BetaConstraints;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.RightTupleSets;
-import org.drools.core.phreak.RightTupleEntry;
+import org.drools.core.common.TupleSets;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.spi.PropagationContext;
 
@@ -28,12 +27,11 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 
+import static org.drools.core.phreak.AddRemoveRule.flushLeftTupleIfNecessary;
+
 public class NotNode extends BetaNode {
     private static final long serialVersionUID = 510l;
 
-    static int                notAssertObject  = 0;
-    static int                notAssertTuple   = 0;
-    
     // The reason why this is here is because forall can inject a
     //  "this == " + BASE_IDENTIFIER $__forallBaseIdentifier
     // Which we don't want to actually count in the case of forall node linking
@@ -48,11 +46,11 @@ public class NotNode extends BetaNode {
                    final ObjectSource rightInput,
                    final BetaConstraints joinNodeBinder,
                    final BuildContext context) {
-        super( id,
-               leftInput,
-               rightInput,
-               joinNodeBinder,
-               context );
+        super(id,
+              leftInput,
+              rightInput,
+              joinNodeBinder,
+              context);
         this.tupleMemoryEnabled = context.isTupleMemoryEnabled();
         
         // The reason why this is here is because forall can inject a
@@ -91,26 +89,26 @@ public class NotNode extends BetaNode {
     }    
 
     public LeftTuple createLeftTuple(InternalFactHandle factHandle,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new NotNodeLeftTuple(factHandle, sink, leftTupleMemoryEnabled );
     }
 
     public LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                                      final LeftTuple leftTuple,
-                                     final LeftTupleSink sink) {
+                                     final Sink sink) {
         return new NotNodeLeftTuple(factHandle,leftTuple, sink );
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      PropagationContext pctx, boolean leftTupleMemoryEnabled) {
         return new NotNodeLeftTuple(leftTuple,sink, pctx, leftTupleMemoryEnabled );
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
                                      RightTuple rightTuple,
-                                     LeftTupleSink sink) {
+                                     Sink sink) {
         return new NotNodeLeftTuple(leftTuple, rightTuple, sink );
     }   
     
@@ -118,14 +116,14 @@ public class NotNode extends BetaNode {
                                      RightTuple rightTuple,
                                      LeftTuple currentLeftChild,
                                      LeftTuple currentRightChild,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new NotNodeLeftTuple(leftTuple, rightTuple, currentLeftChild, currentRightChild, sink, leftTupleMemoryEnabled );        
     }       
 
     public String toString() {
         ObjectTypeNode source = getObjectTypeNode();
-        return "[NotNode(" + this.getId() + ") - " + ((source != null) ? ((ObjectTypeNode) source).getObjectType() : "<source from a subnetwork>") + "]";
+        return "[NotNode(" + this.getId() + ") - " + ((source != null) ? source.getObjectType() : "<source from a subnetwork>") + "]";
     }
 
     @Override
@@ -136,7 +134,7 @@ public class NotNode extends BetaNode {
     public void assertObject( final InternalFactHandle factHandle,
                               final PropagationContext pctx,
                               final InternalWorkingMemory wm ) {
-        final BetaMemory memory = (BetaMemory) getBetaMemoryFromRightInput(this, wm);
+        final BetaMemory memory = getBetaMemoryFromRightInput(this, wm);
 
         RightTuple rightTuple = createRightTuple( factHandle,
                                                   this,
@@ -147,13 +145,10 @@ public class NotNode extends BetaNode {
         // strangely we link here, this is actually just to force a network evaluation
         // The assert is then processed and the rule unlinks then.
         // This is because we need the first RightTuple to link with it's blocked
-        boolean stagedInsertWasEmpty = false;
-        if ( streamMode ) {
-            stagedInsertWasEmpty = memory.getSegmentMemory().getStreamQueue().addInsert(new RightTupleEntry(rightTuple, pctx, memory, pctx.getType()));
-            //log.trace( "NotNode insert queue={} size={} lt={}", System.identityHashCode( memory.getSegmentMemory().getTupleQueue() ), memory.getSegmentMemory().getTupleQueue().size(), rightTuple );
-        }  else {
-            stagedInsertWasEmpty = memory.getStagedRightTuples().addInsert( rightTuple );
+        if ( memory.getStagedRightTuples().isEmpty() ) {
+            memory.setNodeDirtyWithoutNotify();
         }
+        boolean stagedInsertWasEmpty = memory.getStagedRightTuples().addInsert( rightTuple );
 
         if (  memory.getAndIncCounter() == 0 && isEmptyBetaConstraints()  ) {
             // NotNodes can only be unlinked, if they have no variable constraints
@@ -162,6 +157,8 @@ public class NotNode extends BetaNode {
             // nothing staged before, notify rule, so it can evaluate network
             memory.setNodeDirty(wm);
         }
+
+        flushLeftTupleIfNecessary(wm, memory.getSegmentMemory(), null, isStreamMode());
     }
 
     public void retractRightTuple(final RightTuple rightTuple,
@@ -177,16 +174,11 @@ public class NotNode extends BetaNode {
     public void doDeleteRightTuple(final RightTuple rightTuple,
                                    final InternalWorkingMemory wm,
                                    final BetaMemory memory) {
-        RightTupleSets stagedRightTuples = memory.getStagedRightTuples();
-        boolean  stagedDeleteWasEmpty = false;
-        if ( streamMode ) {
-            PropagationContext pctx = rightTuple.getPropagationContext();
-            stagedDeleteWasEmpty = memory.getSegmentMemory().getStreamQueue().addDelete(new RightTupleEntry(rightTuple, pctx, memory, pctx.getType()));
-            //log.trace( "NotNode delete queue={} size={} lt={}", System.identityHashCode( memory.getSegmentMemory().getTupleQueue() ), memory.getSegmentMemory().getTupleQueue().size(), rightTuple );
-            registerUnlinkedPaths(wm, memory.getSegmentMemory(), stagedDeleteWasEmpty);
-        } else {
-            stagedDeleteWasEmpty = stagedRightTuples.addDelete( rightTuple );
+        TupleSets<RightTuple> stagedRightTuples = memory.getStagedRightTuples();
+        if ( stagedRightTuples.isEmpty() ) {
+            memory.setNodeDirtyWithoutNotify();
         }
+        boolean stagedDeleteWasEmpty = stagedRightTuples.addDelete( rightTuple );
 
         if (  memory.getAndDecCounter() == 1 && isEmptyBetaConstraints()  ) {
             // NotNodes can only be unlinked, if they have no variable constraints
@@ -228,11 +220,13 @@ public class NotNode extends BetaNode {
     }
 
     @Override
-    public void doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
+    public boolean doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
         if ( !isInUse() ) {
             getLeftTupleSource().removeTupleSink( this );
             getRightInput().removeObjectSink( this );
+            return true;
         }
+        return false;
     }
 
     public boolean isLeftUpdateOptimizationAllowed() {

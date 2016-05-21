@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.integrationtests;
 
 import org.drools.compiler.Cat;
@@ -5,12 +20,11 @@ import org.drools.compiler.Cheese;
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.Person;
 import org.drools.core.base.ClassObjectType;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.LeftInputAdapterNode;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.ObjectTypeNode;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.junit.Test;
 import org.kie.internal.KnowledgeBase;
 
@@ -63,8 +77,8 @@ public class AlphaNetworkModifyTest extends CommonTestMethodBase {
         str += "end  \n";         
         
         KnowledgeBase kbase = loadKnowledgeBaseFromString( str );
-        
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         
         ObjectTypeNode otnPerson = getObjectTypeNode(kbase, "Person" );
@@ -77,7 +91,8 @@ public class AlphaNetworkModifyTest extends CommonTestMethodBase {
         wm.insert( new Person() );
         wm.insert( new Cat("yyy") );
         wm.insert( new Cheese() );
-        
+        wm.fireAllRules();
+
         assertEquals( 2, otnPerson.getOtnIdCounter() );
         assertEquals( 4, otnCheese.getOtnIdCounter() );
         assertEquals( 2, otnCat.getOtnIdCounter() );
@@ -117,22 +132,21 @@ public class AlphaNetworkModifyTest extends CommonTestMethodBase {
         str += "end  \n";         
         
         KnowledgeBase kbase = loadKnowledgeBaseFromString( str );
-        
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         wm.fireAllRules();
         
         
         ObjectTypeNode otnInit = getObjectTypeNode(kbase, "InitialFactImpl" );
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otnInit.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otnInit.getObjectSinkPropagator().getSinks()[0];
         
         LeftTupleSink[] sinks = liaNode.getSinkPropagator().getSinks();
-        
+
+        assertEquals(2, sinks.length );
         assertEquals(0, sinks[0].getLeftInputOtnId().getId() );
         assertEquals(1, sinks[1].getLeftInputOtnId().getId() );
-        assertEquals(2, sinks[2].getLeftInputOtnId().getId() );
-        assertEquals(3, sinks[3].getLeftInputOtnId().getId() );
-    }        
+    }
     
     @Test
     public void testModifyWithLiaToAcc() {
@@ -171,14 +185,14 @@ public class AlphaNetworkModifyTest extends CommonTestMethodBase {
         str += "end  \n";         
         
         KnowledgeBase kbase = loadKnowledgeBaseFromString( str );
-        
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         wm.fireAllRules();
         
         
         ObjectTypeNode otnInit = getObjectTypeNode(kbase, "InitialFactImpl" );
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otnInit.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otnInit.getObjectSinkPropagator().getSinks()[0];
         
         LeftTupleSink[] sinks = liaNode.getSinkPropagator().getSinks();
         
@@ -194,7 +208,8 @@ public class AlphaNetworkModifyTest extends CommonTestMethodBase {
         assertEquals( 0, otnCheese.getOtnIdCounter() );
         wm.insert( new Person() );
         wm.insert( new Cheese() );
-        
+        wm.fireAllRules();
+
         assertEquals( 5, otnPerson.getOtnIdCounter() );
         assertEquals( 4, otnCheese.getOtnIdCounter() );
     }       

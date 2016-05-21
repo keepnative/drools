@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@ package org.drools.core.command.runtime.rule;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.drools.core.base.RuleNameSerializationAgendaFilter;
 import org.drools.core.command.IdentifiableResult;
 import org.drools.core.command.impl.GenericCommand;
 import org.drools.core.command.impl.KnowledgeCommandContext;
@@ -37,10 +39,11 @@ public class FireAllRulesCommand implements GenericCommand<Integer>, Identifiabl
 
     @XmlAttribute
     private int          max          = -1;
-   
-    @XmlTransient // TODO: no easy/obvious way to serialize AgendaFilter instances at the moment
+
+    @XmlTransient
+    // TODO: make sure that all drools AgendaFilter implementations are serializable
     private AgendaFilter agendaFilter = null;
-    
+
     @XmlAttribute(name="out-identifier")
     private String       outIdentifier;
 
@@ -60,16 +63,15 @@ public class FireAllRulesCommand implements GenericCommand<Integer>, Identifiabl
     }
 
     public FireAllRulesCommand(AgendaFilter agendaFilter, int max) {
-        this.agendaFilter = agendaFilter;
+        this(agendaFilter);
         this.max = max;
     }
 
     public FireAllRulesCommand(String outIdentifier,
                                int max,
                                AgendaFilter agendaFilter) {
+        this(agendaFilter, max);
         this.outIdentifier = outIdentifier;
-        this.max = max;
-        this.agendaFilter = agendaFilter;
     }
 
     public int getMax() {

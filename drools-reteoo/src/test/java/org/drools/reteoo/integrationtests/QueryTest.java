@@ -1,12 +1,19 @@
-package org.drools.reteoo.integrationtests;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+package org.drools.reteoo.integrationtests;
 
 import org.drools.compiler.Address;
 import org.drools.compiler.Cheese;
@@ -18,31 +25,35 @@ import org.drools.compiler.Worker;
 import org.drools.compiler.integrationtests.SerializationHelper;
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.base.DroolsQuery;
-import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.util.Entry;
-import org.drools.core.util.ObjectHashMap.ObjectEntry;
-import org.drools.core.util.ObjectHashSet;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.EntryPointNode;
 import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.reteoo.ObjectTypeNode.ObjectTypeNodeMemory;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.drools.core.runtime.rule.impl.FlatQueryResults;
 import org.drools.core.spi.ObjectType;
 import org.junit.Test;
-import org.kie.api.runtime.rule.FactHandle;
-import org.kie.api.runtime.rule.QueryResults;
-import org.kie.internal.KnowledgeBase;
 import org.kie.api.definition.rule.Rule;
-import org.kie.internal.builder.conf.RuleEngineOption;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.api.runtime.conf.QueryListenerOption;
+import org.kie.api.runtime.rule.FactHandle;
 import org.kie.api.runtime.rule.LiveQuery;
+import org.kie.api.runtime.rule.QueryResults;
 import org.kie.api.runtime.rule.QueryResultsRow;
 import org.kie.api.runtime.rule.Row;
 import org.kie.api.runtime.rule.Variable;
 import org.kie.api.runtime.rule.ViewChangedEventListener;
+import org.kie.internal.KnowledgeBase;
+import org.kie.internal.builder.conf.RuleEngineOption;
+import org.kie.internal.runtime.StatefulKnowledgeSession;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class QueryTest extends CommonTestMethodBase {
 
@@ -381,20 +392,8 @@ public class QueryTest extends CommonTestMethodBase {
 
         ObjectType key = new ClassObjectType( DroolsQuery.class );
         ObjectTypeNode droolsQueryNode = obnodes.get( key );
-        ObjectHashSet droolsQueryMemory = ((ObjectTypeNodeMemory) sessionImpl.getNodeMemory( droolsQueryNode )).memory;
-        assertEquals( 0,
-                      droolsQueryMemory.size() );
-
-        Entry[] entries = droolsQueryMemory.getTable();
-        int entryCounter = 0;
-        for ( Entry entry : entries ) {
-            if ( entry != null ) {
-                entryCounter++;
-                ObjectEntry oEntry = (ObjectEntry) entry;
-                DefaultFactHandle factHandle = (DefaultFactHandle) oEntry.getValue();
-                assertNull( factHandle.getObject() );
-            }
-        }
+        Iterator<InternalFactHandle> it = ((ObjectTypeNodeMemory) sessionImpl.getNodeMemory( droolsQueryNode )).iterator();
+        assertFalse(it.hasNext());
     }
 
     @Test
@@ -875,5 +874,4 @@ public class QueryTest extends CommonTestMethodBase {
 
         ksession.dispose();
     }
-
 }

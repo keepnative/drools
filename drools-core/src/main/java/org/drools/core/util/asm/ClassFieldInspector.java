@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,6 @@
 
 package org.drools.core.util.asm;
 
-import java.beans.Introspector;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Field;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.kie.api.io.Resource;
 import org.kie.internal.builder.KnowledgeBuilderResult;
 import org.kie.internal.builder.ResultSeverity;
@@ -44,6 +27,23 @@ import org.mvel2.asm.FieldVisitor;
 import org.mvel2.asm.MethodVisitor;
 import org.mvel2.asm.Opcodes;
 import org.mvel2.asm.Type;
+
+import java.beans.Introspector;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Visit a POJO user class, and extract the property getter methods that are public, in the 
@@ -122,19 +122,19 @@ public class ClassFieldInspector {
         }
         if ( clazz.isInterface() ) {
             final Class< ? >[] interfaces = clazz.getInterfaces();
-            for ( int i = 0; i < interfaces.length; i++ ) {
-                final String name = getResourcePath( interfaces[i] );
+            for ( Class<?> anInterface : interfaces ) {
+                final String name = getResourcePath( anInterface );
                 final InputStream parentStream = clazz.getResourceAsStream( name );
                 if ( parentStream != null ) {
                     try {
-                        processClassWithByteCode( interfaces[i],
+                        processClassWithByteCode( anInterface,
                                                   parentStream,
                                                   includeFinalMethods );
                     } finally {
                         parentStream.close();
                     }
                 } else {
-                    processClassWithoutByteCode( interfaces[i],
+                    processClassWithoutByteCode( anInterface,
                                                  includeFinalMethods );
                 }
             }
@@ -149,24 +149,29 @@ public class ClassFieldInspector {
         Collections.sort( methods,  new Comparator<Method>() {
             public int compare(Method m1,
                                Method m2) {
-                return m1.getName().compareTo( m2.getName() );
+                String n1 = m1.getName();
+                String n2 = m2.getName();
+                if ( n1.equals( n2 ) && m1.getDeclaringClass() != m2.getDeclaringClass() ) {
+                    return m1.getDeclaringClass().isAssignableFrom( m2.getDeclaringClass() ) ? -1 : 1;
+                } else {
+                    return n1.compareTo( n2 );
+                }
             }
         });
-        
-        for ( int i = 0; i < methods.size(); i++ ) {
-            // modifiers mask  
-            final int mask = includeFinalMethods ? Modifier.PUBLIC : Modifier.PUBLIC | Modifier.FINAL;
-            Method method = methods.get( i );
 
-            if ( ((method.getModifiers() & mask) == Opcodes.ACC_PUBLIC) && (method.getParameterTypes().length == 0) && (!method.getName().equals( "<init>" )) && (!method.getName().equals( "<clinit>" ))
-                    && (method.getReturnType() != void.class) ) {
+        for ( Method method : methods ) {
+            // modifiers mask
+            final int mask = includeFinalMethods ? Modifier.PUBLIC : Modifier.PUBLIC | Modifier.FINAL;
+
+            if ( ( ( method.getModifiers() & mask ) == Opcodes.ACC_PUBLIC ) && ( method.getParameterTypes().length == 0 ) && ( !method.getName().equals( "<init>" ) ) && ( !method.getName().equals( "<clinit>" ) )
+                 && ( method.getReturnType() != void.class ) ) {
 
                 // want public methods that start with 'get' or 'is' and have no args, and return a value
                 final int fieldIndex = this.fieldNames.size();
                 addToMapping( method,
                               fieldIndex );
 
-            } else if ( ((method.getModifiers() & mask) == Opcodes.ACC_PUBLIC) && (method.getParameterTypes().length == 1) && (method.getName().startsWith( "set" )) ) {
+            } else if ( ( ( method.getModifiers() & mask ) == Opcodes.ACC_PUBLIC ) && ( method.getParameterTypes().length == 1 ) && ( method.getName().startsWith( "set" ) ) ) {
 
                 // want public methods that start with 'set' and have one arg
                 final int fieldIndex = this.fieldNames.size();
@@ -177,11 +182,11 @@ public class ClassFieldInspector {
         }
 
         final List<Field> flds = Arrays.asList( clazz.getFields() );
-        Collections.sort( flds,  new Comparator<Field>() {
-            public int compare(Field f1, Field f2) {
+        Collections.sort( flds, new Comparator<Field>() {
+            public int compare( Field f1, Field f2 ) {
                 return f1.getName().compareTo( f2.getName() );
             }
-        });
+        } );
 
         for ( Field fld : flds ) {
             if ( ! Modifier.isStatic( fld.getModifiers() ) && ! fieldNames.containsKey( fld.getName() ) ) {
@@ -230,8 +235,11 @@ public class ClassFieldInspector {
      * @return A mapping of field types (unboxed).
      */
     public Map<String, Class< ? >> getFieldTypes() {
-
         return this.fieldTypes;
+    }
+
+    public Class< ? > getFieldType(String name) {
+        return this.fieldTypes.get(name);
     }
 
     /**
@@ -266,8 +274,7 @@ public class ClassFieldInspector {
             if ( offset != 0 && this.nonGetters.contains( fieldName ) ) {
                 //replace the non getter method with the getter one
                 Integer oldIndex = removeOldField( fieldName );
-                storeField( method,
-                            oldIndex,
+                storeField( oldIndex,
                             fieldName );
                 storeGetterSetter( method,
                                    fieldName );
@@ -277,8 +284,7 @@ public class ClassFieldInspector {
                                    fieldName );
             }
         } else {
-            storeField( method,
-                        new Integer( index ),
+            storeField( index,
                         fieldName );
             storeGetterSetter( method,
                                fieldName );
@@ -298,8 +304,7 @@ public class ClassFieldInspector {
 
     }
 
-    private void storeField( final Method method,
-                             final Integer index,
+    private void storeField( final Integer index,
                              final String fieldName ) {
         this.fieldNames.put( fieldName,
                              index );
@@ -316,14 +321,9 @@ public class ClassFieldInspector {
         return fields;
     }
 
-    /**
-     * @param method
-     * @param fieldName
-     */
     private void storeGetterSetter( final Method method,
                                     final String fieldName ) {
-        Field f = null;
-        f = getAllFields( classUnderInspection ).get( fieldName );
+        Field f =  getAllFields( classUnderInspection ).get( fieldName );
         if ( method.getName().startsWith( "set" ) && method.getParameterTypes().length == 1 ) {
             this.setterMethods.put( fieldName,
                                     method );
@@ -336,7 +336,8 @@ public class ClassFieldInspector {
                                           f );
             }
         } else if( ! void.class.isAssignableFrom( method.getReturnType() ) ) {
-            if ( getterMethods.containsKey( fieldName ) ) {
+            Method existingMethod = getterMethods.get( fieldName );
+            if ( existingMethod != null && !isOverride( existingMethod, method ) ) {
                 addResult( fieldName, new GetterOverloadWarning( classUnderInspection,
                                                                  this.getterMethods.get( fieldName ).getName(), this.fieldTypes.get( fieldName ),
                                                                  method.getName(), method.getReturnType() ) );
@@ -348,6 +349,11 @@ public class ClassFieldInspector {
             this.fieldTypesField.put( fieldName,
                                       f );
         }
+    }
+
+    private boolean isOverride( Method oldMethod, Method newMethod ) {
+        return !oldMethod.getDeclaringClass().equals( newMethod.getDeclaringClass() ) &&
+               oldMethod.getDeclaringClass().isAssignableFrom( newMethod.getDeclaringClass() );
     }
 
     private String calcFieldName( String name,
@@ -420,10 +426,10 @@ public class ClassFieldInspector {
                     } else if ( name.startsWith( "set" ) ) {
                         // I found no safe way of getting the method object from the descriptor, so doing the other way around
                         Method[] methods = this.clazz.getMethods();
-                        for ( int i = 0; i < methods.length; i++ ) {
-                            if ( name.equals( methods[i].getName() ) && desc.equals( Type.getMethodDescriptor( methods[i] ) ) ) {
+                        for ( Method method : methods ) {
+                            if ( name.equals( method.getName() ) && desc.equals( Type.getMethodDescriptor( method ) ) ) {
                                 final int fieldIndex = this.inspector.fieldNames.size();
-                                this.inspector.addToMapping( methods[i],
+                                this.inspector.addToMapping( method,
                                                              fieldIndex );
                                 break;
                             }
@@ -437,25 +443,10 @@ public class ClassFieldInspector {
             return null;
         }
 
-        public void visit( final int arg0,
-                           final int arg1,
-                           final String arg2,
-                           final String arg3,
-                           final String[] arg4,
-                           final String arg5 ) {
-        }
-
         public void visitInnerClass( final String arg0,
                                      final String arg1,
                                      final String arg2,
                                      final int arg3 ) {
-        }
-
-        public void visitField( final int access,
-                                final String arg1,
-                                final String arg2,
-                                final Object arg3,
-                                final Attribute arg4 ) {
         }
 
         public void visitAttribute( final Attribute arg0 ) {

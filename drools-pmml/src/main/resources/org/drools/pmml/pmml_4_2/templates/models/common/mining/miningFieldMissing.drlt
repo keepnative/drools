@@ -1,6 +1,6 @@
 @comment{
 
-  Copyright 2011 JBoss Inc
+  Copyright 2011 Red Hat, Inc. and/or its affiliates.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -34,11 +34,11 @@ when
  $x : @{name}( $m : missing == true,
                context == @{format("string",model)} )
 then
-    modify ( $x ) {
-        setValue( @{replacement} ),
-        setMissing( false ),
-        setValid( true );
-    }
+    delete ( $x );
+        $x.setValue( @{replacement} );
+        $x.setMissing( false );
+        $x.setValid( true );
+    insert( $x );
 end
 @end{}
 

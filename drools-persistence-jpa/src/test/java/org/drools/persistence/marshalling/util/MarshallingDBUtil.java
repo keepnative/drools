@@ -1,5 +1,3 @@
-package org.drools.persistence.marshalling.util;
-
 /*
  * Copyright 2011 Red Hat Inc.
  *
@@ -15,13 +13,14 @@ package org.drools.persistence.marshalling.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import static org.drools.persistence.util.PersistenceUtil.DATASOURCE;
-import static org.drools.persistence.util.PersistenceUtil.getDatasourceProperties;
-import static org.drools.persistence.util.PersistenceUtil.setupPoolingDataSource;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.kie.api.runtime.EnvironmentName.ENTITY_MANAGER_FACTORY;
 
+package org.drools.persistence.marshalling.util;
+
+import bitronix.tm.resource.jdbc.PoolingDataSource;
+
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import javax.persistence.Table;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.lang.annotation.Annotation;
@@ -34,11 +33,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
 
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Persistence;
-import javax.persistence.Table;
-
-import bitronix.tm.resource.jdbc.PoolingDataSource;
+import static org.drools.persistence.util.DroolsPersistenceUtil.DATASOURCE;
+import static org.drools.persistence.util.DroolsPersistenceUtil.getDatasourceProperties;
+import static org.drools.persistence.util.DroolsPersistenceUtil.setupPoolingDataSource;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.kie.api.runtime.EnvironmentName.ENTITY_MANAGER_FACTORY;
 
 public class MarshallingDBUtil {
 

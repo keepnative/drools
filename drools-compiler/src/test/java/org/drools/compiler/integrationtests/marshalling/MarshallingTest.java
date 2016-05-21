@@ -1,23 +1,19 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests.marshalling;
-
-import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.jar.JarEntry;
-import java.util.jar.JarInputStream;
 
 import org.drools.compiler.Address;
 import org.drools.compiler.Cell;
@@ -40,6 +36,7 @@ import org.drools.core.common.DroolsObjectInputStream;
 import org.drools.core.common.DroolsObjectOutputStream;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.EnvironmentFactory;
@@ -55,6 +52,7 @@ import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.MapBackedClassLoader;
 import org.drools.core.spi.Consequence;
 import org.drools.core.spi.KnowledgeHelper;
+import org.drools.core.time.SessionPseudoClock;
 import org.drools.core.time.impl.DurationTimer;
 import org.drools.core.time.impl.PseudoClockScheduler;
 import org.drools.core.util.KeyStoreHelper;
@@ -63,6 +61,9 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.KieBase;
 import org.kie.api.KieBaseConfiguration;
+import org.kie.api.KieServices;
+import org.kie.api.conf.DeclarativeAgendaOption;
+import org.kie.api.conf.EqualityBehaviorOption;
 import org.kie.api.conf.EventProcessingOption;
 import org.kie.api.io.ResourceType;
 import org.kie.api.marshalling.Marshaller;
@@ -85,6 +86,25 @@ import org.kie.internal.definition.KnowledgePackage;
 import org.kie.internal.marshalling.MarshallerFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.utils.KieHelper;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.jar.JarEntry;
+import java.util.jar.JarInputStream;
+
+import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
 
 public class MarshallingTest extends CommonTestMethodBase {
 
@@ -177,6 +197,7 @@ public class MarshallingTest extends CommonTestMethodBase {
 
         final Person bob = new Person( "bob" );
         session.insert( bob );
+        ((InternalWorkingMemory)session).flushPropagations();
 
         org.kie.api.definition.rule.Rule[] rules = (org.kie.api.definition.rule.Rule[]) kBase.getKnowledgePackage("org.drools.compiler.test").getRules().toArray(new org.kie.api.definition.rule.Rule[0] );
 
@@ -241,6 +262,7 @@ public class MarshallingTest extends CommonTestMethodBase {
 
         final Person bob = new Person( "bob" );
         session.insert( bob );
+        ((InternalWorkingMemory)session).flushPropagations();
 
         org.kie.api.definition.rule.Rule[] rules = (org.kie.api.definition.rule.Rule[]) kBase.getKnowledgePackage("org.drools.compiler.test").getRules().toArray(new org.kie.api.definition.rule.Rule[0] );
 
@@ -1177,12 +1199,12 @@ public class MarshallingTest extends CommonTestMethodBase {
 
         // Make sure the rete node map is created correctly
         Map<Integer, BaseNode> nodes = RuleBaseNodes.getNodeMap((InternalKnowledgeBase) kBase);
-        assertEquals( 2,
+        assertEquals( 3,
                       nodes.size() );
         assertEquals( "Person",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 2 )).getObjectType()).getClassType().getSimpleName() );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 3 )).getObjectType()).getClassType().getSimpleName() );
         assertEquals( "Rule 1",
-                      ((RuleTerminalNode) nodes.get( 4 )).getRule().getName() );
+                      ((RuleTerminalNode) nodes.get( 5 )).getRule().getName() );
 
         StatefulKnowledgeSession session = kBase.newStatefulKnowledgeSession();
 
@@ -1222,15 +1244,15 @@ public class MarshallingTest extends CommonTestMethodBase {
         // Make sure the rete node map is created correctly
         Map<Integer, BaseNode> nodes = RuleBaseNodes.getNodeMap( (InternalKnowledgeBase) kBase );
 
-        assertEquals( 4,
+        assertEquals( 5,
                       nodes.size() );
         assertEquals( "Cheese",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 2 )).getObjectType()).getClassType().getSimpleName() );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 3 )).getObjectType()).getClassType().getSimpleName() );
         assertEquals( "Person",
-                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 4 )).getObjectType()).getClassType().getSimpleName() );
-        assertTrue( "Should end with JoinNode",  nodes.get( 5 ).getClass().getSimpleName().endsWith( "JoinNode") );
+                      ((ClassObjectType) ((ObjectTypeNode) nodes.get( 5 )).getObjectType()).getClassType().getSimpleName() );
+        assertTrue( "Should end with JoinNode",  nodes.get( 6 ).getClass().getSimpleName().endsWith( "JoinNode") );
         assertEquals( "Rule 1",
-                      ((RuleTerminalNode) nodes.get( 6 )).getRule().getName() );
+                      ((RuleTerminalNode) nodes.get( 7 )).getRule().getName() );
 
         StatefulKnowledgeSession session = kBase.newStatefulKnowledgeSession();
 
@@ -1703,6 +1725,7 @@ public class MarshallingTest extends CommonTestMethodBase {
 
         ksession = getSerialisedStatefulKnowledgeSession( ksession,
                                                           true );
+
         ksession.fireAllRules();
         assertEquals( 2,
                       list.size() );
@@ -2040,6 +2063,7 @@ public class MarshallingTest extends CommonTestMethodBase {
         ksession.insert( new Message() );
         ksession.insert( new Message() );
         ksession.insert( new Message() );
+        ((InternalWorkingMemory)ksession).flushPropagations();
 
         assertEquals( 1,
                       ((InternalAgenda) ksession.getAgenda()).agendaSize()  );
@@ -2279,7 +2303,7 @@ public class MarshallingTest extends CommonTestMethodBase {
         impl.addRule( rule );
 
         knowledgeBase.addKnowledgePackages( Collections.singleton( (KnowledgePackage) impl ) );
-        SessionConfiguration config = new SessionConfiguration();
+        SessionConfiguration config = SessionConfiguration.newInstance();
         config.setClockType( ClockType.PSEUDO_CLOCK );
         StatefulKnowledgeSession ksession = knowledgeBase.newStatefulKnowledgeSession( config, KnowledgeBaseFactory.newEnvironment() );
         PseudoClockScheduler scheduler = (PseudoClockScheduler) ksession.<SessionClock> getSessionClock();
@@ -2729,5 +2753,130 @@ public class MarshallingTest extends CommonTestMethodBase {
             e.printStackTrace();
             fail("unexpected exception :" + e.getMessage());
         }
+    }
+
+    @Test
+    public void testMarshallWithTimedRule() {
+        // DROOLS-795
+        String drl = "rule \"Rule A Timeout\"\n" +
+                     "when\n" +
+                     "    String( this == \"ATrigger\" )\n" +
+                     "then\n" +
+                     "   insert (new String( \"A-Timer\") );\n" +
+                     "end\n" +
+                     "\n" +
+                     "rule \"Timer For rule A Timeout\"\n" +
+                     "    timer ( int: 5s )\n" +
+                     "when\n" +
+                     "   String( this == \"A-Timer\")\n" +
+                     "then\n" +
+                     "   delete ( \"A-Timer\" );\n" +
+                     "   delete ( \"ATrigger\" );\n" +
+                     "end\n";
+
+        KieBase kbase = new KieHelper().addContent( drl, ResourceType.DRL )
+                                       .build( EqualityBehaviorOption.EQUALITY,
+                                               DeclarativeAgendaOption.ENABLED,
+                                               EventProcessingOption.STREAM );
+
+        KieSessionConfiguration sessionConfig = KnowledgeBaseFactory.newKnowledgeSessionConfiguration();
+        sessionConfig.setOption( ClockTypeOption.get( "pseudo" ) );
+        KieSession ksession = kbase.newKieSession(sessionConfig, null);
+
+        ksession.insert( "ATrigger" );
+
+        assertEquals( 1, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 2, ksession.getFactCount() );
+
+        SessionPseudoClock clock = ksession.getSessionClock();
+        clock.advanceTime( 4, TimeUnit.SECONDS );
+
+        assertEquals( 2, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 2, ksession.getFactCount() );
+
+        ksession = marshallAndUnmarshall( kbase, ksession, sessionConfig);
+        clock = ksession.getSessionClock();
+
+        clock.advanceTime( 4, TimeUnit.SECONDS );
+
+        assertEquals( 2, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 0, ksession.getFactCount() );
+    }
+
+    @Test
+    @Ignore("Reproduces with pseudoclock. It takes too long with system clock")
+    public void testMarshallWithTimedRuleRealClock() {
+        // DROOLS-795
+        String drl = "rule \"Rule A Timeout\"\n" +
+                     "when\n" +
+                     "    String( this == \"ATrigger\" )\n" +
+                     "then\n" +
+                     "   insert (new String( \"A-Timer\") );\n" +
+                     "end\n" +
+                     "\n" +
+                     "rule \"Timer For rule A Timeout\"\n" +
+                     "    timer ( int: 5s )\n" +
+                     "when\n" +
+                     "   String( this == \"A-Timer\")\n" +
+                     "then\n" +
+                     "   delete ( \"A-Timer\" );\n" +
+                     "   delete ( \"ATrigger\" );\n" +
+                     "end\n";
+
+        KieBase kbase = new KieHelper().addContent( drl, ResourceType.DRL )
+                                       .build( EqualityBehaviorOption.EQUALITY,
+                                               DeclarativeAgendaOption.ENABLED,
+                                               EventProcessingOption.STREAM );
+
+        KieSession ksession = kbase.newKieSession();
+
+        ksession.insert( "ATrigger" );
+
+        assertEquals( 1, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 2, ksession.getFactCount() );
+
+        try {
+            Thread.sleep( 4000L );
+        } catch (InterruptedException e) {
+            throw new RuntimeException( e );
+        }
+
+        assertEquals( 2, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 2, ksession.getFactCount() );
+
+        ksession = marshallAndUnmarshall( kbase, ksession, null);
+
+        try {
+            Thread.sleep( 4000L );
+        } catch (InterruptedException e) {
+            throw new RuntimeException( e );
+        }
+
+        assertEquals( 2, ksession.getFactCount() );
+        ksession.fireAllRules();
+        assertEquals( 0, ksession.getFactCount() );
+    }
+
+    public static KieSession marshallAndUnmarshall(KieBase kbase, KieSession ksession, KieSessionConfiguration sessionConfig) {
+        // Serialize and Deserialize
+        try {
+            Marshaller marshaller = KieServices.Factory.get().getMarshallers().newMarshaller(kbase);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            marshaller.marshall(baos, ksession);
+            marshaller = MarshallerFactory.newMarshaller( kbase );
+            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+            baos.close();
+            ksession = marshaller.unmarshall(bais, sessionConfig, null);
+            bais.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("unexpected exception :" + e.getMessage());
+        }
+        return ksession;
     }
 }

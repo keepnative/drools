@@ -1,5 +1,5 @@
 /*
- * Copyright 2008 JBoss Inc
+ * Copyright 2008 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -201,12 +201,16 @@ public class MultithreadTest extends CommonTestMethodBase {
                         final String s = Thread.currentThread().getName();
                         long endTS = System.currentTimeMillis() + RUN_TIME;
                         int j = 0;
-                        while( System.currentTimeMillis() < endTS) {
-                            ep.insert( new StockTick( j++, s, 0.0, 0 ) );
-                            Thread.sleep(1);
+                        long lastTimeInserted = -1;
+                        while( System.currentTimeMillis() < endTS ) {
+                            final long currentTimeInMillis = System.currentTimeMillis();
+                            if ( currentTimeInMillis > lastTimeInserted ) {
+                                lastTimeInserted = currentTimeInMillis;
+                                ep.insert( new StockTick( j++, s, 0.0, 0 ) );
+                            }
                         }
                         return true;
-                    } catch (Exception e) {
+                    } catch ( Exception e ) {
                         errors.add( e );
                         e.printStackTrace();
                         return false;
@@ -236,7 +240,6 @@ public class MultithreadTest extends CommonTestMethodBase {
         assertTrue( errors.isEmpty() );
         assertTrue( success );
 
-        assertTrue( ! list.isEmpty() && ( (Number) list.get( list.size() - 1 ) ).intValue() > 200 );
         ksession.dispose();
     }
 

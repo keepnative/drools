@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.drools.core.factmodel.traits;
 
+import org.kie.api.definition.type.PropertyReactive;
+
 import java.io.Serializable;
 import java.util.BitSet;
 import java.util.Collection;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Traitable
+@PropertyReactive
 public class Entity implements TraitableBean<Entity,Entity>, Serializable {
 
 

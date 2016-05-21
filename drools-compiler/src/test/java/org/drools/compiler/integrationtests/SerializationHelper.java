@@ -1,24 +1,33 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
+
+import org.drools.core.marshalling.impl.ProtobufMarshaller;
+import org.drools.core.util.DroolsStreamUtils;
+import org.kie.api.KieBase;
+import org.kie.api.marshalling.ObjectMarshallingStrategy;
+import org.kie.api.runtime.EnvironmentName;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.time.SessionClock;
+import org.kie.internal.marshalling.MarshallerFactory;
+import org.kie.internal.runtime.StatefulKnowledgeSession;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
-
-import org.drools.core.SessionConfiguration;
-import org.drools.core.impl.InternalKnowledgeBase;
-import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.util.DroolsStreamUtils;
-import org.drools.core.marshalling.impl.ProtobufMarshaller;
-import org.kie.api.KieBase;
-import org.kie.api.runtime.KieSession;
-import org.kie.internal.marshalling.MarshallerFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.marshalling.ObjectMarshallingStrategy;
-import org.kie.api.runtime.EnvironmentName;
-import org.kie.api.time.SessionClock;
 
 /**
  * Marshalling helper class to perform serialize/de-serialize a given object
@@ -92,8 +101,8 @@ public class SerializationHelper {
         {
             ByteArrayInputStream bais = new ByteArrayInputStream( b1 );
             ksession2 = marshaller.unmarshall( bais,
-                    new SessionConfiguration(),
-                    ksession.getEnvironment());
+                                               ksession.getSessionConfiguration(),
+                                               ksession.getEnvironment());
             bais.close();
         }
         

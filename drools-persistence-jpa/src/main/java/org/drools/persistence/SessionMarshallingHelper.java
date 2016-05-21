@@ -1,24 +1,41 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.persistence;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-
+import org.drools.core.marshalling.impl.InternalMarshaller;
+import org.drools.core.marshalling.impl.KieSessionInitializer;
 import org.kie.api.KieBase;
 import org.kie.api.marshalling.Marshaller;
-import org.kie.internal.marshalling.MarshallerFactory;
 import org.kie.api.marshalling.ObjectMarshallingStrategy;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.EnvironmentName;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.KieSessionConfiguration;
+import org.kie.internal.marshalling.MarshallerFactory;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 public class SessionMarshallingHelper {
 
     private KieBase kbase;
     private KieSessionConfiguration       conf;
     private KieSession      			  ksession;
-    private Marshaller                    marshaller;
+    private InternalMarshaller            marshaller;
     private Environment                   env;
 
     /**
@@ -31,12 +48,11 @@ public class SessionMarshallingHelper {
         this.conf = conf;
         this.env = env;
         ObjectMarshallingStrategy[] strategies = (ObjectMarshallingStrategy[]) env.get( EnvironmentName.OBJECT_MARSHALLING_STRATEGIES );
-        if (strategies  != null ) {
-            // use strategies if provided in the environment
-            this.marshaller = MarshallerFactory.newMarshaller( kbase, strategies );
-        } else {
-            this.marshaller = MarshallerFactory.newMarshaller( kbase ) ;
-        }
+
+        // use strategies if provided in the environment
+        this.marshaller = strategies != null ?
+                          (InternalMarshaller) MarshallerFactory.newMarshaller( kbase, strategies ) :
+                          (InternalMarshaller) MarshallerFactory.newMarshaller( kbase ) ;
     }
 
     /** 
@@ -49,13 +65,11 @@ public class SessionMarshallingHelper {
         this.conf = conf;
         this.env = ksession.getEnvironment();
         ObjectMarshallingStrategy[] strategies = (ObjectMarshallingStrategy[]) this.env.get( EnvironmentName.OBJECT_MARSHALLING_STRATEGIES );
-        if (strategies  != null ) {
-            // use strategies if provided in the environment
-            this.marshaller = MarshallerFactory.newMarshaller( kbase, strategies );
-        } else {
-            this.marshaller = MarshallerFactory.newMarshaller( kbase ) ;
-        }
-        
+
+        // use strategies if provided in the environment
+        this.marshaller = strategies != null ?
+                          (InternalMarshaller) MarshallerFactory.newMarshaller( kbase, strategies ) :
+                          (InternalMarshaller) MarshallerFactory.newMarshaller( kbase ) ;
     }
 
     public byte[] getSnapshot() {
@@ -71,11 +85,13 @@ public class SessionMarshallingHelper {
         return baos.toByteArray();
     }
 
-    public KieSession loadSnapshot(byte[] bytes,
-                                   KieSession ksession) {
+    public KieSession loadSnapshot( byte[] bytes,
+                                    KieSession ksession,
+                                    KieSessionInitializer initializer ) {
         this.ksession = ksession;
         ByteArrayInputStream bais = new ByteArrayInputStream( bytes );
         try {
+            this.marshaller.setInitializer( initializer );
             if ( this.ksession != null ) {
                 this.marshaller.unmarshall( bais,
                                             this.ksession );
@@ -87,6 +103,8 @@ public class SessionMarshallingHelper {
         } catch ( Exception e ) {
             throw new RuntimeException( "Unable to load session snapshot",
                                         e );
+        } finally {
+            this.marshaller.setInitializer( null );
         }
         return this.ksession;
     }

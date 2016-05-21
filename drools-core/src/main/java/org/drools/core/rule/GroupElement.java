@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 
 package org.drools.core.rule;
 
+import org.drools.core.definitions.rule.impl.RuleImpl;
+import org.drools.core.spi.ObjectType;
+
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -27,8 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.drools.core.spi.ObjectType;
+import static org.drools.core.util.ClassUtils.findCommonSuperClass;
 
 public class GroupElement extends ConditionalElement
     implements
@@ -75,8 +77,6 @@ public class GroupElement extends ConditionalElement
      *
      * Restrictions are:
      * NOT/EXISTS: can have only one child, either a single Pattern or another CE
-     *
-     * @param child
      */
     public void addChild(final RuleConditionElement child) {
         if ( (this.isNot() || this.isExists()) && (this.children.size() > 0) ) {
@@ -87,8 +87,6 @@ public class GroupElement extends ConditionalElement
 
     /**
      * Adds the given child as the (index)th child of the this GroupElement
-     * @param index
-     * @param rce
      */
     public void addChild(final int index,
                          final RuleConditionElement rce) {
@@ -137,10 +135,6 @@ public class GroupElement extends ConditionalElement
 
     public void setForallBaseObjectType(ObjectType objectType) {
         this.forallBaseObjectType = objectType;
-    }
-
-    public ObjectType getForallBaseObjectType() {
-        return this.forallBaseObjectType;
     }
 
     /**
@@ -198,9 +192,6 @@ public class GroupElement extends ConditionalElement
         parent.children.addAll( child.getChildren() );
     }
 
-    /**
-     * @param parent
-     */
     public void pack(final GroupElement parent) {
         if ( this.children.size() == 0 ) {
             // if there is no child, just remove this node
@@ -297,10 +288,7 @@ public class GroupElement extends ConditionalElement
     }
 
     /**
-     * Clones all Conditional Elements but references the non ConditionalElement
-     * children
-     *
-     * @return
+     * Clones all Conditional Elements but references the non ConditionalElement children
      */
     public GroupElement clone() {
         return clone(true);
@@ -370,11 +358,7 @@ public class GroupElement extends ConditionalElement
     private static boolean containesNode(Type node, GroupElement groupElement) {
         for( RuleConditionElement rce : groupElement.getChildren() ) {
             if ( rce instanceof GroupElement ) {
-                if ( ((GroupElement) rce).getType() == node) {
-                    return true;
-                } else {
-                    return containesNode(node, (GroupElement) rce);
-                }
+                return ( (GroupElement) rce ).getType() == node || containesNode( node, (GroupElement) rce );
             }
         }
         return false;
@@ -457,9 +441,17 @@ public class GroupElement extends ConditionalElement
                             return elementDeclarations;
                         }
                         declarations.keySet().retainAll( elementDeclarations.keySet() );
+                        findCommonDeclarationClasses(declarations, elementDeclarations);
                     }
                 }
                 return declarations;
+            }
+        }
+
+        private void findCommonDeclarationClasses(Map<String, Declaration> original, Map<String, Declaration> merged) {
+            for (Map.Entry<String, Declaration> entry : original.entrySet()) {
+                Declaration declaration = entry.getValue();
+                declaration.setDeclarationClass( findCommonSuperClass( declaration.getDeclarationClass(), merged.get(entry.getKey()).getDeclarationClass() ) );
             }
         }
 
@@ -490,7 +482,6 @@ public class GroupElement extends ConditionalElement
          *
          * For instance, AND CE is not a scope delimiter, while
          * NOT CE is a scope delimiter
-         * @return
          */
         public boolean isPatternScopeDelimiter() {
             return this.scopeDelimiter == ScopeDelimiter.ALWAYS;

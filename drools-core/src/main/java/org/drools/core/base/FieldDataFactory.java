@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,13 @@
 package org.drools.core.base;
 
 import org.drools.core.spi.FieldValue;
-import org.drools.core.type.DateFormats;
 
 
 public interface FieldDataFactory {
 
-    public FieldValue getFieldValue( String value, ValueType valueType, DateFormats dateFormats );
+    public FieldValue getFieldValue( String value, ValueType valueType );
 
-    public FieldValue getFieldValue( Object value, ValueType valueType, DateFormats dateFormats );
+    public FieldValue getFieldValue( Object value, ValueType valueType );
 
     public FieldValue getFieldValue(final Object value);
 

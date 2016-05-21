@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 JBoss Inc
+ * Copyright 2006 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,15 +35,20 @@ import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.rule.Accumulate;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.MultiAccumulate;
+import org.drools.core.rule.MutableTypeConstraint;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.RuleConditionElement;
 import org.drools.core.rule.SingleAccumulate;
+import org.drools.core.rule.constraint.MvelConstraint;
 import org.drools.core.spi.Accumulator;
+import org.drools.core.spi.Constraint;
 import org.drools.core.spi.DeclarationScopeResolver;
 import org.drools.core.spi.InternalReadAccessor;
+import org.drools.core.util.index.IndexUtil;
 import org.kie.api.runtime.rule.AccumulateFunction;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,7 +97,7 @@ public class JavaAccumulateBuilder
             return null;
         }
 
-        final boolean readLocalsFromTuple = PackageBuilderUtil.isReadLocalsFromTuple(accumDescr, source);
+        final boolean readLocalsFromTuple = PackageBuilderUtil.isReadLocalsFromTuple(context, accumDescr, source);
         
         Map<String, Declaration> declsInScope = context.getDeclarationResolver().getDeclarations( context.getRule() );
         Map<String, Class< ? >> declCls = DeclarationScopeResolver.getDeclarationClasses( declsInScope );
@@ -128,20 +133,20 @@ public class JavaAccumulateBuilder
         // list of functions to build
         final List<AccumulateFunctionCallDescr> funcCalls = accumDescr.getFunctions();
         // list of available source declarations
-        final Declaration[] sourceDeclArr = source.getOuterDeclarations().values().toArray( new Declaration[0] );
+        final Declaration[] sourceDeclArr = source.getOuterDeclarations().values().toArray( new Declaration[source.getOuterDeclarations().size()] );
         Arrays.sort( sourceDeclArr, RuleTerminalNode.SortDeclarations.instance );
 
         // set of required previous declarations
         Set<Declaration> requiredDecl = new HashSet<Declaration>();
 
-        Pattern pattern = (Pattern) context.getBuildStack().peek();
+        Pattern pattern = (Pattern) context.getDeclarationResolver().peekBuildStack();
 
         if (accumDescr.isMultiFunction()) {
             // the accumulator array
             Accumulator[] accumulators = new Accumulator[funcCalls.size()];
 
             // creating the custom array reader
-            InternalReadAccessor reader = new SelfReferenceClassFieldReader( Object[].class, "this" );
+            InternalReadAccessor reader = new SelfReferenceClassFieldReader( Object[].class );
 
             int index = 0;
             for ( AccumulateFunctionCallDescr fc : funcCalls ) {
@@ -150,7 +155,7 @@ public class JavaAccumulateBuilder
                     return null;
                 }
 
-                bindReaderToDeclaration(context, accumDescr, pattern, fc, new ArrayElementReader(reader, index, function.getResultType()));
+                bindReaderToDeclaration(context, accumDescr, pattern, fc, new ArrayElementReader(reader, index, function.getResultType()), function.getResultType(), index);
                 accumulators[index++] = buildAccumulator(context, accumDescr, declsInScope, declCls, readLocalsFromTuple, sourceDeclArr, requiredDecl, fc, function);
             }
 
@@ -164,7 +169,7 @@ public class JavaAccumulateBuilder
                 return null;
             }
 
-            bindReaderToDeclaration(context, accumDescr, pattern, fc, new SelfReferenceClassFieldReader( function.getResultType(), "this" ));
+            bindReaderToDeclaration(context, accumDescr, pattern, fc, new SelfReferenceClassFieldReader( function.getResultType() ), function.getResultType(), -1);
             Accumulator accumulator = buildAccumulator(context, accumDescr, declsInScope, declCls, readLocalsFromTuple, sourceDeclArr, requiredDecl, fc, function);
 
             return new SingleAccumulate( source,
@@ -173,17 +178,35 @@ public class JavaAccumulateBuilder
         }
     }
 
-    private void bindReaderToDeclaration(RuleBuildContext context, AccumulateDescr accumDescr, Pattern pattern, AccumulateFunctionCallDescr fc, InternalReadAccessor readAccessor) {
-        // if there is a binding, create the binding
+    private void bindReaderToDeclaration( RuleBuildContext context, AccumulateDescr accumDescr, Pattern pattern, AccumulateFunctionCallDescr fc, InternalReadAccessor readAccessor, Class<?> resultType, int index ) {
         if ( fc.getBind() != null ) {
-            if ( pattern.getDeclaration( fc.getBind() ) != null ) {
-                context.addError(new DescrBuildError(context.getParentDescr(),
-                                                     accumDescr,
-                                                     null,
-                                                     "Duplicate declaration for variable '" + fc.getBind() + "' in the rule '" + context.getRule().getName() + "'"));
+            if ( context.getDeclarationResolver().isDuplicated( context.getRule(), fc.getBind(), resultType.getName() ) ) {
+                if ( ! fc.isUnification() ) {
+                    context.addError( new DescrBuildError( context.getParentDescr(),
+                                                           accumDescr,
+                                                           null,
+                                                           "Duplicate declaration for variable '" + fc.getBind() + "' in the rule '" + context.getRule().getName() + "'" ) );
+                } else {
+                    Declaration inner = context.getDeclarationResolver().getDeclaration( context.getRule(), fc.getBind() );
+                    Constraint c = new MvelConstraint( Collections.singletonList( context.getPkg().getName() ),
+                                                       index >= 0
+                                                            ? "this[ " + index + " ] == " + fc.getBind()
+                                                            : "this == " + fc.getBind(),
+                                                       new Declaration[] { inner },
+                                                       null,
+                                                       null,
+                                                       IndexUtil.ConstraintType.EQUAL,
+                                                       context.getDeclarationResolver().getDeclaration( context.getRule(), fc.getBind() ),
+                                                       index >= 0
+                                                            ? new ArrayElementReader( readAccessor, index, resultType )
+                                                            : readAccessor,
+                                                       true);
+                    (( MutableTypeConstraint) c).setType( Constraint.ConstraintType.BETA );
+                    pattern.addConstraint( c );
+                }
             } else {
                 Declaration declr = pattern.addDeclaration( fc.getBind() );
-                declr.setReadAccessor(readAccessor);
+                declr.setReadAccessor( readAccessor );
             }
         }
     }
@@ -212,6 +235,11 @@ public class JavaAccumulateBuilder
                                                                                                     new BoundIdentifiers( declCls,
                                                                                                                           context.getKnowledgeBuilder().getGlobals() ) );
 
+        if ( analysis == null ) {
+            // not possible to get the analysis results - compilation error has been already logged
+            return null;
+        }
+
         final BoundIdentifiers usedIdentifiers = analysis.getBoundIdentifiers();
 
         // create the array of used declarations
@@ -221,13 +249,13 @@ public class JavaAccumulateBuilder
 
         // generate the code template
         return generateFunctionCallCodeTemplate( context,
-                                                                  accumDescr,
-                                                                  sourceDeclArr,
-                                                                  fc,
-                                                                  function,
-                                                                  usedIdentifiers,
-                                                                  previousDeclarations,
-                                                                  readLocalsFromTuple );
+                                                 accumDescr,
+                                                 sourceDeclArr,
+                                                 fc,
+                                                 function,
+                                                 usedIdentifiers,
+                                                 previousDeclarations,
+                                                 readLocalsFromTuple );
     }
 
     private Declaration[] collectRequiredDeclarations( Map<String, Declaration> declsInScope,
@@ -253,7 +281,7 @@ public class JavaAccumulateBuilder
                                                                               final boolean readLocalsFromTuple ) {
         final String className = "accumulateExpression" + context.getNextId();
         final Map<String, Object> map = createVariableContext( className,
-                                                               fc.getParams().length > 0 ? fc.getParams()[0] : "\"\"",
+                                                               fc.getParams().length > 0 ? fc.getParams()[ 0 ] : "\"\"",
                                                                context,
                                                                previousDeclarations,
                                                                sourceDeclArr,
@@ -297,9 +325,14 @@ public class JavaAccumulateBuilder
                                                                                      available );
 
         final AnalysisResult resultCodeAnalysis = context.getDialect().analyzeExpression( context,
-                                                                                                  accumDescr,
-                                                                                                  accumDescr.getResultCode(),
-                                                                                                  available );
+                                                                                          accumDescr,
+                                                                                          accumDescr.getResultCode(),
+                                                                                          available );
+
+        if ( initCodeAnalysis == null || actionCodeAnalysis == null || resultCodeAnalysis == null ) {
+            // not possible to get the analysis results - compilation error has been already logged
+            return null;
+        }
 
         final Set<String> requiredDeclarations = new HashSet<String>( initCodeAnalysis.getBoundIdentifiers().getDeclrClasses().keySet() );
         requiredDeclarations.addAll( actionCodeAnalysis.getBoundIdentifiers().getDeclrClasses().keySet() );
@@ -311,9 +344,9 @@ public class JavaAccumulateBuilder
 
         if ( accumDescr.getReverseCode() != null ) {
             final AnalysisResult reverseCodeAnalysis = context.getDialect().analyzeBlock( context,
-                                                                                                  accumDescr,
-                                                                                                  accumDescr.getActionCode(),
-                                                                                                  available );
+                                                                                          accumDescr,
+                                                                                          accumDescr.getActionCode(),
+                                                                                          available );
             requiredDeclarations.addAll( reverseCodeAnalysis.getBoundIdentifiers().getDeclrClasses().keySet() );
             requiredGlobals.putAll( reverseCodeAnalysis.getBoundIdentifiers().getGlobals() );
         }
@@ -323,7 +356,7 @@ public class JavaAccumulateBuilder
         for ( Iterator<String> it = requiredDeclarations.iterator(); it.hasNext(); i++ ) {
             declarations[i] = decls.get( it.next() );
         }
-        final Declaration[] sourceDeclArr = source.getOuterDeclarations().values().toArray( new Declaration[0] );
+        final Declaration[] sourceDeclArr = source.getOuterDeclarations().values().toArray( new Declaration[source.getOuterDeclarations().size()] );
         Arrays.sort( sourceDeclArr, RuleTerminalNode.SortDeclarations.instance );
 
         final Map<String, Object> map = createVariableContext( className,

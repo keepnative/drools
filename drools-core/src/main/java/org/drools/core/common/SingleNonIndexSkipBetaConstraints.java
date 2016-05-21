@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@ package org.drools.core.common;
 
 import org.drools.core.RuleBaseConfiguration;
 import org.drools.core.reteoo.BetaMemory;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.ContextEntry;
 import org.drools.core.rule.MutableTypeConstraint;
 import org.drools.core.rule.constraint.MvelConstraint;
 import org.drools.core.spi.BetaNodeFieldConstraint;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.bitmask.BitMask;
 
 import java.io.IOException;
@@ -83,7 +83,7 @@ public class SingleNonIndexSkipBetaConstraints
 
     public void updateFromTuple(ContextEntry[] context,
                                 InternalWorkingMemory workingMemory,
-                                LeftTuple tuple) {
+                                Tuple tuple) {
         constraints.updateFromTuple( context,
                                      workingMemory,
                                      tuple );
@@ -124,7 +124,7 @@ public class SingleNonIndexSkipBetaConstraints
     }
 
     public boolean equals(Object object) {
-        return constraints.equals( object );
+        return object instanceof SingleNonIndexSkipBetaConstraints && constraints.equals( ((SingleNonIndexSkipBetaConstraints)object).constraints );
     }
 
     public void resetFactHandle(ContextEntry[] context) {
@@ -146,7 +146,7 @@ public class SingleNonIndexSkipBetaConstraints
     }
 
     public boolean isAllowedCachedRight(ContextEntry[] context,
-                                        LeftTuple tuple) {
+                                        Tuple tuple) {
         return this.constraints.isAllowedCachedRight( context, tuple );
     }
 

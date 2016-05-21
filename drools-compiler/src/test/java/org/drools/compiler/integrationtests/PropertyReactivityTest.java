@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
 import org.drools.compiler.Address;
@@ -6,6 +21,7 @@ import org.drools.compiler.Person;
 import org.drools.core.factmodel.traits.Traitable;
 import org.drools.core.io.impl.ByteArrayResource;
 import org.junit.Test;
+import org.kie.api.KieBase;
 import org.kie.api.definition.type.Modifies;
 import org.kie.api.definition.type.PropertyReactive;
 import org.kie.api.io.ResourceType;
@@ -23,7 +39,7 @@ import java.util.List;
 
 public class PropertyReactivityTest extends CommonTestMethodBase {
 
-    @Test
+    @Test(timeout=10000)
     public void testComposedConstraint() {
         String str =
                 "package org.drools.test;\n" +
@@ -45,7 +61,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertEquals(1, k2.getD());
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testScrambleProperties() {
         // DROOLS-91
         String str =
@@ -201,7 +217,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testScrambleWithInterfaces() {
     /*
      *       K1 a b c d e f    1000
@@ -290,7 +306,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertEquals( 5, list.size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testScrambleWithInterfacesAndObject() {
         // DROOLS-91
         String str =
@@ -340,7 +356,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertEquals( "Klass2", list.get(1) );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testWithDeclaredTypeAndTraitInDifferentPackages() {
         // DROOLS-91
         String str1 =
@@ -411,7 +427,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         }
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testWithBeanAndTraitInDifferentPackages() {
         // DROOLS-91
         String str1 =
@@ -444,7 +460,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         ksession.fireAllRules();
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testRepeatedPatternWithPR() {
         // JBRULES-3705
         String str1 =
@@ -498,7 +514,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertTrue(list.contains(new BigDecimal(5)));
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testPRWithCollections() {
         // DROOLS-135
         String str1 = "package org.test;\n" +
@@ -592,7 +608,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
 
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testPRWithPositionalUnification() {
         // DROOLS-247
         String str1 =
@@ -676,7 +692,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * are no way that rule 'Find Heisenberg' gets activated because a modification
      * or a Klass3 object.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRConstraintOnAttributesWithoutSetter(){
         String str =
                 "package org.drools.test;\n" +
@@ -727,7 +743,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * in the rule involving fullName to be aware of modifications in the name
      * and/or lastName of a Klass3 object.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRConstraintOnAttributesWithoutSetterUsingWatches(){
         String str =
                 "package org.drools.test;\n" +
@@ -776,7 +792,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * getFullName doesn't have a setter but Klass4 states that setName()
      * and setLastName() both @Modifies fullName.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRConstraintOnAttributesWithoutSetterUsingModifies(){
         String str =
                 "package org.drools.test;\n" +
@@ -827,7 +843,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * are no way that rule 'Get Person name' gets activated because a modification
      * or a Klass3 object.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRBindingOnAttributesWithoutSetter(){
         String str =
                 "package org.drools.test;\n" +
@@ -877,7 +893,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * annotation in 'Get Person name' rule. After the name of Kalss3 instance is
      * modified, rule 'Get Person name' must be re-activated.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRBindingOnAttributesWithoutSetterUsingWatches(){
         String str =
                 "package org.drools.test;\n" +
@@ -927,7 +943,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
      * in Klass4's setName() and setLastName(). After the name of Kalss4
      * instance is modified, rule 'Get Person name' must be re-activated.
      */
-    @Test
+    @Test(timeout=10000)
     public void testPRBindingOnAttributesWithoutSetterUsingModifies(){
         String str =
                 "package org.drools.test;\n" +
@@ -971,7 +987,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testPRBindingOnNonexistingAttributes(){
         String str =
                 "package org.drools.test;\n" +
@@ -996,7 +1012,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertTrue( knowledgeBuilder.hasErrors() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testPRBindingOnNonexistingWatchedAttribute(){
         String str =
                 "package org.drools.test;\n" +
@@ -1020,7 +1036,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         assertTrue( knowledgeBuilder.hasErrors() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testModifyAfterInsertWithPropertyReactive() {
         String rule1 =
                 "\n" +
@@ -1157,7 +1173,7 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
         }
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testIndexedNotWatchedProperty() {
         // DROOLS-569
         String rule1 =
@@ -1332,5 +1348,154 @@ public class PropertyReactivityTest extends CommonTestMethodBase {
 
         ksession.fireAllRules();
         assertEquals(1, list.size());
+    }
+
+    @Test
+    public void testPropReactiveAnnotationOnDifferentDrl() {
+        // DROOLS-800
+        String str1 =
+                "package org.jboss.ddoyle.drools.propertyreactive;\n" +
+                "\n" +
+                "import " + Event1.class.getCanonicalName() + ";\n" +
+                "\n" +
+                "declare Event1\n" +
+                "    @role( event )\n" +
+                "    @timestamp( timestamp )\n" +
+                "    @expires( 2d )\n" +
+                "    @propertyReactive\n" +
+                "end\n";
+
+        String str2 =
+                "package org.jboss.ddoyle.drools.propertyreactive;\n" +
+                "\n" +
+                "import " + Event1.class.getCanonicalName() + ";\n" +
+                "\n" +
+                "rule \"rule_1\"\n" +
+                "    when\n" +
+                "       Event1() @watch(*, !code)\n" +
+                "    then\n" +
+                "       System.out.println(\"Rule fired.\");\n" +
+                "end\n";
+
+        KieBase kbase = new KieHelper().addContent(str1, "a.drl")
+                                       .addContent(str2, "rules.drl")
+                                       .build();
+    }
+
+    public static class Event1 {
+
+        private int id;
+        private String code;
+
+        private long timestamp;
+
+        public Event1( String code, int id ) {
+            this.code = code;
+            this.id = id;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+
+        public void setTimestamp( long timestamp ) {
+            this.timestamp = timestamp;
+        }
+
+        public void setId( int id ) {
+            this.id = id;
+        }
+
+        public void setCode( String code ) {
+            this.code = code;
+        }
+    }
+
+    public static class ParentDummyBean {
+        private String id;
+
+        public ParentDummyBean(String id) { this.id = id; }
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+    }
+
+    @PropertyReactive
+    public interface DummyBeanInterface {
+        boolean isActive();
+        void setActive(boolean active);
+    }
+
+    @PropertyReactive
+    public static class DummyBean extends ParentDummyBean implements DummyBeanInterface {
+        private boolean active;
+
+        public DummyBean(String id) {
+            super(id);
+        }
+
+        public boolean isActive() {
+            return active;
+        }
+
+        public void setActive(boolean active) {
+            this.active = active;
+        }
+
+        @Override
+        public String toString() {
+            return "DummyEvent{" + "id='" + getId() + '\'' + ", active=" + active + '}';
+        }
+    }
+
+    @Test
+    public void testPropReactiveWithParentClassNotImplementingChildInterface() {
+        // DROOLS-1090
+        String str1 =
+                "import " + DummyBeanInterface.class.getCanonicalName() + "\n" +
+                "import " + DummyBean.class.getCanonicalName() + "\n" +
+                "rule \"RG_TEST_1\"\n" +
+                "    when\n" +
+                "       $event: DummyBean (!active)\n" +
+                "    then\n" +
+                "        modify($event){\n" +
+                "            setActive(true)\n" +
+                "        }\n" +
+                "        System.out.println(\"RG_TEST_1 fired\");\n" +
+                "end\n" +
+                "\n" +
+                "rule \"RG_TEST_2\"\n" +
+                "    when\n" +
+                "       $event: DummyBeanInterface (!active)\n" +
+                "    then\n" +
+                "        System.out.println(\"RG_TEST_2 fired, with event \" + $event);\n" +
+                "        throw new IllegalStateException(\"Should not happen since the event is active\");\n" +
+                "end\n" +
+                "\n" +
+                "rule \"RG_TEST_3\"\n" +
+                "    when\n" +
+                "       $event: DummyBean ()\n" +
+                "    then\n" +
+                "        retract($event)\n" +
+                "        System.out.println(\"RG_TEST_3 fired\");\n" +
+                "end";
+
+        KieSession ksession = new KieHelper().addContent( str1, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        ksession.insert(new DummyBean("1"));
+        ksession.fireAllRules();
+
+        ksession.insert(new DummyBean("2"));
+        ksession.fireAllRules();
     }
 }

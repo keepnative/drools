@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder;
 
 import org.drools.compiler.lang.descr.AnnotationDescr;
@@ -26,7 +41,7 @@ public class QueryBuilder implements EngineElementBuilder {
                                              queryObjectType,
                                              null );
         
-        final InternalReadAccessor extractor = PatternBuilder.getFieldReadAccessor(context, queryDescr, queryObjectType, "name", null, true);
+        final InternalReadAccessor extractor = PatternBuilder.getFieldReadAccessor(context, queryDescr, pattern, "name", null, true);
         final QueryNameConstraint constraint = new QueryNameConstraint(extractor, queryDescr.getName());
 
         PatternBuilder.registerReadAccessor( context, queryObjectType, "name", constraint );
@@ -36,7 +51,7 @@ public class QueryBuilder implements EngineElementBuilder {
 
         ObjectType argsObjectType = ClassObjectType.DroolsQuery_ObjectType;
         
-        InternalReadAccessor arrayExtractor = PatternBuilder.getFieldReadAccessor( context, queryDescr, argsObjectType, "elements", null, true );
+        InternalReadAccessor arrayExtractor = PatternBuilder.getFieldReadAccessor( context, queryDescr, null, argsObjectType, "elements", null, true );
 
         QueryImpl query = ((QueryImpl) context.getRule());
 
@@ -53,31 +68,20 @@ public class QueryBuilder implements EngineElementBuilder {
 
         Declaration[] declarations = new Declaration[ params.length ];
 
+        Class<?> abductionReturnKlass = null;
         if ( query.isAbductive() ) {
             AnnotationDescr ann = queryDescr.getAnnotation( Abductive.class );
             String returnName = ann.getValueAsString( "target" );
             try {
-                Class<?> returnKlass = context.getPkg().getTypeResolver().resolveType( returnName.replace( ".class", "" ) );
-                ClassObjectType objectType = new ClassObjectType( returnKlass, false );
-                objectType = context.getPkg().getClassFieldAccessorStore().getClassObjectType( objectType,
-                                                                                               (AbductiveQuery) query );
+                abductionReturnKlass = context.getPkg().getTypeResolver().resolveType( returnName.replace( ".class", "" ) );
                 params[ numParams ] = "";
-                types[ numParams ] = returnKlass.getName();
-
-                ((AbductiveQuery) query).setReturnType( objectType, params );
+                types[ numParams ] = abductionReturnKlass.getName();
 
             } catch ( ClassNotFoundException e ) {
                 context.addError( new DescrBuildError( context.getParentDescr(),
                                                        queryDescr,
                                                        e,
                                                        "Unable to resolve abducible type : " + returnName ) );
-            } catch ( NoSuchMethodException e ) {
-                context.addError( new DescrBuildError( context.getParentDescr(),
-                                                       queryDescr,
-                                                       e,
-                                                       "Unable to resolve abducible constructor for type : " + returnName +
-                                                       " with types " + Arrays.toString( types ) ) );
-
             }
         }
 
@@ -107,7 +111,34 @@ public class QueryBuilder implements EngineElementBuilder {
         }
         context.setPrefixPattern( pattern );
 
+        if ( query.isAbductive() ) {
+            String returnName = "";
+            try {
+                AnnotationDescr ann = queryDescr.getAnnotation( Abductive.class );
+                Object[] argsVal = ((Object[]) ann.getValue( "args" ));
+                String[] args = argsVal != null ? Arrays.copyOf( argsVal, argsVal.length, String[].class ) : null;
 
+                returnName = types[ numParams ];
+                ClassObjectType objectType = new ClassObjectType( abductionReturnKlass, false );
+                objectType = context.getPkg().getClassFieldAccessorStore().getClassObjectType( objectType,
+                                                                                               (AbductiveQuery) query );
+
+                ( (AbductiveQuery) query ).setReturnType( objectType, params, args, declarations );
+            } catch ( NoSuchMethodException e ) {
+                context.addError( new DescrBuildError( context.getParentDescr(),
+                                                       queryDescr,
+                                                       e,
+                                                       "Unable to resolve abducible constructor for type : " + returnName +
+                                                       " with types " + Arrays.toString( types ) ) );
+
+            } catch ( IllegalArgumentException e ) {
+                context.addError( new DescrBuildError( context.getParentDescr(),
+                                                       queryDescr,
+                                                       e,
+                                                       e.getMessage() ) );
+
+            }
+        }
 
         return pattern;
     }

@@ -1,16 +1,30 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
 import org.drools.compiler.Cheese;
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.Person;
 import org.drools.core.base.ClassObjectType;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.AlphaNode;
 import org.drools.core.reteoo.BetaNode;
 import org.drools.core.reteoo.LeftInputAdapterNode;
 import org.drools.core.reteoo.ObjectTypeNode;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.util.bitmask.AllSetBitMask;
 import org.drools.core.util.bitmask.EmptyBitMask;
@@ -45,12 +59,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                         "then\n" +
                         "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "InitialFactImpl" );
         assertNotNull( otn );
 
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), rtNode.getDeclaredMask() );
@@ -67,12 +81,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Person" );
         assertNotNull( otn );
 
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), rtNode.getDeclaredMask() );
@@ -89,17 +103,17 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Person" );
         assertNotNull( otn );
 
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), alphaNode.getDeclaredMask() );
         assertEquals( AllSetBitMask.get(), alphaNode.getInferredMask() );
         
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), rtNode.getDeclaredMask() );
@@ -118,12 +132,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Cheese" );
         assertNotNull( otn );
 
-        BetaNode betaNode = ( BetaNode ) otn.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode = ( BetaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         
         assertEquals( AllSetBitMask.get(), betaNode.getRightDeclaredMask() );
         assertEquals( AllSetBitMask.get(), betaNode.getRightInferredMask() );
@@ -141,16 +155,16 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Cheese" );
         assertNotNull( otn );
 
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), alphaNode.getDeclaredMask() );
         assertEquals( AllSetBitMask.get(), alphaNode.getInferredMask() );
         
-        BetaNode betaNode = ( BetaNode ) alphaNode.getSinkPropagator().getSinks()[0]; 
+        BetaNode betaNode = ( BetaNode ) alphaNode.getObjectSinkPropagator().getSinks()[0];
         
         assertEquals( AllSetBitMask.get(), betaNode.getRightDeclaredMask() );
         assertEquals( AllSetBitMask.get(), betaNode.getRightInferredMask() );
@@ -167,12 +181,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "InitialFactImpl" );
         assertNotNull( otn );
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         BetaNode betaNode = ( BetaNode ) liaNode.getSinkPropagator().getSinks()[1];
         
         assertEquals( AllSetBitMask.get(), betaNode.getLeftDeclaredMask() );
@@ -193,12 +207,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Person" );
         assertNotNull( otn );
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         BetaNode betaNode = ( BetaNode ) liaNode.getSinkPropagator().getSinks()[1];
         
         assertEquals( AllSetBitMask.get(), betaNode.getLeftDeclaredMask() );
@@ -225,33 +239,33 @@ public class PropertySpecificTest extends CommonTestMethodBase {
                       "then\n" +
                       "end\n";
         KnowledgeBase kbase = loadKnowledgeBaseFromString( rule );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "Cheese" );
         assertNotNull( otn );
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), alphaNode1.getDeclaredMask() );
         assertEquals( AllSetBitMask.get(), alphaNode1.getInferredMask() );
         
         
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( AllSetBitMask.get(), alphaNode1_1.getDeclaredMask() );
         assertEquals( AllSetBitMask.get(), alphaNode1_1.getInferredMask() );
         
-        BetaNode betaNode1 = ( BetaNode ) alphaNode1_1.getSinkPropagator().getSinks()[0]; 
+        BetaNode betaNode1 = ( BetaNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         
         assertEquals( AllSetBitMask.get(), betaNode1.getRightDeclaredMask() );
         assertEquals( AllSetBitMask.get(), betaNode1.getRightInferredMask() );
         
         
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( AllSetBitMask.get(), alphaNode1_2.getDeclaredMask() );
         assertEquals( AllSetBitMask.get(), alphaNode1_2.getInferredMask() );
         
-        BetaNode betaNode2 = ( BetaNode ) alphaNode1_2.getSinkPropagator().getSinks()[0]; 
+        BetaNode betaNode2 = ( BetaNode ) alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         
         assertEquals( AllSetBitMask.get(), betaNode2.getRightDeclaredMask() );
         assertEquals( AllSetBitMask.get(), betaNode2.getRightInferredMask() );
@@ -304,12 +318,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testRtnNoConstraintsNoWatches() {
         String rule1 = "A()";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals( EmptyBitMask.get(), rtNode.getDeclaredMask() );
@@ -320,12 +334,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testRtnNoConstraintsWithWatches() {
         String rule1 = "A() @watch(a)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) otn.getObjectSinkPropagator().getSinks()[0];
         
         List<String> sp = getSettableProperties(wm, otn);
         
@@ -338,18 +352,18 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testRtnWithConstraintsNoWatches() {
         String rule1 = "A( a == 10 )";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);
         
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getInferredMask());
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getSinkPropagator().getSinks()[0];        
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals(  EmptyBitMask.get(), rtNode.getDeclaredMask() ); // rtn declares nothing
@@ -360,18 +374,18 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testRtnWithConstraintsWithWatches() {
         String rule1 = "A( a == 10 ) @watch(b)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);
         
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b"), sp), alphaNode.getInferredMask() );
         
-        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getSinkPropagator().getSinks()[0];        
+        LeftInputAdapterNode liaNode = ( LeftInputAdapterNode ) alphaNode.getObjectSinkPropagator().getSinks()[0];
         
         RuleTerminalNode rtNode = ( RuleTerminalNode ) liaNode.getSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("b"), sp), rtNode.getDeclaredMask() );
@@ -383,23 +397,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "A( a == 10, b == 15 )";
         String rule2 = "A( a == 10, i == 20 )";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "i"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b"), sp), alphaNode1_1.getInferredMask() );  
         
-        LeftInputAdapterNode liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtNode1 = ( RuleTerminalNode ) liaNode1.getSinkPropagator().getSinks()[0];
         
         assertEquals( EmptyBitMask.get(), rtNode1.getDeclaredMask() );
@@ -407,11 +421,11 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         
         
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i"), sp), alphaNode1_2.getInferredMask() );
         
-        LeftInputAdapterNode liaNode2 = ( LeftInputAdapterNode ) alphaNode1_2.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode2 = ( LeftInputAdapterNode ) alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtNode2 = ( RuleTerminalNode ) liaNode2.getSinkPropagator().getSinks()[0];
         
         assertEquals( EmptyBitMask.get(), rtNode2.getDeclaredMask() );
@@ -434,15 +448,15 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         kbase.removeRule( "org.drools.compiler.integrationtests", "r1" );
         otn = getObjectTypeNode(kbase, "A" );
         
-        alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b"), sp), alphaNode1.getInferredMask() );   
         
-        alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b"), sp), alphaNode1_1.getInferredMask() );   
         
-        liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getSinkPropagator().getSinks()[0];
+        liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         rtNode1 = ( RuleTerminalNode ) liaNode1.getSinkPropagator().getSinks()[0];       
         assertEquals(  EmptyBitMask.get(), rtNode1.getDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "b"), sp), rtNode1.getInferredMask() );         
@@ -453,23 +467,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "A( a == 10, b == 15 ) @watch(c, !a)";
         String rule2 = "A( a == 10, i == 20 ) @watch(s, !i)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c", "s", "i"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );  
         
-        LeftInputAdapterNode liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtNode1 = ( RuleTerminalNode ) liaNode1.getSinkPropagator().getSinks()[0];
         
         assertEquals(  calculatePositiveMask(list("c"), sp), rtNode1.getDeclaredMask() );
@@ -478,11 +492,11 @@ public class PropertySpecificTest extends CommonTestMethodBase {
 
         
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "s"), sp), alphaNode1_2.getInferredMask() );  
         
-        LeftInputAdapterNode liaNode2 = ( LeftInputAdapterNode ) alphaNode1_2.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode2 = ( LeftInputAdapterNode ) alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtNode2 = ( RuleTerminalNode ) liaNode2.getSinkPropagator().getSinks()[0];
         
         assertEquals(  calculatePositiveMask(list("s"), sp), rtNode2.getDeclaredMask() );
@@ -507,15 +521,15 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         kbase.removeRule( "org.drools.compiler.integrationtests", "r1" );
         otn = getObjectTypeNode(kbase, "A" );
         
-        alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1.getInferredMask() );   
         
-        alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );   
         
-        liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getSinkPropagator().getSinks()[0];
+        liaNode1 = ( LeftInputAdapterNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         rtNode1 = ( RuleTerminalNode ) liaNode1.getSinkPropagator().getSinks()[0];       
         assertEquals(  calculatePositiveMask(list("c"), sp), rtNode1.getDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("b", "c"), sp), rtNode1.getInferredMask() );
@@ -526,12 +540,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaNoConstraintsNoWatches() {
         String rule1 = "B() A()";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
-        BetaNode betaNode = ( BetaNode )  otn.getSinkPropagator().getSinks()[0]; 
+        BetaNode betaNode = ( BetaNode )  otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( EmptyBitMask.get(), betaNode.getRightDeclaredMask() );
         assertEquals( EmptyBitMask.get(), betaNode.getRightInferredMask() );
         
@@ -543,13 +557,13 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaNoConstraintsWithWatches() {
         String rule1 = "B() @watch(a) A() @watch(a)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
         List<String> sp = getSettableProperties(wm, otn);
         
-        BetaNode betaNode = ( BetaNode )  otn.getSinkPropagator().getSinks()[0];                
+        BetaNode betaNode = ( BetaNode )  otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("a"), sp), betaNode.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a"), sp), betaNode.getRightInferredMask() );
         
@@ -561,23 +575,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaWithConstraintsNoWatches() {
         String rule1 = "$b : B(a == 15) A( a == 10, b == $b.b )";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);
         
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b"), sp), alphaNode.getInferredMask());
         
-        BetaNode betaNode = ( BetaNode )  alphaNode.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode = ( BetaNode )  alphaNode.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list( "b" ), sp), betaNode.getRightDeclaredMask() ); // beta declares nothing
         assertEquals(  calculatePositiveMask(list("a", "b"), sp), betaNode.getRightInferredMask() ); // beta infers from alpha 
         
         otn = getObjectTypeNode(kbase, "B" );
-        alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getInferredMask());        
         
@@ -589,25 +603,25 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaWithConstraintsWithWatches() {
         String rule1 = "$b : B( a == 15) @watch(c) A( a == 10, b == $b.b ) @watch(s)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);
         
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "s"), sp), alphaNode.getInferredMask() );
         
-        BetaNode betaNode = ( BetaNode )  alphaNode.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode = ( BetaNode )  alphaNode.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b","s"), sp), betaNode.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("a", "b", "s"), sp), betaNode.getRightInferredMask() );
         assertEquals( calculatePositiveMask(list("c"), sp), betaNode.getLeftDeclaredMask() );
         assertEquals( calculatePositiveMask(list("a", "c"), sp), betaNode.getLeftInferredMask() );
 
         otn = getObjectTypeNode(kbase, "B" );
-        alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "c"), sp), alphaNode.getInferredMask());        
         
@@ -619,24 +633,24 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaWithConstraintsWithNegativeWatches() {
         String rule1 = "$b : B( a == 15) @watch(c, !a) A( a == 10, b == $b.b ) @watch(s, !a, !b)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);
 
-        AlphaNode alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "s"), sp), alphaNode.getInferredMask() );
 
-        BetaNode betaNode = ( BetaNode )  alphaNode.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode = ( BetaNode )  alphaNode.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b","s"), sp), betaNode.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("s"), sp), betaNode.getRightInferredMask() );
         assertEquals( calculateNegativeMask(list("!a", "!b"), sp), betaNode.getRightNegativeMask() );
 
         otn = getObjectTypeNode(kbase, "B" );
-        alphaNode = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "c"), sp), alphaNode.getInferredMask());
 
@@ -650,23 +664,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "$b : B( a == 15) @watch(c, !a) A( a == 10, s == 15, b == $b.b  )";
         String rule2 = "$b : B( a == 15) @watch(j, !i) A( a == 10, i == 20, b == $b.b  )";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "s", "i"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("s"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "s", "b"), sp), alphaNode1_1.getInferredMask() );  
         
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("a", "s", "b"), sp), betaNode1.getRightInferredMask() );
 
@@ -675,11 +689,11 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals( calculateNegativeMask(list("!a"), sp), betaNode1.getLeftNegativeMask() );
 
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b"), sp), alphaNode1_2.getInferredMask() );
         
-        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), betaNode2.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "b"), sp), betaNode2.getRightInferredMask() );
         
@@ -708,15 +722,15 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         kbase.removeRule( "org.drools.compiler.integrationtests", "r1" );
         otn = getObjectTypeNode(kbase, "A" );
         
-        alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "s", "b"), sp), alphaNode1.getInferredMask() );   
         
-        alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("s"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "s", "b"), sp), alphaNode1_1.getInferredMask() );   
         
-        betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("b"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "s", "b"), sp), betaNode1.getRightInferredMask() );   
         
@@ -730,23 +744,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "$b : B( a == 15) @watch(c, !a) A( a == 10, b == 15, b == $b.b  ) @watch(c, !b)";
         String rule2 = "$b : B( a == 15) @watch(j) A( a == 10, i == 20, b == $b.b ) @watch(s, !a)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c", "s", "i"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );  
         
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b", "c"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("a", "c"), sp), betaNode1.getRightInferredMask() );
         assertEquals( calculateNegativeMask(list("!b"), sp), betaNode1.getRightNegativeMask() );
@@ -756,12 +770,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals( calculateNegativeMask(list("!a"), sp), betaNode1.getLeftNegativeMask() );
 
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b", "s"), sp), alphaNode1_2.getInferredMask() );  
         
 
-        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b", "s"), sp), betaNode2.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("i", "b", "s"), sp), betaNode2.getRightInferredMask() );
         assertEquals( calculateNegativeMask(list("!a"), sp), betaNode2.getRightNegativeMask() );
@@ -793,15 +807,15 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         kbase.removeRule( "org.drools.compiler.integrationtests", "r1" );
         otn = getObjectTypeNode(kbase, "A" );
         
-        alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1.getInferredMask() );   
         
-        alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );   
         
-        betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("b", "c"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "c"), sp), betaNode1.getRightInferredMask() );
         assertEquals( calculateNegativeMask(list("!b"), sp), betaNode1.getRightNegativeMask() );
@@ -817,23 +831,23 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule2 = "$b : B( b == 15) @watch(j) A( a == 10, i == 20 ) @watch(s)";
         String rule3 = "$b : B( c == 15) @watch(k) A( a == 10, i == 20, b == 10 ) @watch(j)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2, rule3);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode otn = getObjectTypeNode(kbase, "A" );
         assertNotNull( otn );
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c", "s", "i", "j"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );  
         
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("c"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "b", "c"), sp), betaNode1.getRightInferredMask() );
         
@@ -841,12 +855,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals(  calculatePositiveMask(list("b", "i"), sp), betaNode1.getLeftInferredMask() );        
         
         // second share
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "i", "s", "j"), sp), alphaNode1_2.getInferredMask() );  
         
 
-        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getSinkPropagator().getSinks()[1];        
+        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getObjectSinkPropagator().getSinks()[1];
         assertEquals(  calculatePositiveMask(list("s"), sp), betaNode2.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "s"), sp), betaNode2.getRightInferredMask() );
         
@@ -854,12 +868,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals(  calculatePositiveMask(list("b", "j"), sp), betaNode2.getLeftInferredMask() );         
         
         // third share        
-        AlphaNode alphaNode1_4 = ( AlphaNode ) alphaNode1_2.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_4 = ( AlphaNode ) alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_4.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "i", "j"), sp), alphaNode1_4.getInferredMask() );          
         
 
-        BetaNode betaNode3 = ( BetaNode )  alphaNode1_4.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode3 = ( BetaNode )  alphaNode1_4.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("j"), sp), betaNode3.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "b", "j"), sp), betaNode3.getRightInferredMask() ); 
         
@@ -873,7 +887,7 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule2 = "$b : B( b == 15) @watch(j) A( a == 10, i == 20 ) @watch(s)";
         String rule3 = "$b : B( c == 15) @watch(k) A( a == 10, i == 20, b == 10 ) @watch(j)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2, rule3);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         kbase.removeRule( "org.drools.compiler.integrationtests", "r0" );
         
@@ -882,16 +896,16 @@ public class PropertySpecificTest extends CommonTestMethodBase {
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b", "s","j"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b", "s", "j"), sp), alphaNode1_1.getInferredMask() );  
         
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[1];        
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[1];
         assertEquals(  calculatePositiveMask(list("s"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "s"), sp), betaNode1.getRightInferredMask() );
         
@@ -899,11 +913,11 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals(  calculatePositiveMask(list("b", "j"), sp), betaNode1.getLeftInferredMask() );        
 
         // second split, third alpha
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1_1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "i", "j"), sp), alphaNode1_2.getInferredMask() ); 
 
-        BetaNode betaNode3 = ( BetaNode )  alphaNode1_2.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode3 = ( BetaNode )  alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("j"), sp), betaNode3.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "b", "j"), sp), betaNode3.getRightInferredMask() ); 
         
@@ -917,7 +931,7 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule2 = "$b : B( b == 15) @watch(j) A( a == 10, i == 20 ) @watch(s)";
         String rule3 = "$b : B( c == 15) @watch(k) A( a == 10, i == 20, b == 10 ) @watch(j)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2, rule3);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         kbase.removeRule( "org.drools.compiler.integrationtests", "r1" );
         
@@ -926,16 +940,16 @@ public class PropertySpecificTest extends CommonTestMethodBase {
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c", "i", "j"), sp), alphaNode1.getInferredMask() );
                 
         // first split
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );  
         
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("c"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "b", "c"), sp), betaNode1.getRightInferredMask() );
         
@@ -943,16 +957,16 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals(  calculatePositiveMask(list("b", "i"), sp), betaNode1.getLeftInferredMask() );        
         
         // fist share, second alpha
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b", "j"), sp), alphaNode1_2.getInferredMask() );  
         
-        AlphaNode alphaNode1_3 = ( AlphaNode ) alphaNode1_2.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_3 = ( AlphaNode ) alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_3.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "b", "j"), sp), alphaNode1_3.getInferredMask() );         
         
 
-        BetaNode betaNode2 = ( BetaNode )  alphaNode1_3.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode2 = ( BetaNode )  alphaNode1_3.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("j"), sp), betaNode2.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "b", "j"), sp), betaNode2.getRightInferredMask() );
         
@@ -967,7 +981,7 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule2 = "$b : B( b == 15) @watch(j) A( a == 10, i == 20 ) @watch(s)";
         String rule3 = "$b : B( c == 15) @watch(k) A( a == 10, i == 20, b == 10 ) @watch(j)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2, rule3);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         kbase.removeRule( "org.drools.compiler.integrationtests", "r2" );
         
@@ -976,17 +990,17 @@ public class PropertySpecificTest extends CommonTestMethodBase {
 
         List<String> sp = getSettableProperties(wm, otn);        
 
-        AlphaNode alphaNode1 = ( AlphaNode ) otn.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1 = ( AlphaNode ) otn.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c", "i", "s"), sp), alphaNode1.getInferredMask() );
                 
         // first share
-        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode1_1 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("b"), sp), alphaNode1_1.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode1_1.getInferredMask() );  
         
         // first split
-        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode1 = ( BetaNode )  alphaNode1_1.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("c"), sp), betaNode1.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "b", "c"), sp), betaNode1.getRightInferredMask() );
         
@@ -994,12 +1008,12 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals(  calculatePositiveMask(list("b", "i"), sp), betaNode1.getLeftInferredMask() );        
         
         // second split
-        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getSinkPropagator().getSinks()[1];
+        AlphaNode alphaNode1_2 = ( AlphaNode ) alphaNode1.getObjectSinkPropagator().getSinks()[1];
         assertEquals( calculatePositiveMask(list("i"), sp), alphaNode1_2.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "i", "s"), sp), alphaNode1_2.getInferredMask() );           
         
 
-        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getSinkPropagator().getSinks()[0];        
+        BetaNode betaNode2 = ( BetaNode )  alphaNode1_2.getObjectSinkPropagator().getSinks()[0];
         assertEquals(  calculatePositiveMask(list("s"), sp), betaNode2.getRightDeclaredMask() );
         assertEquals(  calculatePositiveMask(list("a", "i", "s"), sp), betaNode2.getRightInferredMask() );
         
@@ -2006,19 +2020,19 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaWithWatchAfterBeta() {
         String rule1 = "$b : B(a == 15) @watch(k) C() A(i == $b.j) @watch(b, c)";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otnA = getObjectTypeNode(kbase, "A" );
         ObjectTypeNode otnC = getObjectTypeNode(kbase, "C" );
         List<String> sp = getSettableProperties(wm, otnA);
 
-        BetaNode betaNodeA = ( BetaNode ) otnA.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeA = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("i", "b", "c"), sp), betaNodeA.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("i", "b", "c"), sp), betaNodeA.getRightInferredMask() );
         assertEquals( AllSetBitMask.get(), betaNodeA.getLeftDeclaredMask() );
         assertEquals( AllSetBitMask.get(), betaNodeA.getLeftInferredMask() );
 
-        BetaNode betaNodeC = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeC = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightDeclaredMask() );
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightInferredMask() );
         assertEquals( calculatePositiveMask(list("k"), sp), betaNodeC.getLeftDeclaredMask() );
@@ -2029,19 +2043,19 @@ public class PropertySpecificTest extends CommonTestMethodBase {
     public void testBetaAfterBetaWithWatch() {
         String rule1 = "$b : B(a == 15) @watch(k) A(i == $b.j) @watch(b, c) C()";
         KnowledgeBase kbase = getKnowledgeBase(rule1);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otnA = getObjectTypeNode(kbase, "A" );
         ObjectTypeNode otnC = getObjectTypeNode(kbase, "C" );
         List<String> sp = getSettableProperties(wm, otnA);
 
-        BetaNode betaNodeA = ( BetaNode ) otnA.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeA = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("i", "b", "c"), sp), betaNodeA.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("i", "b", "c"), sp), betaNodeA.getRightInferredMask() );
         assertEquals( calculatePositiveMask(list("k"), sp), betaNodeA.getLeftDeclaredMask() );
         assertEquals( calculatePositiveMask(list("a", "k"), sp), betaNodeA.getLeftInferredMask() );
 
-        BetaNode betaNodeC = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeC = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightDeclaredMask());
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightInferredMask() );
         assertEquals( AllSetBitMask.get(), betaNodeC.getLeftDeclaredMask() );
@@ -2053,22 +2067,22 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "B(a == 15) @watch(b) C()";
         String rule2 = "B(a == 15) @watch(c) C()";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otnB = getObjectTypeNode(kbase, "B" );
         List<String> sp = getSettableProperties(wm, otnB);
 
-        AlphaNode alphaNode = ( AlphaNode ) otnB.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otnB.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode.getInferredMask());
 
         ObjectTypeNode otnC = getObjectTypeNode(kbase, "C" );
-        BetaNode betaNodeC1 = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
-        BetaNode betaNodeC2 = ( BetaNode ) otnC.getSinkPropagator().getSinks()[1];
+        BetaNode betaNodeC1 = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
+        BetaNode betaNodeC2 = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[1];
 
-        LeftInputAdapterNode lia1 = (LeftInputAdapterNode)alphaNode.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode lia1 = (LeftInputAdapterNode)alphaNode.getObjectSinkPropagator().getSinks()[0];
         assertSame(betaNodeC1, lia1.getSinkPropagator().getSinks()[0]);
-        LeftInputAdapterNode lia2 = (LeftInputAdapterNode)alphaNode.getSinkPropagator().getSinks()[1];
+        LeftInputAdapterNode lia2 = (LeftInputAdapterNode)alphaNode.getObjectSinkPropagator().getSinks()[1];
         assertSame(betaNodeC2, lia2.getSinkPropagator().getSinks()[0]);
 
         assertEquals( EmptyBitMask.get(), betaNodeC1.getRightDeclaredMask() );
@@ -2099,15 +2113,15 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "B(a == 15) C() A()";
         String rule2 = "B(a == 15) C() A() @watch(b, c)";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otnA = getObjectTypeNode(kbase, "A" );
         ObjectTypeNode otnC = getObjectTypeNode(kbase, "C");
         List<String> sp = getSettableProperties(wm, otnA);
 
-        BetaNode betaNodeC = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
-        BetaNode betaNodeA1 = ( BetaNode ) otnA.getSinkPropagator().getSinks()[0];
-        BetaNode betaNodeA2 = ( BetaNode ) otnA.getSinkPropagator().getSinks()[1];
+        BetaNode betaNodeC = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
+        BetaNode betaNodeA1 = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[0];
+        BetaNode betaNodeA2 = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[1];
         assertSame(betaNodeC.getSinkPropagator().getSinks()[0], betaNodeA1);
         assertSame(betaNodeC.getSinkPropagator().getSinks()[1], betaNodeA2);
         assertSame(betaNodeA1.getLeftTupleSource(), betaNodeC);
@@ -2137,18 +2151,18 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         String rule1 = "B(a == 15) @watch(b) A() @watch(i) C()";
         String rule2 = "B(a == 15) @watch(c) A() @watch(j) D()";
         KnowledgeBase kbase = getKnowledgeBase(rule1, rule2);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode otnB = getObjectTypeNode(kbase, "B" );
         List<String> sp = getSettableProperties(wm, otnB);
 
-        AlphaNode alphaNode = ( AlphaNode ) otnB.getSinkPropagator().getSinks()[0];
+        AlphaNode alphaNode = ( AlphaNode ) otnB.getObjectSinkPropagator().getSinks()[0];
         assertEquals( calculatePositiveMask(list("a"), sp), alphaNode.getDeclaredMask( ) );
         assertEquals( calculatePositiveMask(list("a", "b", "c"), sp), alphaNode.getInferredMask());
 
         ObjectTypeNode otnA = getObjectTypeNode(kbase, "A" );
-        BetaNode betaNodeA1 = ( BetaNode ) otnA.getSinkPropagator().getSinks()[0];
-        BetaNode betaNodeA2 = ( BetaNode ) otnA.getSinkPropagator().getSinks()[1];
+        BetaNode betaNodeA1 = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[0];
+        BetaNode betaNodeA2 = ( BetaNode ) otnA.getObjectSinkPropagator().getSinks()[1];
 
         assertEquals( calculatePositiveMask(list("i"), sp), betaNodeA1.getRightDeclaredMask() );
         assertEquals( calculatePositiveMask(list("i"), sp), betaNodeA1.getRightInferredMask() );
@@ -2161,7 +2175,7 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals( calculatePositiveMask(list("a", "c"), sp), betaNodeA2.getLeftInferredMask() );
 
         ObjectTypeNode otnC = getObjectTypeNode(kbase, "C" );
-        BetaNode betaNodeC = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeC = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
 
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightDeclaredMask() );
         assertEquals( EmptyBitMask.get(), betaNodeC.getRightInferredMask() );
@@ -2169,7 +2183,7 @@ public class PropertySpecificTest extends CommonTestMethodBase {
         assertEquals( AllSetBitMask.get(), betaNodeC.getLeftInferredMask() );
 
         ObjectTypeNode otnD = getObjectTypeNode(kbase, "D" );
-        BetaNode betaNodeD = ( BetaNode ) otnC.getSinkPropagator().getSinks()[0];
+        BetaNode betaNodeD = ( BetaNode ) otnC.getObjectSinkPropagator().getSinks()[0];
 
         assertEquals( EmptyBitMask.get(), betaNodeD.getRightDeclaredMask() );
         assertEquals( EmptyBitMask.get(), betaNodeD.getRightInferredMask() );

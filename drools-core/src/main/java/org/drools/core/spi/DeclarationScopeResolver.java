@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,6 @@
 
 package org.drools.core.spi;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
-
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.definitions.rule.impl.RuleImpl;
@@ -29,38 +24,59 @@ import org.drools.core.rule.GroupElement;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.RuleConditionElement;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
+
 /**
  * A class capable of resolving a declaration in the current build context
  */
 public class DeclarationScopeResolver {
-    private static final Stack<RuleConditionElement> EMPTY_STACK = new Stack<RuleConditionElement>();
-    private Map<String, Class<?>>                    map;
-    private Stack<RuleConditionElement>              buildStack;
-    private InternalKnowledgePackage                 pkg;
+    private final Stack<RuleConditionElement>        buildStack;
+    private final Map<String, Class<?>>              map;
+    private final InternalKnowledgePackage           pkg;
 
-    public DeclarationScopeResolver(final Map<String, Class<?>> maps) {
-        this( maps,
-              EMPTY_STACK );
+    private final Map<String, Declaration> declarations = new HashMap<String, Declaration>();
+
+    public DeclarationScopeResolver(final Map<String, Class<?>> map) {
+        this( map, new Stack<RuleConditionElement>() );
     }
 
     public DeclarationScopeResolver(final Map<String, Class<?>> map,
                                     final Stack<RuleConditionElement> buildStack) {
-        this.map = map;
-        if ( buildStack == null ) {
-            this.buildStack = EMPTY_STACK;
-        } else {
-            this.buildStack = buildStack;
-        }
+        this( map, buildStack, null );
     }
 
-    public void setPackage(InternalKnowledgePackage pkg) {
+    public DeclarationScopeResolver(final Map<String, Class<?>> map,
+                                    final InternalKnowledgePackage pkg) {
+        this( map, new Stack<RuleConditionElement>(), pkg );
+    }
+
+    public DeclarationScopeResolver(final Map<String, Class<?>> map,
+                                    final Stack<RuleConditionElement> buildStack,
+                                    final InternalKnowledgePackage pkg) {
+        this.map = map;
+        this.buildStack = buildStack;
         this.pkg = pkg;
+    }
+
+    public RuleConditionElement peekBuildStack() {
+        return buildStack.peek();
+    }
+
+    public RuleConditionElement popBuildStack() {
+        return buildStack.pop();
+    }
+
+    public void pushOnBuildStack(RuleConditionElement element) {
+        buildStack.push(element);
     }
 
     private Declaration getExtendedDeclaration(RuleImpl rule,
                                                String identifier) {
         if ( rule.getLhs().getInnerDeclarations().containsKey( identifier ) ) {
-            return (Declaration) rule.getLhs().getInnerDeclarations().get( identifier );
+            return rule.getLhs().getInnerDeclarations().get( identifier );
         } else if ( null != rule.getParent() ) {
             return getExtendedDeclaration( rule.getParent(),
                                            identifier );
@@ -69,9 +85,9 @@ public class DeclarationScopeResolver {
 
     }
 
-    private HashMap<String, Declaration> getAllExtendedDeclaration(RuleImpl rule,
-                                                                   HashMap<String, Declaration> dec) {
-        dec.putAll( ((RuleConditionElement) rule.getLhs()).getInnerDeclarations() );
+    private Map<String, Declaration> getAllExtendedDeclaration(RuleImpl rule,
+                                                               Map<String, Declaration> dec) {
+        dec.putAll( rule.getLhs().getInnerDeclarations() );
         if ( null != rule.getParent() ) {
             return getAllExtendedDeclaration( rule.getParent(),
                                               dec );
@@ -192,7 +208,7 @@ public class DeclarationScopeResolver {
                 if ( ! inOr || type == null ) {
                     return ! inOr;
                 }
-                return ! declaration.getExtractor().getExtractToClass().getName().equals( type );
+                return ! declaration.getDeclarationClass().getName().equals( type );
             }
         }
         // look at parent rules
@@ -215,11 +231,9 @@ public class DeclarationScopeResolver {
     /**
      * Return all declarations scoped to the current
      * RuleConditionElement in the build stack
-     *
-     * @return
      */
     public Map<String, Declaration> getDeclarations(RuleImpl rule, String consequenceName) {
-        final Map<String, Declaration> declarations = new HashMap<String, Declaration>();
+        Map<String, Declaration> declarations = new HashMap<String, Declaration>();
         for (RuleConditionElement aBuildStack : this.buildStack) {
             // if we are inside of an OR we don't want each previous stack entry added because we can't see those variables
             if (aBuildStack instanceof GroupElement && ((GroupElement)aBuildStack).getType() == GroupElement.Type.OR) {
@@ -234,24 +248,23 @@ public class DeclarationScopeResolver {
             declarations.putAll(innerDeclarations);
         }
         if ( null != rule.getParent() ) {
-            return getAllExtendedDeclaration( rule.getParent(),
-                                              (HashMap<String, Declaration>) declarations );
+            return getAllExtendedDeclaration( rule.getParent(), declarations );
         }
         return declarations;
     }
 
     public Map<String,Class<?>> getDeclarationClasses(RuleImpl rule) {
-        final Map<String, Declaration> declarations = getDeclarations( rule );
-        return getDeclarationClasses( declarations );
+        return getDeclarationClasses( getDeclarations( rule ) );
     }
 
     public static Map<String,Class<?>> getDeclarationClasses( final Map<String, Declaration> declarations) {
         final Map<String, Class<?>> classes = new HashMap<String, Class<?>>();
         for ( Map.Entry<String, Declaration> decl : declarations.entrySet() ) {
-            InternalReadAccessor ira = decl.getValue().getExtractor();
-            // FIXME when would the IRA be null?
-            if( ira != null ) {
-                classes.put( decl.getKey(), ira.getExtractToClass() );
+            Class<?> declarationClass = decl.getValue().getDeclarationClass();
+            // the declaration class could be null when there's a compilation error
+            // that has been already reported somewhere else
+            if (declarationClass != null) {
+                classes.put( decl.getKey(), declarationClass );
             }
         }
         return classes;

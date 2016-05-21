@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2011 JBoss Inc
+  ~ Copyright 2011 Red Hat, Inc. and/or its affiliates.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.drools</groupId>
-    <artifactId>drools-multiproject</artifactId>
-    <version>6.2.0-SNAPSHOT</version>
+    <artifactId>drools</artifactId>
+    <version>6.4.0.Final</version>
   </parent>
 
 
@@ -31,6 +31,10 @@
 
   <name>Drools :: PMML - Compiler </name>
   <description>Support for PMML-Encoded Predictive Models</description>
+
+  <properties>
+    <surefire.forkCount>2</surefire.forkCount>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -64,16 +68,18 @@
       <groupId>com.sun.xml.bind</groupId>
       <artifactId>jaxb-impl</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind</groupId>
+      <artifactId>jaxb-core</artifactId>
+    </dependency>
 
   </dependencies>
 
   <build>
     <plugins>
-
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>1.7</version>
         <executions>
           <execution>
             <id>include-generated-sources</id>
@@ -93,7 +99,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>1.5</version>
         <executions>
           <execution>
             <goals>

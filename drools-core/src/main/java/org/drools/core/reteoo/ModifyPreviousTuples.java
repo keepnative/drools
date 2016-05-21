@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.drools.core.reteoo;
 
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.reteoo.LeftInputAdapterNode.LiaNodeMemory;
 import org.drools.core.spi.PropagationContext;
 
 public class ModifyPreviousTuples {
@@ -43,9 +42,9 @@ public class ModifyPreviousTuples {
 
     public void removeLeftTuple() {
         LeftTuple current = this.leftTuple;
-        current.setLeftParentPrevious( null );
-        this.leftTuple = current.getLeftParentNext();
-        current.setLeftParentNext( null );        
+        current.setHandlePrevious( null );
+        this.leftTuple = current.getHandleNext();
+        current.setHandleNext( null );
     }
     
     public void removeRightTuple() {
@@ -59,7 +58,7 @@ public class ModifyPreviousTuples {
                               InternalWorkingMemory wm) {
         // retract any remaining LeftTuples
         if ( this.leftTuple != null ) {
-            for ( LeftTuple current = this.leftTuple; current != null; current = (LeftTuple) current.getLeftParentNext() ) {
+            for ( LeftTuple current = this.leftTuple; current != null; current = (LeftTuple) current.getHandleNext() ) {
                 epNode.doDeleteObject(pctx, wm, current);
             }
         }

@@ -1,25 +1,27 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
-
-import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
-import static org.kie.api.runtime.rule.Variable.v;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.drools.compiler.Address;
 import org.drools.compiler.CommonTestMethodBase;
-import org.drools.core.InitialFact;
 import org.drools.compiler.Person;
+import org.drools.core.InitialFact;
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.common.InternalFactHandle;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.KnowledgeBaseImpl;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.AccumulateNode;
@@ -32,10 +34,17 @@ import org.drools.core.reteoo.FromNode.FromMemory;
 import org.drools.core.reteoo.NotNode;
 import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.reteoo.QueryElementNode;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.drools.core.reteoo.RightInputAdapterNode;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.rule.FactHandle;
+import org.kie.api.runtime.rule.LiveQuery;
+import org.kie.api.runtime.rule.QueryResults;
+import org.kie.api.runtime.rule.QueryResultsRow;
+import org.kie.api.runtime.rule.Row;
+import org.kie.api.runtime.rule.Variable;
+import org.kie.api.runtime.rule.ViewChangedEventListener;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
@@ -44,16 +53,23 @@ import org.kie.internal.builder.conf.RuleEngineOption;
 import org.kie.internal.definition.KnowledgePackage;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.io.ResourceType;
-import org.kie.api.runtime.rule.FactHandle;
-import org.kie.api.runtime.rule.LiveQuery;
-import org.kie.api.runtime.rule.QueryResults;
-import org.kie.api.runtime.rule.QueryResultsRow;
-import org.kie.api.runtime.rule.Row;
-import org.kie.api.runtime.rule.Variable;
-import org.kie.api.runtime.rule.ViewChangedEventListener;
+import org.kie.internal.utils.KieHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
+import static org.kie.api.runtime.rule.Variable.v;
 
 public class BackwardChainingTest extends CommonTestMethodBase {
     
@@ -614,7 +630,7 @@ public class BackwardChainingTest extends CommonTestMethodBase {
         assertTrue( list.contains( "yoda : stilton : s2" ) );
     }
 
-    @Test(timeout = 10000)
+    @Test//(timeout = 10000)
     public void testQueryWithDynamicData() throws Exception {
         String str = "" +
                      "package org.drools.compiler.test  \n" +
@@ -1557,22 +1573,22 @@ public class BackwardChainingTest extends CommonTestMethodBase {
             }
         }
 
-        BetaNode stringBetaNode = (BetaNode) node.getSinkPropagator().getSinks()[0];
+        BetaNode stringBetaNode = (BetaNode) node.getObjectSinkPropagator().getSinks()[0];
         QueryElementNode queryElementNode1 = (QueryElementNode) stringBetaNode.getSinkPropagator().getSinks()[0];
         RightInputAdapterNode riaNode1 = (RightInputAdapterNode) queryElementNode1.getSinkPropagator().getSinks()[0];
-        AccumulateNode accNode = (AccumulateNode) riaNode1.getSinkPropagator().getSinks()[0];
+        AccumulateNode accNode = (AccumulateNode) riaNode1.getObjectSinkPropagator().getSinks()[0];
 
         QueryElementNode queryElementNode2 = (QueryElementNode) accNode.getSinkPropagator().getSinks()[0];
         RightInputAdapterNode riaNode2 = (RightInputAdapterNode) queryElementNode2.getSinkPropagator().getSinks()[0];
-        ExistsNode existsNode = (ExistsNode) riaNode2.getSinkPropagator().getSinks()[0];
+        ExistsNode existsNode = (ExistsNode) riaNode2.getObjectSinkPropagator().getSinks()[0];
 
         QueryElementNode queryElementNode3 = (QueryElementNode) existsNode.getSinkPropagator().getSinks()[0];
         FromNode fromNode = (FromNode) queryElementNode3.getSinkPropagator().getSinks()[0];
         RightInputAdapterNode riaNode3 = (RightInputAdapterNode) fromNode.getSinkPropagator().getSinks()[0];
-        NotNode notNode = (NotNode) riaNode3.getSinkPropagator().getSinks()[0];
+        NotNode notNode = (NotNode) riaNode3.getObjectSinkPropagator().getSinks()[0];
 
         StatefulKnowledgeSession ksession = createKnowledgeSession( kbase );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl) ksession);
+        InternalWorkingMemory wm = ((StatefulKnowledgeSessionImpl) ksession);
         AccumulateMemory accMemory = (AccumulateMemory) wm.getNodeMemory( accNode );
         BetaMemory existsMemory = (BetaMemory) wm.getNodeMemory( existsNode );
         FromMemory fromMemory = (FromMemory) wm.getNodeMemory( fromNode );
@@ -1605,11 +1621,11 @@ public class BackwardChainingTest extends CommonTestMethodBase {
                         food );
 
         assertEquals( 0,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 0,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 0,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 0,
                       notMemory.getRightTupleMemory().size() );
 
@@ -1637,11 +1653,11 @@ public class BackwardChainingTest extends CommonTestMethodBase {
                         food );
 
         assertEquals( 2,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 2,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 2,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 0,
                       notMemory.getRightTupleMemory().size() );
 
@@ -1662,11 +1678,11 @@ public class BackwardChainingTest extends CommonTestMethodBase {
                         food );
 
         assertEquals( 2,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 2,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 2,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 0,
                       notMemory.getRightTupleMemory().size() );
         food.clear();
@@ -1678,11 +1694,11 @@ public class BackwardChainingTest extends CommonTestMethodBase {
         ksession.fireAllRules();
 
         assertEquals( 2,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 2,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 2,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 1,
                       notMemory.getRightTupleMemory().size() );
 
@@ -1695,11 +1711,11 @@ public class BackwardChainingTest extends CommonTestMethodBase {
         ksession.fireAllRules();
 
         assertEquals( 2,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 2,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 2,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 0,
                       notMemory.getRightTupleMemory().size() );
 
@@ -1711,16 +1727,17 @@ public class BackwardChainingTest extends CommonTestMethodBase {
         // Close the open
         query.close();
         assertEquals( 0,
-                      accMemory.betaMemory.getRightTupleMemory().size() );
+                      accMemory.getBetaMemory().getRightTupleMemory().size() );
         assertEquals( 0,
                       existsMemory.getRightTupleMemory().size() );
         assertEquals( 0,
-                      fromMemory.betaMemory.getLeftTupleMemory().size() );
+                      fromMemory.getBetaMemory().getLeftTupleMemory().size() );
         assertEquals( 0,
                       notMemory.getRightTupleMemory().size() );
     }
 
-    @Test(timeout = 10000)
+    //@Test(timeout = 10000)
+    @Test()
     public void testDynamicRulesWithSharing() throws IOException,
                                              ClassNotFoundException {
         String str = "" +
@@ -2117,7 +2134,7 @@ public class BackwardChainingTest extends CommonTestMethodBase {
         KnowledgeBase kbase = SerializationHelper.serializeObject( loadKnowledgeBaseFromString( drl ) );
     }
 
-    @Test (timeout = 10000)
+    @Test(timeout = 10000)
     public void testInsertionOrderTwo() throws Exception {
         String str = "" +
                 "package org.drools.compiler.test \n" +
@@ -3244,5 +3261,53 @@ public class BackwardChainingTest extends CommonTestMethodBase {
 
     }
 
+    @Test
+    public void testNpeOnQuery() {
+        String drl =
+                "global java.util.List list; " +
+                "query foo( Integer $i ) " +
+                "   $i := Integer( this < 10 ) " +
+                "end\n" +
+                "\n" +
 
+                "rule r1 when " +
+                "   foo( $i ; ) " +
+                "   Integer( this == 10 ) " +
+                "then " +
+                "   System.out.println(\"10 \" + $i);" +
+                "   list.add( 10 );\n" +
+                "end\n" +
+                "\n" +
+
+                "rule r2 when " +
+                "   foo( $i; ) " +
+                "   Integer( this == 20 ) " +
+                "then " +
+                "   System.out.println(\"20 \" + $i);" +
+                "   list.add( 20 );\n" +
+                "end\n" +
+
+                "rule r3 when " +
+                "   $i : Integer( this == 1 ) " +
+                "then " +
+                "   System.out.println($i);" +
+                "   update( kcontext.getKieRuntime().getFactHandle( $i ), $i + 1 );" +
+                "end\n" +
+                "\n";
+
+        KieHelper helper = new KieHelper();
+        helper.addContent( drl, ResourceType.DRL );
+        KieSession kieSession = helper.build().newKieSession();
+
+        List<Integer> list = new ArrayList<Integer>();
+        kieSession.setGlobal( "list", list );
+
+        kieSession.insert( 1 );
+        kieSession.insert( 20 );
+
+        kieSession.fireAllRules();
+
+        assertEquals( 1, list.size() );
+        assertEquals( 20, (int)list.get(0) );
+    }
 }

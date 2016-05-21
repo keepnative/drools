@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.factmodel.traits;
 
 import java.io.Externalizable;
@@ -16,6 +31,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
     private BitSet currentTypeCode = new BitSet();
     private transient Collection<K> mostSpecificTraits = new LinkedList<K>();
 
+
     private static final BitSet NO_STATIC = new BitSet();
     private BitSet staticTypeCode;
     private Map<String,BitSet> staticTypes;
@@ -28,7 +44,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
 
         // create "top" element placeholder. will be replaced by a Thing proxy later, should the core object don it
         ThingProxyPlaceHolder thingPlaceHolder = ThingProxyPlaceHolder.getThingPlaceHolder();
-        addMember( (K) thingPlaceHolder, thingPlaceHolder.getTypeCode() );
+        addMember( (K) thingPlaceHolder, thingPlaceHolder._getTypeCode() );
     }
 
     public int size() {
@@ -52,7 +68,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
     }
 
     public K put( String key, K value ) {
-        BitSet code = ((TraitType) value).getTypeCode();
+        BitSet code = ((TraitType) value)._getTypeCode();
 
         addMember( value, code );
         innerMap.put( key, value );
@@ -77,7 +93,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
 
 
     public K putSafe( String key, K value ) throws LogicalTypeInconsistencyException {
-        BitSet code = ((TraitType) value).getTypeCode();
+        BitSet code = ((TraitType) value)._getTypeCode();
 
         addMember( value, code );
         innerMap.put( key, value );
@@ -94,7 +110,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
         if ( t instanceof TraitProxy ) {
             ((TraitProxy) t).shed();
         }
-        removeMember( ( (TraitProxy) t ).getTypeCode() );
+        removeMember( ( (TraitProxy) t )._getTypeCode() );
 
         mostSpecificTraits = null;
         resetCurrentCode();
@@ -112,7 +128,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
             return Collections.emptyList();
         }
         K thing = innerMap.get( traitName );
-        return removeCascade( ( (TraitType) thing ).getTypeCode() );
+        return removeCascade( ( (TraitType) thing )._getTypeCode() );
     }
 
     public Collection<K> removeCascade( BitSet code ) {
@@ -121,10 +137,10 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
         for ( K k : subs ) {
             Key<K> t = new BitMaskKey<K>( System.identityHashCode(k), k );
             TraitType tt = (TraitType) t.getValue();
-            if ( ! tt.isVirtual() ) {
+            if ( ! tt._isVirtual() ) {
                 ret.add( t.getValue() );
-                removeMember( tt.getTypeCode() );
-                K thing = innerMap.remove( tt.getTraitName() );
+                removeMember( tt._getTypeCode() );
+                K thing = innerMap.remove( tt._getTraitName() );
                 if ( thing instanceof TraitProxy ) {
                     ((TraitProxy) thing).shed(); //is this working?
                 }
@@ -143,14 +159,14 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
         }
         if ( ! this.values().isEmpty() ) {
             for ( Thing x : this.values() ) {
-                currentTypeCode.or( ((TraitType) x).getTypeCode() );
+                currentTypeCode.or( ((TraitType) x)._getTypeCode() );
             }
         }
     }
 
     public void putAll( Map<? extends String, ? extends K> m ) {
         for ( K proxy : m.values() ) {
-            addMember( proxy, ((TraitProxy) proxy).getTypeCode() );
+            addMember( proxy, ((TraitProxy) proxy)._getTypeCode() );
         }
         resetCurrentCode();
         mostSpecificTraits = null;
@@ -222,7 +238,7 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
         }
         if ( hasKey( getBottomCode() ) ) {
             K b = getMember( getBottomCode() );
-            if ( ((TraitType) b).isVirtual() ) {
+            if ( ((TraitType) b)._isVirtual() ) {
                 mostSpecificTraits = immediateParents( getBottomCode() );
                 return mostSpecificTraits;
             } else {
@@ -259,6 +275,5 @@ public class TraitTypeMap<T extends String, K extends Thing<C>, C>
         }
         staticTypes.put( name, code );
     }
-
 
 }

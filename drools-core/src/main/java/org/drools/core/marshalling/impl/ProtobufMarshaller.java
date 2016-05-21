@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, 2011 JBoss Inc
+ * Copyright 2010, 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,9 +26,7 @@ import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.phreak.PhreakTimerNode.TimerNodeTimerInputMarshaller;
 import org.drools.core.reteoo.ObjectTypeNode.ExpireJobContextTimerInputMarshaller;
 import org.drools.core.rule.SlidingTimeWindow.BehaviorJobContextTimerInputMarshaller;
-import org.drools.core.spi.GlobalResolver;
 import org.kie.api.KieBase;
-import org.kie.api.marshalling.Marshaller;
 import org.kie.api.marshalling.MarshallingConfiguration;
 import org.kie.api.marshalling.ObjectMarshallingStrategyStore;
 import org.kie.api.runtime.Environment;
@@ -53,8 +51,18 @@ import java.util.Map;
  */
 public class ProtobufMarshaller
         implements
-        Marshaller {
-    
+        InternalMarshaller {
+
+    private KieSessionInitializer initializer;
+
+    public KieSessionInitializer getInitializer() {
+        return initializer;
+    }
+
+    public void setInitializer( KieSessionInitializer initializer ) {
+        this.initializer = initializer;
+    }
+
     public static final Map<Integer, TimersInputMarshaller> TIMER_READERS = new HashMap<Integer, TimersInputMarshaller>();
     static {
         TIMER_READERS.put( ProtobufMessages.Timers.TimerType.BEHAVIOR_VALUE, new BehaviorJobContextTimerInputMarshaller() );
@@ -106,9 +114,10 @@ public class ProtobufMarshaller
         RuleBaseConfiguration conf = ((KnowledgeBaseImpl) this.kbase).getConfiguration();
 
         StatefulKnowledgeSessionImpl session = ProtobufInputMarshaller.readSession( context,
-                                                                             id,
-                                                                             environment,
-                                                                             (SessionConfiguration) config );
+                                                                                    id,
+                                                                                    environment,
+                                                                                    (SessionConfiguration) config,
+                                                                                    initializer );
         context.close();
         if ( ((SessionConfiguration) config).isKeepReference() ) {
             ((KnowledgeBaseImpl) this.kbase).addStatefulSession(session);
@@ -129,10 +138,9 @@ public class ProtobufMarshaller
                                                                        marshallingConfig.isMarshallWorkItems(),
                                                                        ksession.getEnvironment() );
 
-        ProtobufInputMarshaller.readSession( (StatefulKnowledgeSessionImpl) ksession,
-                                             context );
+        ProtobufInputMarshaller.readSession((StatefulKnowledgeSessionImpl) ksession,
+                                            context);
         context.close();
-
     }
 
     public void marshall(final OutputStream stream,
@@ -143,6 +151,7 @@ public class ProtobufMarshaller
     public void marshall(final OutputStream stream,
                          final KieSession ksession,
                          final long clockTime) throws IOException {
+        ((InternalWorkingMemory) ksession).flushNonMarshallablePropagations();
         MarshallerWriteContext context = new MarshallerWriteContext( stream,
                                                                      (InternalKnowledgeBase) kbase,
                                                                      (InternalWorkingMemory) ksession,

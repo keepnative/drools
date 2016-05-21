@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,8 +139,11 @@ public class ActionFieldValue
     public int hashCode() {
         int result = field != null ? field.hashCode() : 0;
         result = 31 * result + (value != null ? value.hashCode() : 0);
+        result = ~~result;
         result = 31 * result + nature;
+        result = ~~result;
         result = 31 * result + (type != null ? type.hashCode() : 0);
+        result = ~~result;
         return result;
     }
 }

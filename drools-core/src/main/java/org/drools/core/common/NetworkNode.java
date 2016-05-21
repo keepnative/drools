@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,9 @@
 
 package org.drools.core.common;
 
-import java.io.Externalizable;
-import java.util.Map;
-
-import org.drools.core.spi.RuleComponent;
 import org.kie.api.definition.rule.Rule;
+
+import java.io.Externalizable;
 
 /**
  * Interface used to expose generic information on Rete nodes outside of he package. It is used
@@ -32,20 +30,31 @@ public interface NetworkNode
 
     /**
      * Returns the unique id that represents the node in the Rete network
-     * @return
-     *      unique int value
      */
-    public int getId();
+    int getId();
 
     /**
      * Returns the partition ID to which this node belongs to
-     *
-     * @return
      */
-    public RuleBasePartitionId getPartitionId();
+    RuleBasePartitionId getPartitionId();
     
-    public short getType();
-    
-    public Map<Rule, RuleComponent> getAssociations();
+    short getType();
 
+    /**
+     * Returns how many times this nodes has been associated.
+     * Note that due to subnetworks this node could be associated to the same rule multiple times.
+     */
+    int getAssociationsSize();
+
+    /**
+     * Returns the number of rules that are associated with this node,
+     * regardless of how many times the node is associated with a single rule.
+     */
+    int getAssociatedRuleSize();
+
+    int getAssociationsSize( Rule rule );
+
+    boolean isAssociatedWith( Rule rule );
+
+    boolean thisNodeEquals(final Object object);
 }

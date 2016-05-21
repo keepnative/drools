@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,6 +103,8 @@ public class ImpCoreWrapper extends Imp implements CoreWrapper<Imp>, TraitableBe
     public TraitFieldTMS _getFieldTMS() {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
+
+    public void _setFieldTMS( TraitFieldTMS tms ) {}
 
     public BitSet getBottomTypeCode() {
         return ((TraitTypeMap) __$$dynamic_traits_map$$).getBottomCode();

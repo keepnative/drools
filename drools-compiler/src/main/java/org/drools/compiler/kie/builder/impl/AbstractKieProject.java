@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kie.builder.impl;
 
 import org.drools.compiler.kproject.models.KieBaseModelImpl;
@@ -69,7 +84,7 @@ public abstract class AbstractKieProject implements KieProject {
     }
 
     public KieBaseModel getKieBaseModel(String kBaseName) {
-        return kBaseModels.get( kBaseName );
+        return kBaseName == null ? getDefaultKieBaseModel() : kBaseModels.get( kBaseName );
     }
 
     public Collection<String> getKieBaseNames() {
@@ -77,7 +92,7 @@ public abstract class AbstractKieProject implements KieProject {
     }
 
     public KieSessionModel getKieSessionModel(String kSessionName) {
-        return kSessionModels.get( kSessionName );
+        return kSessionName == null ? getDefaultKieSession() : kSessionModels.get( kSessionName );
     }
 
     protected void indexParts(Collection<InternalKieModule> kieModules,

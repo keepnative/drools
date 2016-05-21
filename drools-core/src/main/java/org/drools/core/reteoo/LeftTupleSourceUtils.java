@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.reteoo;
 
 import org.drools.core.common.InternalFactHandle;
@@ -14,20 +29,20 @@ public class LeftTupleSourceUtils {
                                          ObjectTypeNode.Id leftInputOtnId,
                                          BitMask leftInferredMask) {
         LeftTuple leftTuple = modifyPreviousTuples.peekLeftTuple();
-        while ( leftTuple != null && leftTuple.getLeftTupleSink().getLeftInputOtnId() != null &&
-                leftTuple.getLeftTupleSink().getLeftInputOtnId().before( leftInputOtnId ) ) {
+        while ( leftTuple != null && leftTuple.getInputOtnId() != null &&
+                leftTuple.getInputOtnId().before( leftInputOtnId ) ) {
             modifyPreviousTuples.removeLeftTuple();
 
             // we skipped this node, due to alpha hashing, so retract now
-            ((LeftInputAdapterNode) leftTuple.getLeftTupleSink().getLeftTupleSource()).retractLeftTuple( leftTuple,
-                                                                                                         context,
-                                                                                                         workingMemory );
+            ((LeftInputAdapterNode) leftTuple.getTupleSource()).retractLeftTuple( leftTuple,
+                                                                                  context,
+                                                                                  workingMemory );
 
             leftTuple = modifyPreviousTuples.peekLeftTuple();
         }
 
-        if ( leftTuple != null && leftTuple.getLeftTupleSink().getLeftInputOtnId() != null &&
-             leftTuple.getLeftTupleSink().getLeftInputOtnId().equals( leftInputOtnId ) ) {
+        if ( leftTuple != null && leftTuple.getInputOtnId() != null &&
+             leftTuple.getInputOtnId().equals( leftInputOtnId ) ) {
             modifyPreviousTuples.removeLeftTuple();
             leftTuple.reAdd();
             if ( context.getModificationMask().intersects( leftInferredMask ) ) {

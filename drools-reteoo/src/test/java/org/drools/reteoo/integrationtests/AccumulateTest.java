@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.integrationtests;
 
 import org.drools.compiler.Cheese;
@@ -904,7 +919,7 @@ public class AccumulateTest extends CommonTestMethodBase {
 
         // Check the network formation, to ensure the RiaNode is shared.
         ObjectTypeNode cheeseOtn = LinkingTest.getObjectTypeNode(kbase, Cheese.class);
-        ObjectSink[] oSinks = cheeseOtn.getSinkPropagator().getSinks();
+        ObjectSink[] oSinks = cheeseOtn.getObjectSinkPropagator().getSinks();
         assertEquals( 1, oSinks.length );
 
         JoinNode cheeseJoin = ( JoinNode ) oSinks[0];
@@ -912,7 +927,7 @@ public class AccumulateTest extends CommonTestMethodBase {
 
         assertEquals( 1, ltSinks.length );
         RightInputAdapterNode rian = ( RightInputAdapterNode ) ltSinks[0];
-        assertEquals( 2, rian.getSinkPropagator().size() );   //  RiaNode is shared, if this has two outputs
+        assertEquals( 2, rian.getObjectSinkPropagator().size() );   //  RiaNode is shared, if this has two outputs
 
         wm.insert(new Cheese("stilton", 10));
         wm.insert( new Person( "Alice", "brie" ) );
@@ -2008,7 +2023,7 @@ public class AccumulateTest extends CommonTestMethodBase {
                 results.get( 0 ) );
     }
 
-    @Test(timeout = 5000)
+    @Test(timeout = 10000)
     public void testInfiniteLoopAddingPkgAfterSession() throws Exception {
         // JBRULES-3488
         String rule = "package org.drools.compiler.test;\n" +
@@ -2080,7 +2095,7 @@ public class AccumulateTest extends CommonTestMethodBase {
                 "query getResults( String $mId, List $holders )\n" +
                 "  accumulate(  \n" +
                 "    $holder  : MessageHolder( id == $mId, $ans : msg ),\n" +
-                "    $holders : collectList( $holder )\n" +
+                "    $holders := collectList( $holder )\n" +
                 "  ) \n" +
                 "end\n" +
                 "\n" +

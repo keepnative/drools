@@ -1,7 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.lang.descr;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl;
 import org.kie.api.io.Resource;
+import org.kie.internal.builder.ResourceChange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +36,9 @@ public class CompositePackageDescr extends PackageDescr {
 
     public void addPackageDescr(Resource resource, PackageDescr packageDescr) {
         if (!getNamespace().equals(packageDescr.getNamespace())) {
-            throw new RuntimeException("Composing PackageDescr in different namespaces");
+            throw new RuntimeException("Composing PackageDescr (" + packageDescr.getName()
+                + ") in different namespaces (namespace=" + getNamespace()
+                + " packageDescr=" + packageDescr.getNamespace() + ")" );
         }
         internalAdd(resource, packageDescr);
     }
@@ -133,9 +151,9 @@ public class CompositePackageDescr extends PackageDescr {
         public List<KnowledgeBuilderImpl.AssetFilter> filters = new ArrayList<KnowledgeBuilderImpl.AssetFilter>();
 
         @Override
-        public Action accept(String pkgName, String assetName) {
+        public Action accept(ResourceChange.Type type, String pkgName, String assetName) {
             for( KnowledgeBuilderImpl.AssetFilter filter : filters ) {
-                Action result = filter.accept(pkgName, assetName);
+                Action result = filter.accept(type, pkgName, assetName);
                 if( !Action.DO_NOTHING.equals( result ) ) {
                     return result;
                 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,8 +78,7 @@ public class ReteTesterHelper {
                                                               final String evaluatorString) throws IntrospectionException {
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
         String expression = fieldName + " " + evaluatorString + " " + declaration.getIdentifier();
         return new MvelConstraintTestUtil(expression, declaration, extractor);
     }
@@ -91,12 +90,9 @@ public class ReteTesterHelper {
         final Class< ? > clazz = ((ClassObjectType) pattern.getObjectType()).getClassType();
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
 
-        FieldValue fieldValue = FieldFactory.getInstance().getFieldValue( value,
-                                                            extractor.getValueType(), 
-                                                            null );
+        FieldValue fieldValue = FieldFactory.getInstance().getFieldValue( value, extractor.getValueType() );
 
         return new MvelConstraintTestUtil( fieldName + evaluatorString + value,
                                            fieldValue,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.drools.core.spi.PropagationContext;
  * Receiver of propagated <code>FactHandleImpl</code>s from a
  * <code>ObjectSource</code>.
  * 
- * @see ObectSource
+ * @see ObjectSource
  */
 public interface ObjectSink
     extends

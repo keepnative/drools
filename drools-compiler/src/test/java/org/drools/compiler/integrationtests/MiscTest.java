@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,24 +85,37 @@ import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.impl.EnvironmentFactory;
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.io.impl.InputStreamResource;
 import org.drools.core.marshalling.impl.ClassObjectMarshallingStrategyAcceptor;
 import org.drools.core.marshalling.impl.IdentityPlaceholderResolverStrategy;
+import org.drools.core.reteoo.EntryPointNode;
 import org.drools.core.reteoo.LeftTuple;
+import org.drools.core.reteoo.ObjectSink;
+import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.rule.MapBackedClassLoader;
 import org.junit.Assert;
 import org.junit.Test;
 import org.kie.api.KieBaseConfiguration;
+import org.kie.api.KieServices;
+import org.kie.api.builder.KieModule;
+import org.kie.api.builder.ReleaseId;
 import org.kie.api.command.Setter;
 import org.kie.api.conf.EqualityBehaviorOption;
 import org.kie.api.conf.RemoveIdentitiesOption;
 import org.kie.api.definition.rule.Rule;
 import org.kie.api.definition.type.FactType;
+import org.kie.api.event.rule.AfterMatchFiredEvent;
+import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.ObjectDeletedEvent;
 import org.kie.api.event.rule.RuleRuntimeEventListener;
+import org.kie.api.io.Resource;
 import org.kie.api.io.ResourceType;
 import org.kie.api.marshalling.ObjectMarshallingStrategy;
 import org.kie.api.runtime.Environment;
 import org.kie.api.runtime.EnvironmentName;
+import org.kie.api.runtime.KieContainer;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.rule.EntryPoint;
 import org.kie.api.runtime.rule.FactHandle;
 import org.kie.internal.KnowledgeBase;
@@ -1455,11 +1468,11 @@ import static org.mockito.Mockito.*;
          DefaultFactHandle helloHandle = (DefaultFactHandle) ksession.insert( "hello" );
          DefaultFactHandle goodbyeHandle = (DefaultFactHandle) ksession.insert( "goodbye" );
 
-         FactHandle key = new DefaultFactHandle( helloHandle.toExternalForm() );
+         FactHandle key = DefaultFactHandle.createFromExternalFormat( helloHandle.toExternalForm() );
          assertEquals( "hello",
                        ksession.getObject( key ) );
 
-         key = new DefaultFactHandle( goodbyeHandle.toExternalForm() );
+         key = DefaultFactHandle.createFromExternalFormat( goodbyeHandle.toExternalForm() );
          assertEquals( "goodbye",
                        ksession.getObject( key ) );
      }
@@ -1909,11 +1922,9 @@ import static org.mockito.Mockito.*;
          Person p = new Person( "stilton" );
          ksession.insert( p );
 
-         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession( ksession,
-                                                                               true );
+         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession( ksession, true );
          ksession.fireAllRules();
-         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession( ksession,
-                                                                               true );
+         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession( ksession, true );
          ksession.fireAllRules();
 
          // from using a global
@@ -2103,12 +2114,12 @@ import static org.mockito.Mockito.*;
          assertEquals( stiltonError.getLine(),
                        stiltonError.getDescr().getLine() );
          // check the absolute error line number (there are more).
-         assertEquals( 11,
+         assertEquals( 26,
                        stiltonError.getLine() );
 
          final DescrBuildError poisonError = (DescrBuildError) errors[1];
          assertTrue( poisonError.getMessage().contains( "Poison" ) );
-         assertEquals( 13,
+         assertEquals( 28,
                        poisonError.getLine() );
 
          KnowledgeBuilderConfigurationImpl cfg = new KnowledgeBuilderConfigurationImpl();
@@ -2126,7 +2137,7 @@ import static org.mockito.Mockito.*;
          // now check the RHS, not being too specific yet, as long as it has the
          // rules line number, not zero
          final DescrBuildError rhsError = (DescrBuildError) errors[2];
-         assertTrue( rhsError.getLine() >= 8 && rhsError.getLine() <= 17 ); // TODO this should be 16
+         assertTrue(rhsError.getLine() >= 23 && rhsError.getLine() <= 32); // TODO this should be 16
      }
 
      @Test
@@ -2345,7 +2356,8 @@ import static org.mockito.Mockito.*;
      @Test
      public void testDumpers() throws Exception {
          final DrlParser parser = new DrlParser( LanguageLevelOption.DRL5 );
-         final PackageDescr pkg = parser.parse( new InputStreamReader( getClass().getResourceAsStream( "test_Dumpers.drl" ) ) );
+         Resource resource = new InputStreamResource( getClass().getResourceAsStream( "test_Dumpers.drl" ) );
+         final PackageDescr pkg = parser.parse( resource );
 
          if ( parser.hasErrors() ) {
              for ( DroolsError error : parser.getErrors() ) {
@@ -4286,7 +4298,7 @@ import static org.mockito.Mockito.*;
                            "rule2" );
          leftTuple = handle.getFirstLeftTuple();
          assertNotNull( leftTuple );
-         assertNull( leftTuple.getLeftParentNext() );
+         assertNull( leftTuple.getHandleNext() );
      }
 
      // JBRULES-1808
@@ -9532,9 +9544,9 @@ import static org.mockito.Mockito.*;
                        "end\n";
 
          KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-         kbuilder.add(ResourceFactory.newByteArrayResource(declaredFactType.getBytes()), ResourceType.DRL);
-         kbuilder.add(ResourceFactory.newByteArrayResource(function.getBytes()), ResourceType.DRL);
-         kbuilder.add(ResourceFactory.newByteArrayResource(rule.getBytes()), ResourceType.DRL);
+         kbuilder.add( ResourceFactory.newByteArrayResource( declaredFactType.getBytes() ), ResourceType.DRL );
+         kbuilder.add( ResourceFactory.newByteArrayResource( function.getBytes() ), ResourceType.DRL );
+         kbuilder.add( ResourceFactory.newByteArrayResource( rule.getBytes() ), ResourceType.DRL );
 
          for ( KnowledgeBuilderError error : kbuilder.getErrors() ) {
              System.out.println( "ERROR:" );
@@ -9717,7 +9729,7 @@ import static org.mockito.Mockito.*;
          // both rules should fire exactly once
          verify( ael, times( 2 ) ).afterMatchFired(any(org.kie.api.event.rule.AfterMatchFiredEvent.class));
          // no cancellations should have happened
-         verify( ael, never() ).matchCancelled(any(org.kie.api.event.rule.MatchCancelledEvent.class));
+         verify( ael, never() ).matchCancelled( any( org.kie.api.event.rule.MatchCancelledEvent.class ) );
      }
 
      @Test
@@ -9775,9 +9787,9 @@ import static org.mockito.Mockito.*;
 
          KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
          assertEquals(2, kbase.getKnowledgePackage("org.drools.compiler").getRules().size());
-         kbase.removeRule( "org.drools.compiler", "R2");
+         kbase.removeRule( "org.drools.compiler", "R2" );
 
-         assertEquals( 1,  kbase.getKnowledgePackage( "org.drools.compiler" ).getRules().size() );
+         assertEquals( 1, kbase.getKnowledgePackage( "org.drools.compiler" ).getRules().size() );
      }
 
      @Test
@@ -9871,7 +9883,7 @@ import static org.mockito.Mockito.*;
                          "         ) or ( " +
                          "           SimpleFact( patientSpaceId == $patientSpaceIdRoot, block == 2 )\n" +
                          "         ) or (" +
-                         "           SimpleFact( patientSpaceId == $patientSpaceIdRoot, block == 3 )\n" +
+                         "           SimpleFact( patientSpaceId  == $patientSpaceIdRoot, block == 3 )\n" +
                          "         ) or (" +
                          "           SimpleFact( patientSpaceId == $patientSpaceIdRoot, block == 4 )\n" +
                          "         ) or (" +
@@ -9922,7 +9934,7 @@ import static org.mockito.Mockito.*;
                          "then\n" +
                          "end\n";
 
-         Collection<KnowledgePackage> kpgs = loadKnowledgePackagesFromString(str);
+         Collection<KnowledgePackage> kpgs = loadKnowledgePackagesFromString( str );
 
          Assert.assertEquals(1, kpgs.size());
 
@@ -9930,6 +9942,14 @@ import static org.mockito.Mockito.*;
          kbase.addKnowledgePackages( kpgs );
 
          kbase.removeKnowledgePackage( kpgs.iterator().next().getName() );
+
+         EntryPointNode epn = ( (InternalKnowledgeBase) kbase ).getRete().getEntryPointNodes().values().iterator().next();
+         for (ObjectTypeNode otn : epn.getObjectTypeNodes().values()) {
+             ObjectSink[] sinks = otn.getObjectSinkPropagator().getSinks();
+             if (sinks.length > 0) {
+                 fail( otn + " has sinks " + Arrays.toString( sinks ) );
+             }
+         }
      }
 
      @Test
@@ -9994,7 +10014,52 @@ import static org.mockito.Mockito.*;
          assertEquals( 3, ksession.fireAllRules() );
      }
 
-     @Test
+    @Test
+    public void testEnabledExpression2() {
+        String drl = "import " + Foo.class.getName() + ";\n" +
+                     "rule R1\n" +
+                     "    enabled( rule.name == $f.id )" +
+                     "when\n" +
+                     "   $f : Foo()\n" +
+                     "then end\n" +
+                     "rule R2\n" +
+                     "when\n" +
+                     "   Foo( id == \"R2\" )\n" +
+                     "then end\n";
+
+        KieServices ks = KieServices.Factory.get();
+
+        // Create an in-memory jar for version 1.0.0
+        ReleaseId releaseId1 = ks.newReleaseId( "org.kie", "test-enabled", "1.0.0" );
+        KieModule km = createAndDeployJar( ks, releaseId1, drl );
+
+        // Create a session and fire rules
+        KieContainer kc = ks.newKieContainer( km.getReleaseId() );
+
+        AgendaEventListener ael = mock( AgendaEventListener.class );
+        KieSession ksession = kc.newKieSession();
+        ksession.addEventListener( ael );
+        ksession.insert( new Foo( "R1", null ) );
+        assertEquals( 1, ksession.fireAllRules() );
+        ksession.dispose();
+
+        ArgumentCaptor<AfterMatchFiredEvent> event = ArgumentCaptor.forClass(AfterMatchFiredEvent.class);
+        verify( ael ).afterMatchFired( event.capture() );
+        assertEquals( "R1", event.getValue().getMatch().getRule().getName() );
+
+        ael = mock( AgendaEventListener.class );
+        ksession = kc.newKieSession();
+        ksession.addEventListener( ael );
+        ksession.insert( new Foo( "R2", null ) );
+        assertEquals( 1, ksession.fireAllRules() );
+        ksession.dispose();
+
+        event = ArgumentCaptor.forClass(AfterMatchFiredEvent.class);
+        verify( ael ).afterMatchFired( event.capture() );
+        assertEquals( "R2", event.getValue().getMatch().getRule().getName() );
+    }
+
+    @Test
      public void testMemoriesCCEWhenAddRemoveAddRule() {
          // JBRULES-3656
          String rule1 = "import " + MiscTest.class.getCanonicalName() + ".*\n" +

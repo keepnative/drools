@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package org.drools.core.conflict;
 
-import org.drools.core.spi.Activation;
 import org.drools.core.spi.ConflictResolver;
 
 /**
@@ -29,12 +28,4 @@ import org.drools.core.spi.ConflictResolver;
 public abstract class AbstractConflictResolver
     implements
     ConflictResolver {
-    /**
-     * @see ConflictResolver
-     */
-    public final int compare(final Object existing,
-                             final Object adding) {
-        return compare( (Activation) existing,
-                        (Activation) adding );
-    }
 }

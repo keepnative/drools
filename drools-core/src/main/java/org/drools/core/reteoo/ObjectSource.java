@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.MemoryFactory;
 import org.drools.core.common.RuleBasePartitionId;
 import org.drools.core.common.UpdateContext;
+import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.TypeDeclaration;
@@ -77,8 +78,6 @@ public abstract class ObjectSource extends BaseNode
 
     /**
      * Single parameter constructor that specifies the unique id of the node.
-     *
-     * @param id
      */
     ObjectSource(final int id,
                  final RuleBasePartitionId partitionId,
@@ -92,8 +91,6 @@ public abstract class ObjectSource extends BaseNode
 
     /**
      * Single parameter constructor that specifies the unique id of the node.
-     *
-     * @param id
      */
     ObjectSource(final int id,
                  final RuleBasePartitionId partitionId,
@@ -127,7 +124,11 @@ public abstract class ObjectSource extends BaseNode
     public ObjectSource getParentObjectSource() {
         return this.source;
     }
-    
+
+    public InternalKnowledgeBase getKnowledgeBase() {
+        return source.getKnowledgeBase();
+    }
+
     public void initDeclaredMask(BuildContext context) {
         if ( context == null || context.getLastBuiltPatterns() == null ) {
             // only happens during unit tests
@@ -201,7 +202,7 @@ public abstract class ObjectSource extends BaseNode
      * @param objectSink
      *            The <code>ObjectSink</code> to remove
      */
-    public void removeObjectSink(final ObjectSink objectSink) {
+    public boolean removeObjectSink(final ObjectSink objectSink) {
         if ( this.sink instanceof EmptyObjectSinkAdapter ) {
             throw new IllegalArgumentException( "Cannot remove a sink, when the list of sinks is null" );
         }
@@ -215,6 +216,7 @@ public abstract class ObjectSource extends BaseNode
                 this.sink = new SingleObjectSinkAdapter( this.getPartitionId(), sinkAdapter.getSinks()[0] );
             }
         }
+        return true;
     }
 
     public abstract void updateSink(ObjectSink sink,
@@ -225,7 +227,7 @@ public abstract class ObjectSource extends BaseNode
         this.source.networkUpdated(updateContext);
     }
 
-    public ObjectSinkPropagator getSinkPropagator() {
+    public ObjectSinkPropagator getObjectSinkPropagator() {
         return this.sink;
     }
 
@@ -233,7 +235,7 @@ public abstract class ObjectSource extends BaseNode
         return this.sink.size() > 0;
     }
     
-    protected void doRemove(final RuleRemovalContext context,
+    protected boolean doRemove(final RuleRemovalContext context,
                             final ReteooBuilder builder,
                             final InternalWorkingMemory[] workingMemories) {
         if ( !context.getKnowledgeBase().getConfiguration().isPhreakEnabled()  && !this.isInUse() && this instanceof MemoryFactory ) {
@@ -243,7 +245,9 @@ public abstract class ObjectSource extends BaseNode
         }
         if ( !isInUse() && this instanceof ObjectSink ) {
             this.source.removeObjectSink((ObjectSink) this);
+            return true;
         }
+        return false;
     }
 
     protected ObjectTypeNode getObjectTypeNode() {

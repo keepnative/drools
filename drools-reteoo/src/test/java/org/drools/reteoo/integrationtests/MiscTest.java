@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1464,11 +1464,11 @@ public class MiscTest extends CommonTestMethodBase {
         DefaultFactHandle helloHandle = (DefaultFactHandle) ksession.insert( "hello" );
         DefaultFactHandle goodbyeHandle = (DefaultFactHandle) ksession.insert( "goodbye" );
 
-        FactHandle key = new DefaultFactHandle( helloHandle.toExternalForm() );
+        FactHandle key = DefaultFactHandle.createFromExternalFormat( helloHandle.toExternalForm() );
         assertEquals( "hello",
                       ksession.getObject( key ) );
 
-        key = new DefaultFactHandle( goodbyeHandle.toExternalForm() );
+        key = DefaultFactHandle.createFromExternalFormat( goodbyeHandle.toExternalForm() );
         assertEquals( "goodbye",
                       ksession.getObject( key ) );
     }
@@ -2112,12 +2112,12 @@ public class MiscTest extends CommonTestMethodBase {
         assertEquals( stiltonError.getLine(),
                       stiltonError.getDescr().getLine() );
         // check the absolute error line number (there are more).
-        assertEquals( 11,
+        assertEquals( 26,
                       stiltonError.getLine() );
 
         final DescrBuildError poisonError = (DescrBuildError) errors[1];
         assertTrue( poisonError.getMessage().contains( "Poison" ) );
-        assertEquals( 13,
+        assertEquals( 28,
                       poisonError.getLine() );
 
         KnowledgeBuilderConfigurationImpl cfg = new KnowledgeBuilderConfigurationImpl();
@@ -2135,7 +2135,7 @@ public class MiscTest extends CommonTestMethodBase {
         // now check the RHS, not being too specific yet, as long as it has the
         // rules line number, not zero
         final DescrBuildError rhsError = (DescrBuildError) errors[2];
-        assertTrue( rhsError.getLine() >= 8 && rhsError.getLine() <= 17 ); // TODO this should be 16
+        assertTrue( rhsError.getLine() >= 23 && rhsError.getLine() <= 32 ); // TODO this should be 16
     }
 
     @Test
@@ -4295,7 +4295,7 @@ public class MiscTest extends CommonTestMethodBase {
                           "rule2" );
         leftTuple = handle.getFirstLeftTuple();
         assertNotNull( leftTuple );
-        assertNull( leftTuple.getLeftParentNext() );
+        assertNull( leftTuple.getHandleNext() );
     }
 
     // JBRULES-1808

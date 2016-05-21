@@ -1,4 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.kie.scanner;
+
+import java.io.File;
+import java.util.Collection;
+import java.util.HashSet;
 
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
@@ -21,16 +40,11 @@ import org.kie.scanner.embedder.MavenSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.net.MalformedURLException;
-import java.util.Collection;
-import java.util.HashSet;
-
 import static org.kie.scanner.embedder.MavenProjectLoader.loadMavenProject;
 
 public class Aether {
 
-    private static final Logger log = LoggerFactory.getLogger(Aether.class);
+    private static final Logger log = LoggerFactory.getLogger( Aether.class );
 
     private String localRepoDir;
     private final boolean offline;
@@ -43,43 +57,45 @@ public class Aether {
 
     private RemoteRepository localRepository;
 
-    private Aether(String localRepoDir, boolean offline) {
-        this(loadMavenProject(offline), localRepoDir, offline);
+    private Aether( String localRepoDir,
+                    boolean offline ) {
+        this( loadMavenProject( offline ), localRepoDir, offline );
     }
 
-    Aether(MavenProject mavenProject) {
-        this(mavenProject, getAether().localRepoDir, getAether().offline);
+    public Aether( MavenProject mavenProject ) {
+        this( mavenProject,
+              MavenSettings.getSettings().getLocalRepository(),
+              MavenSettings.getSettings().isOffline() );
     }
 
     public static synchronized Aether getAether() {
-        if (instance == null) {
+        if ( instance == null ) {
             Settings settings = MavenSettings.getSettings();
-            instance = new Aether(settings.getLocalRepository(), settings.isOffline());
+            instance = new Aether( settings.getLocalRepository(), settings.isOffline() );
         }
         return instance;
     }
 
-    private Aether(MavenProject mavenProject, String localRepoDir, boolean offline) {
+    private Aether( MavenProject mavenProject,
+                    String localRepoDir,
+                    boolean offline ) {
         this.localRepoDir = localRepoDir;
         this.offline = offline;
         system = newRepositorySystem();
         session = newRepositorySystemSession( system );
-        repositories = initRepositories(mavenProject);
+        repositories = initRepositories( mavenProject );
     }
 
-    private Collection<RemoteRepository> initRepositories(MavenProject mavenProject) {
+    private Collection<RemoteRepository> initRepositories( MavenProject mavenProject ) {
         Collection<RemoteRepository> reps = new HashSet<RemoteRepository>();
-        reps.add(newCentralRepository());
-        if (mavenProject != null) {
-            reps.addAll(mavenProject.getRemoteProjectRepositories());
+        reps.add( newCentralRepository() );
+        if ( mavenProject != null ) {
+            reps.addAll( mavenProject.getRemoteProjectRepositories() );
         }
 
         RemoteRepository localRepo = newLocalRepository();
-        if (localRepo != null) {
-            reps.add(localRepo);
+        if ( localRepo != null ) {
             localRepository = localRepo;
-        } else {
-            localRepoDir = IoUtils.getTmpDirectory().getAbsolutePath();
         }
         return reps;
     }
@@ -98,7 +114,7 @@ public class Aether {
         LocalRepository localRepo = new LocalRepository( localRepoDir );
         DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
         session.setLocalRepositoryManager( system.newLocalRepositoryManager( session, localRepo ) );
-        session.setOffline(offline);
+        session.setOffline( offline );
         return session;
     }
 
@@ -108,13 +124,25 @@ public class Aether {
 
     private RemoteRepository newLocalRepository() {
         File m2RepoDir = new File( localRepoDir );
-        if (!m2RepoDir.exists()) {
-            return null;
-        }
         try {
+            if ( !m2RepoDir.exists() ) {
+                log.info( "The local repository directory " + localRepoDir + " doesn't exist. Creating it." );
+                m2RepoDir.mkdirs();
+            }
             String localRepositoryUrl = m2RepoDir.toURI().toURL().toExternalForm();
             return new RemoteRepository.Builder( "local", "default", localRepositoryUrl ).build();
-        } catch (MalformedURLException e) { }
+        } catch ( Exception e ) {
+            try {
+                log.warn( "Cannot use directory " + localRepoDir + " as local repository.", e );
+                localRepoDir = IoUtils.getTmpDirectory().getAbsolutePath();
+                log.warn( "Using the temporary directory " + localRepoDir + " as local repository" );
+                m2RepoDir = new File( localRepoDir );
+                String localRepositoryUrl = m2RepoDir.toURI().toURL().toExternalForm();
+                return new RemoteRepository.Builder( "local", "default", localRepositoryUrl ).build();
+            } catch ( Exception e1 ) {
+                log.warn( "Cannot create a local repository in " + localRepoDir, e1 );
+            }
+        }
         return null;
     }
 
@@ -124,10 +152,6 @@ public class Aether {
 
     public RepositorySystemSession getSession() {
         return session;
-    }
-
-    public void renewSession() {
-        session = newRepositorySystemSession( system );
     }
 
     public Collection<RemoteRepository> getRepositories() {
@@ -146,14 +170,15 @@ public class Aether {
             }
             if ( "sramp".equals( roleHint ) ) {
                 try {
-                    return (Wagon) Class.forName("org.overlord.dtgov.jbpm.util.SrampWagonProxy").newInstance();
-                } catch (ClassNotFoundException cnfe) {
-                    log.warn("Cannot find sramp wagon implementation class", cnfe);
+                    return (Wagon) Class.forName( "org.overlord.dtgov.jbpm.util.SrampWagonProxy" ).newInstance();
+                } catch ( ClassNotFoundException cnfe ) {
+                    log.warn( "Cannot find sramp wagon implementation class", cnfe );
                 }
             }
             return null;
         }
 
-        public void release( Wagon wagon ) { }
+        public void release( Wagon wagon ) {
+        }
     }
 }

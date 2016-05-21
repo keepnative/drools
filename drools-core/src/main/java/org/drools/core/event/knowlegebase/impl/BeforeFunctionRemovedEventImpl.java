@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ public class BeforeFunctionRemovedEventImpl extends KnowledgeBaseEventImpl imple
     
     public BeforeFunctionRemovedEventImpl(KnowledgeBase knowledgeBase, String function) {
         super( knowledgeBase );
+        this.function = function;
     }
 
     public String getFunction() {

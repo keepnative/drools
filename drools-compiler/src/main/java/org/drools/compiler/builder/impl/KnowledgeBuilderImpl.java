@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
 
 import org.drools.compiler.compiler.AnnotationDeclarationError;
@@ -17,6 +32,11 @@ import org.drools.compiler.compiler.DroolsWarningWrapper;
 import org.drools.compiler.compiler.DuplicateFunction;
 import org.drools.compiler.compiler.DuplicateRule;
 import org.drools.compiler.compiler.GlobalError;
+import org.drools.compiler.compiler.GuidedDecisionTableFactory;
+import org.drools.compiler.compiler.GuidedDecisionTableProvider;
+import org.drools.compiler.compiler.GuidedRuleTemplateFactory;
+import org.drools.compiler.compiler.GuidedRuleTemplateProvider;
+import org.drools.compiler.compiler.GuidedScoreCardFactory;
 import org.drools.compiler.compiler.PMMLCompiler;
 import org.drools.compiler.compiler.PMMLCompilerFactory;
 import org.drools.compiler.compiler.PackageBuilderErrors;
@@ -26,6 +46,7 @@ import org.drools.compiler.compiler.ParserError;
 import org.drools.compiler.compiler.ProcessBuilder;
 import org.drools.compiler.compiler.ProcessBuilderFactory;
 import org.drools.compiler.compiler.ProcessLoadError;
+import org.drools.compiler.compiler.ResourceConversionResult;
 import org.drools.compiler.compiler.ResourceTypeDeclarationWarning;
 import org.drools.compiler.compiler.RuleBuildError;
 import org.drools.compiler.compiler.ScoreCardFactory;
@@ -38,6 +59,8 @@ import org.drools.compiler.lang.descr.AnnotatedBaseDescr;
 import org.drools.compiler.lang.descr.AnnotationDescr;
 import org.drools.compiler.lang.descr.AttributeDescr;
 import org.drools.compiler.lang.descr.BaseDescr;
+import org.drools.compiler.lang.descr.CompositePackageDescr;
+import org.drools.compiler.lang.descr.ConditionalElementDescr;
 import org.drools.compiler.lang.descr.EntryPointDeclarationDescr;
 import org.drools.compiler.lang.descr.EnumDeclarationDescr;
 import org.drools.compiler.lang.descr.FunctionDescr;
@@ -45,6 +68,8 @@ import org.drools.compiler.lang.descr.FunctionImportDescr;
 import org.drools.compiler.lang.descr.GlobalDescr;
 import org.drools.compiler.lang.descr.ImportDescr;
 import org.drools.compiler.lang.descr.PackageDescr;
+import org.drools.compiler.lang.descr.PatternDescr;
+import org.drools.compiler.lang.descr.PatternDestinationDescr;
 import org.drools.compiler.lang.descr.RuleDescr;
 import org.drools.compiler.lang.descr.TypeDeclarationDescr;
 import org.drools.compiler.lang.descr.TypeFieldDescr;
@@ -76,8 +101,6 @@ import org.drools.core.rule.JavaDialectRuntimeData;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.TypeDeclaration;
 import org.drools.core.rule.WindowDeclaration;
-import org.drools.core.type.DateFormats;
-import org.drools.core.type.DateFormatsImpl;
 import org.drools.core.util.DroolsStreamUtils;
 import org.drools.core.util.IoUtils;
 import org.drools.core.util.StringUtils;
@@ -100,6 +123,7 @@ import org.kie.internal.builder.KnowledgeBuilderError;
 import org.kie.internal.builder.KnowledgeBuilderErrors;
 import org.kie.internal.builder.KnowledgeBuilderResult;
 import org.kie.internal.builder.KnowledgeBuilderResults;
+import org.kie.internal.builder.ResourceChange;
 import org.kie.internal.builder.ResultSeverity;
 import org.kie.internal.builder.ScoreCardConfiguration;
 import org.kie.internal.definition.KnowledgePackage;
@@ -163,8 +187,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
     private Resource                                       resource;
 
     private List<DSLTokenizedMappingFile>                  dslFiles;
-
-    protected DateFormats dateFormats;
 
     private final org.drools.compiler.compiler.ProcessBuilder processBuilder;
 
@@ -232,12 +254,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             this.configuration = configuration;
         }
 
-        this.dateFormats = null;//(DateFormats) this.environment.get( EnvironmentName.DATE_FORMATS );
-        if (this.dateFormats == null) {
-            this.dateFormats = new DateFormatsImpl();
-            //this.environment.set( EnvironmentName.DATE_FORMATS , this.dateFormats );
-        }
-
         this.rootClassLoader = this.configuration.getClassLoader();
 
         this.defaultDialect = this.configuration.getDefaultDialect();
@@ -271,12 +287,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             this.rootClassLoader = kBase.getRootClassLoader();
         } else {
             this.rootClassLoader = this.configuration.getClassLoader();
-        }
-
-        this.dateFormats = null;//(DateFormats) this.environment.get( EnvironmentName.DATE_FORMATS );
-        if (this.dateFormats == null) {
-            this.dateFormats = new DateFormatsImpl();
-            //this.environment.set( EnvironmentName.DATE_FORMATS , this.dateFormats );
         }
 
         // FIXME, we need to get drools to support "default" namespace.
@@ -361,7 +371,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                                             ResourceConfiguration configuration) throws DroolsParserException,
                                                                                         IOException {
         this.resource = resource;
-        addPackage(decisionTableToPackageDescr(resource, configuration));
+        addPackage( decisionTableToPackageDescr( resource, configuration ) );
         this.resource = null;
     }
 
@@ -371,27 +381,71 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         DecisionTableConfiguration dtableConfiguration = configuration instanceof DecisionTableConfiguration ?
                                                          (DecisionTableConfiguration) configuration :
                                                          null;
-        String generatedDrl = DecisionTableFactory.loadFromInputStream(resource.getInputStream(), dtableConfiguration);
+
+        if ( dtableConfiguration != null && !dtableConfiguration.getRuleTemplateConfigurations().isEmpty() ) {
+            List<String> generatedDrls = DecisionTableFactory.loadFromInputStreamWithTemplates( resource, dtableConfiguration );
+            if ( generatedDrls.size() == 1 ) {
+                return generatedDrlToPackageDescr( resource, generatedDrls.get(0) );
+            }
+            CompositePackageDescr compositePackageDescr = null;
+            for ( String generatedDrl : generatedDrls ) {
+                PackageDescr packageDescr = generatedDrlToPackageDescr( resource, generatedDrl );
+                if ( packageDescr != null ) {
+                    if ( compositePackageDescr == null ) {
+                        compositePackageDescr = new CompositePackageDescr( resource, packageDescr );
+                    } else {
+                        compositePackageDescr.addPackageDescr( resource, packageDescr );
+                    }
+                }
+            }
+            return compositePackageDescr;
+        }
+
+        String generatedDrl = DecisionTableFactory.loadFromResource(resource, dtableConfiguration);
+        return generatedDrlToPackageDescr( resource, generatedDrl );
+    }
+
+    public void addPackageFromGuidedDecisionTable(Resource resource) throws DroolsParserException,
+                                                                            IOException {
+        this.resource = resource;
+        addPackage( guidedDecisionTableToPackageDescr( resource ) );
+        this.resource = null;
+    }
+
+    PackageDescr guidedDecisionTableToPackageDescr(Resource resource) throws DroolsParserException,
+                                                                             IOException {
+        GuidedDecisionTableProvider guidedDecisionTableProvider = GuidedDecisionTableFactory.getGuidedDecisionTableProvider();
+        ResourceConversionResult conversionResult = guidedDecisionTableProvider.loadFromInputStream(resource.getInputStream());
+        return conversionResultToPackageDescr(resource, conversionResult);
+    }
+
+    private PackageDescr generatedDrlToPackageDescr( Resource resource, String generatedDrl ) throws DroolsParserException {
         // dump the generated DRL if the dump dir was configured
         if (this.configuration.getDumpDir() != null) {
             dumpDrlGeneratedFromDTable(this.configuration.getDumpDir(), generatedDrl, resource.getSourcePath());
         }
 
-        DrlParser parser = new DrlParser(this.configuration.getLanguageLevel());
+        DrlParser parser = new DrlParser(configuration.getLanguageLevel());
         PackageDescr pkg = parser.parse(resource, new StringReader(generatedDrl));
         this.results.addAll(parser.getErrors());
         if (pkg == null) {
             addBuilderResult(new ParserError(resource, "Parser returned a null Package", 0, 0));
+        } else {
+            pkg.setResource(resource);
         }
         return parser.hasErrors() ? null : pkg;
+    }
+
+    PackageDescr generatedDslrToPackageDescr(Resource resource, String dslr) throws DroolsParserException {
+        return dslrReaderToPackageDescr(resource, new StringReader(dslr));
     }
 
     private void dumpDrlGeneratedFromDTable(File dumpDir, String generatedDrl, String srcPath) {
         File dumpFile;
         if (srcPath != null) {
-            dumpFile = new File(dumpDir, srcPath.replaceAll(File.separator, "_") + ".drl");
+            dumpFile = createDumpDrlFile(dumpDir, srcPath, ".drl");
         } else {
-            dumpFile = new File(dumpDir, "decision-table-" + UUID.randomUUID() + ".drl");
+            dumpFile = createDumpDrlFile(dumpDir, "decision-table-" + UUID.randomUUID(), ".drl");
         }
         try {
             IoUtils.write(dumpFile, generatedDrl.getBytes(IoUtils.UTF8_CHARSET));
@@ -402,11 +456,15 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         }
     }
 
+    protected static File createDumpDrlFile(File dumpDir, String fileName, String extension) {
+        return new File(dumpDir, fileName.replaceAll("[^a-zA-Z0-9\\.\\-_]+", "_") + extension);
+    }
+
     public void addPackageFromScoreCard(Resource resource,
                                         ResourceConfiguration configuration) throws DroolsParserException,
                                                                                     IOException {
         this.resource = resource;
-        addPackage(scoreCardToPackageDescr(resource, configuration));
+        addPackage( scoreCardToPackageDescr( resource, configuration ) );
         this.resource = null;
     }
 
@@ -417,14 +475,46 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                                                     (ScoreCardConfiguration) configuration :
                                                     null;
         String string = ScoreCardFactory.loadFromInputStream(resource.getInputStream(), scardConfiguration);
+        return generatedDrlToPackageDescr( resource, string );
+    }
 
-        DrlParser parser = new DrlParser(this.configuration.getLanguageLevel());
-        PackageDescr pkg = parser.parse(resource, new StringReader(string));
-        this.results.addAll(parser.getErrors());
-        if (pkg == null) {
-            addBuilderResult(new ParserError(resource, "Parser returned a null Package", 0, 0));
+    public void addPackageFromGuidedScoreCard(Resource resource) throws DroolsParserException,
+                                                                                          IOException {
+        this.resource = resource;
+        addPackage( guidedScoreCardToPackageDescr(resource) );
+        this.resource = null;
+    }
+
+    PackageDescr guidedScoreCardToPackageDescr(Resource resource) throws DroolsParserException,
+                                                                         IOException {
+        String drl = GuidedScoreCardFactory.loadFromInputStream(resource.getInputStream());
+        return generatedDrlToPackageDescr(resource, drl);
+    }
+
+    public void addPackageFromTemplate(Resource resource) throws DroolsParserException,
+                                                                 IOException {
+        this.resource = resource;
+        addPackage(templateToPackageDescr(resource));
+        this.resource = null;
+    }
+
+    PackageDescr templateToPackageDescr(Resource resource) throws DroolsParserException,
+                                                                  IOException {
+        GuidedRuleTemplateProvider guidedRuleTemplateProvider = GuidedRuleTemplateFactory.getGuidedRuleTemplateProvider();
+        ResourceConversionResult conversionResult = guidedRuleTemplateProvider.loadFromInputStream(resource.getInputStream());
+        return conversionResultToPackageDescr(resource, conversionResult);
+    }
+
+    private PackageDescr conversionResultToPackageDescr(Resource resource, ResourceConversionResult resourceConversionResult)
+            throws DroolsParserException {
+        ResourceType resourceType = resourceConversionResult.getType();
+        if (ResourceType.DSLR.equals(resourceType)) {
+            return generatedDslrToPackageDescr(resource, resourceConversionResult.getContent());
+        } else if (ResourceType.DRL.equals(resourceType)) {
+            return generatedDrlToPackageDescr(resource, resourceConversionResult.getContent());
+        } else {
+            throw new RuntimeException("Converting generated " + resourceType + " into PackageDescr is not supported!");
         }
-        return parser.hasErrors() ? null : pkg;
     }
 
     public void addPackageFromDrl(Resource resource) throws DroolsParserException,
@@ -489,7 +579,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
     PackageDescr xmlToPackageDescr(Resource resource) throws DroolsParserException,
                                                              IOException {
         final XmlPackageReader xmlReader = new XmlPackageReader(this.configuration.getSemanticModules());
-        xmlReader.getParser().setClassLoader(this.rootClassLoader);
+        xmlReader.getParser().setClassLoader( this.rootClassLoader );
 
         Reader reader = null;
         try {
@@ -523,7 +613,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         final DrlParser parser = new DrlParser(configuration.getLanguageLevel());
         final PackageDescr pkg = parser.parse(source, dsl);
-        this.results.addAll(parser.getErrors());
+        this.results.addAll( parser.getErrors() );
         if (!parser.hasErrors()) {
             addPackage(pkg);
         }
@@ -537,20 +627,23 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         this.resource = null;
     }
 
-    PackageDescr dslrToPackageDescr(Resource resource) throws DroolsParserException {
+    PackageDescr dslrToPackageDescr(Resource resource) throws DroolsParserException,
+                                                              IOException {
+        return dslrReaderToPackageDescr(resource, resource.getReader());
+    }
+
+    private PackageDescr dslrReaderToPackageDescr(Resource resource, Reader dslrReader) throws DroolsParserException {
         boolean hasErrors;
         PackageDescr pkg;
 
         DrlParser parser = new DrlParser(configuration.getLanguageLevel());
         DefaultExpander expander = getDslExpander();
 
-        Reader reader = null;
         try {
             if (expander == null) {
                 expander = new DefaultExpander();
             }
-            reader = resource.getReader();
-            String str = expander.expand(reader);
+            String str = expander.expand(dslrReader);
             if (expander.hasErrors()) {
                 for (ExpanderException error : expander.getErrors()) {
                     error.setResource(resource);
@@ -564,9 +657,9 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
-            if (reader != null) {
+            if (dslrReader != null) {
                 try {
-                    reader.close();
+                    dslrReader.close();
                 } catch (IOException e) {
                 }
             }
@@ -594,7 +687,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             }
             this.resource = null;
         }
-
     }
 
     /**
@@ -621,7 +713,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             if ( errors.isEmpty() ) {
                 if ( this.kBase != null && processes != null ) {
                     for (Process process : processes) {
-                        if ( filterAccepts( process.getNamespace(), process.getId() ) ) {
+                        if ( filterAccepts( ResourceChange.Type.PROCESS, process.getNamespace(), process.getId() ) ) {
                             this.kBase.addProcess(process);
                         }
                     }
@@ -684,6 +776,12 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                 addPackageFromScoreCard(resource, configuration);
             } else if (ResourceType.TDRL.equals(type)) {
                 addPackageFromDrl(resource);
+            } else if (ResourceType.TEMPLATE.equals(type)) {
+                addPackageFromTemplate(resource);
+            } else if (ResourceType.GDST.equals(type)) {
+                addPackageFromGuidedDecisionTable(resource);
+            } else if (ResourceType.SCGD.equals(type)) {
+                addPackageFromGuidedScoreCard(resource);
             } else {
                 addPackageForExternalType(resource, type, configuration);
             }
@@ -699,14 +797,14 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                                    ResourceConfiguration configuration) throws Exception {
         KieAssemblers assemblers = ServiceRegistryImpl.getInstance().get(KieAssemblers.class);
 
-        KieAssemblerService assembler = assemblers.getAssemblers().get(type);
+        KieAssemblerService assembler = assemblers.getAssemblers().get( type );
 
 
         if (assembler != null) {
-            assembler.addResource(this,
-                                  resource,
-                                  type,
-                                  configuration);
+            assembler.addResource( this,
+                                   resource,
+                                   type,
+                                   configuration );
         } else {
             throw new RuntimeException("Unknown resource type: " + type);
         }
@@ -744,15 +842,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             return null;
         }
 
-        DrlParser parser = new DrlParser(configuration.getLanguageLevel());
-        PackageDescr pkg = parser.parse(resource, new StringReader(theory));
-        this.results.addAll(parser.getErrors());
-        if (pkg == null) {
-            addBuilderResult(new ParserError(resource, "Parser returned a null Package", 0, 0));
-            return pkg;
-        } else {
-            return parser.hasErrors() ? null : pkg;
-        }
+        return generatedDrlToPackageDescr( resource, theory );
     }
 
     void addPackageFromXSD(Resource resource,
@@ -893,7 +983,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
     }
 
     void compileAllRules(PackageDescr packageDescr, PackageRegistry pkgRegistry) {
-        pkgRegistry.setDialect(getPackageDialect(packageDescr));
+        pkgRegistry.setDialect( getPackageDialect( packageDescr ) );
 
         validateUniqueRuleNames( packageDescr );
         compileRules(packageDescr, pkgRegistry);
@@ -909,7 +999,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         // iterate and compile
         if (!hasErrors() && this.kBase != null) {
             for (RuleDescr ruleDescr : packageDescr.getRules()) {
-                if( filterAccepts( ruleDescr.getNamespace(), ruleDescr.getName() ) ) {
+                if( filterAccepts( ResourceChange.Type.RULE, ruleDescr.getNamespace(), ruleDescr.getName() ) ) {
                     pkgRegistry = this.pkgRegistryMap.get(ruleDescr.getNamespace());
                     this.kBase.addRule(pkgRegistry.getPackage(), pkgRegistry.getPackage().getRule(ruleDescr.getName()));
                 }
@@ -922,7 +1012,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
     }
 
     PackageRegistry createPackageRegistry(PackageDescr packageDescr) {
-        PackageRegistry pkgRegistry = initPackageRegistry(packageDescr);
+        PackageRegistry pkgRegistry = initPackageRegistry( packageDescr );
         if (pkgRegistry == null) {
             return null;
         }
@@ -948,7 +1038,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         initPackage(packageDescr);
 
-        PackageRegistry pkgRegistry = this.pkgRegistryMap.get(packageDescr.getNamespace());
+        PackageRegistry pkgRegistry = this.pkgRegistryMap.get( packageDescr.getNamespace() );
         if (pkgRegistry == null) {
             // initialise the package and namespace if it hasn't been used before
             pkgRegistry = newPackage(packageDescr);
@@ -975,7 +1065,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
             // iterate and compile
             for (FunctionDescr functionDescr : functions) {
-                if (filterAccepts(functionDescr.getNamespace(), functionDescr.getName()) ) {
+                if (filterAccepts(ResourceChange.Type.FUNCTION, functionDescr.getNamespace(), functionDescr.getName()) ) {
                     // inherit the dialect from the package
                     addFunction(functionDescr);
                 }
@@ -986,7 +1076,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             compileAll();
 
             for (FunctionDescr functionDescr : functions) {
-                if (filterAccepts(functionDescr.getNamespace(), functionDescr.getName()) ) {
+                if (filterAccepts(ResourceChange.Type.FUNCTION, functionDescr.getNamespace(), functionDescr.getName()) ) {
                     postCompileAddFunction(functionDescr);
                 }
             }
@@ -1017,18 +1107,18 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         // iterate and compile
         for (RuleDescr ruleDescr : packageDescr.getRules()) {
-            if (filterAccepts(ruleDescr.getNamespace(), ruleDescr.getName()) ) {
+            if (filterAccepts(ResourceChange.Type.RULE, ruleDescr.getNamespace(), ruleDescr.getName()) ) {
                 addRule(ruleCxts.get(ruleDescr.getName()));
             }
         }
     }
 
-    boolean filterAccepts( String namespace, String name ) {
-        return assetFilter == null || ! AssetFilter.Action.DO_NOTHING.equals( assetFilter.accept( namespace, name ) );
+    boolean filterAccepts( ResourceChange.Type type, String namespace, String name ) {
+        return assetFilter == null || ! AssetFilter.Action.DO_NOTHING.equals( assetFilter.accept( type, namespace, name ) );
     }
 
-    private boolean filterAcceptsRemoval( String namespace, String name ) {
-        return assetFilter != null && AssetFilter.Action.REMOVE.equals( assetFilter.accept( namespace, name ) );
+    private boolean filterAcceptsRemoval( ResourceChange.Type type, String namespace, String name ) {
+        return assetFilter != null && AssetFilter.Action.REMOVE.equals( assetFilter.accept( type, namespace, name ) );
     }
 
     private Map<String, RuleBuildContext> preProcessRules(PackageDescr packageDescr, PackageRegistry pkgRegistry) {
@@ -1040,7 +1130,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
             // first, check if any rules no longer exist
             for( org.kie.api.definition.rule.Rule rule : pkg.getRules() ) {
-                if (filterAcceptsRemoval( rule.getPackageName(), rule.getName() ) ) {
+                if (filterAcceptsRemoval( ResourceChange.Type.RULE, rule.getPackageName(), rule.getName() ) ) {
                     needsRemoval = true;
                     break;
                 }
@@ -1048,7 +1138,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
             if( !needsRemoval ) {
                 for (RuleDescr ruleDescr : packageDescr.getRules()) {
-                    if (filterAccepts(ruleDescr.getNamespace(), ruleDescr.getName()) ) {
+                    if (filterAccepts(ResourceChange.Type.RULE, ruleDescr.getNamespace(), ruleDescr.getName()) ) {
                         if (pkg.getRule(ruleDescr.getName()) != null) {
                             needsRemoval = true;
                             break;
@@ -1061,13 +1151,13 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                 try {
                     this.kBase.lock();
                     for( org.kie.api.definition.rule.Rule rule : pkg.getRules() ) {
-                        if (filterAcceptsRemoval( rule.getPackageName(), rule.getName() ) ) {
+                        if (filterAcceptsRemoval( ResourceChange.Type.RULE, rule.getPackageName(), rule.getName() ) ) {
                             this.kBase.removeRule(pkg, pkg.getRule(rule.getName()));
                             pkg.removeRule(((RuleImpl)rule));
                         }
                     }
                     for (RuleDescr ruleDescr : packageDescr.getRules()) {
-                        if (filterAccepts(ruleDescr.getNamespace(), ruleDescr.getName()) ) {
+                        if (filterAccepts(ResourceChange.Type.RULE, ruleDescr.getNamespace(), ruleDescr.getName()) ) {
                             if (pkg.getRule(ruleDescr.getName()) != null) {
                                 // XXX: this one notifies listeners
                                 this.kBase.removeRule(pkg, pkg.getRule(ruleDescr.getName()));
@@ -1082,7 +1172,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         // Pre Process each rule, needed for Query signuture registration
         for (RuleDescr ruleDescr : packageDescr.getRules()) {
-            if (filterAccepts(ruleDescr.getNamespace(), ruleDescr.getName()) ) {
+            if (filterAccepts(ResourceChange.Type.RULE, ruleDescr.getNamespace(), ruleDescr.getName()) ) {
                 RuleBuildContext ruleBuildContext = ruleCxts.get(ruleDescr.getName());
                 ruleBuilder.preProcess(ruleBuildContext);
                 pkg.addRule(ruleBuildContext.getRule());
@@ -1095,23 +1185,25 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         // Using a topological sorting algorithm
         // see http://en.wikipedia.org/wiki/Topological_sorting
 
-        PackageRegistry pkgRegistry = this.pkgRegistryMap.get(packageDescr.getNamespace());
+        PackageRegistry pkgRegistry = this.pkgRegistryMap.get( packageDescr.getNamespace() );
         InternalKnowledgePackage pkg = pkgRegistry.getPackage();
 
         List<RuleDescr> roots = new LinkedList<RuleDescr>();
         Map<String, List<RuleDescr>> children = new HashMap<String, List<RuleDescr>>();
         LinkedHashMap<String, RuleDescr> sorted = new LinkedHashMap<String, RuleDescr>();
         List<RuleDescr> queries = new ArrayList<RuleDescr>();
+        List<String> compiledRules = new ArrayList<String>();
 
         for (RuleDescr ruleDescr : packageDescr.getRules()) {
             if (ruleDescr.isQuery()) {
                 queries.add(ruleDescr);
             } else if (!ruleDescr.hasParent()) {
                 roots.add(ruleDescr);
-            } else if (pkg.getRule(ruleDescr.getParentName()) != null) {
-                // The parent of this rule has been already compiled
-                sorted.put(ruleDescr.getName(), ruleDescr);
             } else {
+                if (pkg.getRule(ruleDescr.getParentName()) != null) {
+                    // The parent of this rule has been already compiled
+                    compiledRules.add(ruleDescr.getParentName());
+                }
                 List<RuleDescr> childz = children.get(ruleDescr.getParentName());
                 if (childz == null) {
                     childz = new ArrayList<RuleDescr>();
@@ -1129,6 +1221,11 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             return;
         }
 
+        for (String compiledRule : compiledRules) {
+            List<RuleDescr> childz = children.remove( compiledRule );
+            roots.addAll( childz );
+        }
+
         while (!roots.isEmpty()) {
             RuleDescr root = roots.remove(0);
             sorted.put(root.getName(), root);
@@ -1142,8 +1239,8 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         packageDescr.getRules().clear();
         packageDescr.getRules().addAll(queries);
-        for (RuleDescr descr : sorted.values()) {
-            packageDescr.getRules().add(descr);
+        for (RuleDescr descr : sorted.values() ) {
+            packageDescr.getRules().add( descr );
         }
     }
 
@@ -1155,11 +1252,11 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                 if (parents.get(ruleDescr.getParentName()) != null
                     && (sorted.containsKey(ruleDescr.getName()) || parents.containsKey(ruleDescr.getName()))) {
                     circularDep = true;
-                    results.add(new RuleBuildError(new RuleImpl(ruleDescr.getName()), ruleDescr, null,
-                                                   "Circular dependency in rules hierarchy"));
+                    results.add( new RuleBuildError( new RuleImpl( ruleDescr.getName() ), ruleDescr, null,
+                                                     "Circular dependency in rules hierarchy" ) );
                     break;
                 }
-                manageUnresolvedExtension(ruleDescr, sorted.values());
+                manageUnresolvedExtension( ruleDescr, sorted.values() );
             }
             if (circularDep) {
                 break;
@@ -1474,9 +1571,9 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         PackageRegistry pkgRegistry = new PackageRegistry(rootClassLoader, configuration, pkg);
 
         // add default import for this namespace
-        pkgRegistry.addImport(new ImportDescr(packageDescr.getNamespace() + ".*"));
+        pkgRegistry.addImport( new ImportDescr( packageDescr.getNamespace() + ".*" ) );
 
-        this.pkgRegistryMap.put(packageDescr.getName(), pkgRegistry);
+        this.pkgRegistryMap.put( packageDescr.getName(), pkgRegistry );
 
         return pkgRegistry;
     }
@@ -1488,7 +1585,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
 
         normalizeTypeDeclarationAnnotations( packageDescr );
         processAccumulateFunctions(pkgRegistry, packageDescr);
-        processEntryPointDeclarations(pkgRegistry, packageDescr);
+        processEntryPointDeclarations( pkgRegistry, packageDescr );
 
         Map<String,AbstractClassTypeDeclarationDescr> unprocesseableDescrs = new HashMap<String,AbstractClassTypeDeclarationDescr>();
         List<TypeDefinition> unresolvedTypes = new ArrayList<TypeDefinition>();
@@ -1500,7 +1597,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             unsortedDescrs.add( enumDeclarationDescr );
         }
 
-        typeBuilder.processTypeDeclarations( Arrays.asList( packageDescr ), unsortedDescrs, unresolvedTypes, unprocesseableDescrs );
+        typeBuilder.processTypeDeclarations( Collections.singletonList( packageDescr ), unsortedDescrs, unresolvedTypes, unprocesseableDescrs );
         for ( AbstractClassTypeDeclarationDescr descr : unprocesseableDescrs.values() ) {
             this.addBuilderResult( new TypeDeclarationError( descr, "Unable to process type " + descr.getTypeName() ) );
         }
@@ -1520,14 +1617,18 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         InternalKnowledgePackage current = getPackage();
         this.pkgRegistryMap.remove(packageDescr.getName());
         this.pkgRegistryMap.put(packageDescr.getName(), pkgRegistry);
-        if (!current.getName().equals(packageDescr.getName())) {
+        if (current.getName().equals(packageDescr.getName())) {
             currentRulePackage = pkgRegistryMap.size() - 1;
         }
     }
 
     private void processGlobals(PackageRegistry pkgRegistry, PackageDescr packageDescr) {
+        InternalKnowledgePackage pkg = pkgRegistry.getPackage();
+        Set<String> existingGlobals = new HashSet<String>(pkg.getGlobals().keySet());
+
         for (final GlobalDescr global : packageDescr.getGlobals()) {
             final String identifier = global.getIdentifier();
+            existingGlobals.remove( identifier );
             String className = global.getType();
 
             // JBRULES-3039: can't handle type name with generic params
@@ -1541,16 +1642,23 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                     addBuilderResult(new GlobalError(global, " Primitive types are not allowed in globals : " + className));
                     return;
                 }
-                pkgRegistry.getPackage().addGlobal(identifier,
-                                                   clazz);
-                this.globals.put(identifier,
-                                 clazz);
+                pkg.addGlobal(identifier, clazz);
+                this.globals.put(identifier, clazz);
                 if (kBase != null) {
                     kBase.addGlobal(identifier, clazz);
                 }
             } catch (final ClassNotFoundException e) {
                 addBuilderResult(new GlobalError(global, e.getMessage()));
                 e.printStackTrace();
+            }
+        }
+
+        for (String toBeRemoved : existingGlobals) {
+            if (filterAcceptsRemoval( ResourceChange.Type.GLOBAL, pkg.getName(), toBeRemoved )) {
+                pkg.removeGlobal( toBeRemoved );
+                if ( kBase != null ) {
+                    kBase.removeGlobal( toBeRemoved );
+                }
             }
         }
     }
@@ -1606,9 +1714,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         return typeBuilder.getAndRegisterTypeDeclaration(cls, packageName);
     }
 
-    /**
-     * @param packageDescr
-     */
     void processEntryPointDeclarations(PackageRegistry pkgRegistry,
                                        PackageDescr packageDescr) {
         for (EntryPointDeclarationDescr epDescr : packageDescr.getEntryPointDeclarations()) {
@@ -1626,6 +1731,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
             InternalKnowledgePackage pkg = pkgRegistry.getPackage();
             DialectCompiletimeRegistry ctr = pkgRegistry.getDialectCompiletimeRegistry();
             RuleDescr dummy = new RuleDescr(wd.getName() + " Window Declaration");
+            dummy.setResource(packageDescr.getResource());
             dummy.addAttribute(new AttributeDescr("dialect", "java"));
             RuleBuildContext context = new RuleBuildContext(this,
                                                             dummy,
@@ -1655,7 +1761,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
     }
 
     private void addFunction(final FunctionDescr functionDescr) {
-        functionDescr.setResource(this.resource);
         PackageRegistry pkgRegistry = this.pkgRegistryMap.get(functionDescr.getNamespace());
         Dialect dialect = pkgRegistry.getDialectCompiletimeRegistry().getDialect(functionDescr.getDialect());
         dialect.addFunction(functionDescr,
@@ -1785,10 +1890,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         return this.pkgRegistryMap;
     }
 
-    public DateFormats getDateFormats() {
-        return this.dateFormats;
-    }
-
     public Collection<String> getPackageNames() {
         return pkgRegistryMap.keySet();
     }
@@ -1829,10 +1930,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         return new PackageBuilderResults(problems.toArray(new BaseKnowledgeBuilderResultImpl[problems.size()]));
     }
 
-    /**
-     * @param severities
-     * @return
-     */
     private List<KnowledgeBuilderResult> getResultList(ResultSeverity... severities) {
         List<ResultSeverity> typesToFetch = Arrays.asList(severities);
         ArrayList<KnowledgeBuilderResult> problems = new ArrayList<KnowledgeBuilderResult>();
@@ -2029,7 +2126,7 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                 });
             }
         } else {
-            buildResources.push(Arrays.asList(resource));
+            buildResources.push( Collections.singletonList( resource ) );
         }
     }
 
@@ -2094,18 +2191,6 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         return modified;
     }
 
-    public void startPackageUpdate() {
-        if (kBase != null) {
-            kBase.lock();
-        }
-    }
-
-    public void completePackageUpdate() {
-        if (kBase != null) {
-            kBase.unlock();
-        }
-    }
-
     public void setAllRuntimesDirty(Collection<String> packages) {
         if (kBase != null) {
             for (String pkgName : packages) {
@@ -2132,15 +2217,15 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
         return !(rootClassLoader instanceof ProjectClassLoader) || ((ProjectClassLoader) rootClassLoader).isClassInUse(className);
     }
 
-    public static interface AssetFilter {
-        public static enum Action {
+    public interface AssetFilter {
+        enum Action {
             DO_NOTHING, ADD, REMOVE, UPDATE
         }
 
-        public Action accept(String pkgName, String assetName);
+        Action accept(ResourceChange.Type type, String pkgName, String assetName);
     }
 
-    public AssetFilter getAssetFilter() {
+    AssetFilter getAssetFilter() {
         return assetFilter;
     }
 
@@ -2207,18 +2292,38 @@ public class KnowledgeBuilderImpl implements KnowledgeBuilder {
                 normalizeAnnotations(typeFieldDescr, typeResolver, isStrict);
             }
         }
+
+        for (EnumDeclarationDescr enumDeclarationDescr : packageDescr.getEnumDeclarations()) {
+            normalizeAnnotations(enumDeclarationDescr, typeResolver, isStrict);
+            for (TypeFieldDescr typeFieldDescr : enumDeclarationDescr.getFields().values()) {
+                normalizeAnnotations(typeFieldDescr, typeResolver, isStrict);
+            }
+        }
     }
 
     public void normalizeRuleAnnotations(PackageDescr packageDescr) {
         TypeResolver typeResolver = pkgRegistryMap.get(packageDescr.getName()).getTypeResolver();
         boolean isStrict = configuration.getLanguageLevel().useJavaAnnotations();
-        for (RuleDescr ruleDescr : packageDescr.getRules()) {
-            normalizeAnnotations(ruleDescr, typeResolver, isStrict);
-            for (BaseDescr baseDescr : ruleDescr.getLhs().getDescrs()) {
-                if (baseDescr instanceof AnnotatedBaseDescr) {
-                    normalizeAnnotations((AnnotatedBaseDescr)baseDescr, typeResolver, isStrict);
-                }
+        for ( RuleDescr ruleDescr : packageDescr.getRules() ) {
+            normalizeAnnotations( ruleDescr, typeResolver, isStrict );
+            traverseAnnotations( ruleDescr.getLhs(), typeResolver, isStrict );
+        }
+    }
+
+    private void traverseAnnotations( BaseDescr descr, TypeResolver typeResolver, boolean isStrict ) {
+        if ( descr instanceof AnnotatedBaseDescr ) {
+            normalizeAnnotations( (AnnotatedBaseDescr) descr, typeResolver, isStrict );
+        }
+        if ( descr instanceof ConditionalElementDescr ) {
+            for ( BaseDescr baseDescr : ( (ConditionalElementDescr) descr ).getDescrs() ) {
+                traverseAnnotations( baseDescr, typeResolver, isStrict );
             }
+        }
+        if ( descr instanceof PatternDescr && ( (PatternDescr) descr ).getSource() != null ) {
+            traverseAnnotations( ( (PatternDescr) descr ).getSource(), typeResolver, isStrict );
+        }
+        if ( descr instanceof PatternDestinationDescr ) {
+            traverseAnnotations( ( (PatternDestinationDescr) descr ).getInputPattern(), typeResolver, isStrict );
         }
     }
 

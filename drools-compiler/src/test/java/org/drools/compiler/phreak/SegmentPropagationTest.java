@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.phreak;
 
 import org.drools.core.RuleBaseConfiguration;
@@ -55,12 +70,12 @@ public class SegmentPropagationTest {
         joinNode.addTupleSink( sinkNode0 );
         
         sinkNode1 = new JoinNode();
-        sinkNode1.setId( 2 );
+        sinkNode1.setId( 3 );
         sinkNode1.setConstraints( new EmptyBetaConstraints() );        
         joinNode.addTupleSink( sinkNode1 );   
         
         sinkNode2 = new JoinNode();
-        sinkNode2.setId( 3 );
+        sinkNode2.setId( 4 );
         sinkNode2.setConstraints( new EmptyBetaConstraints() );        
         joinNode.addTupleSink( sinkNode2 );
 
@@ -174,8 +189,7 @@ public class SegmentPropagationTest {
                                .update( )
               .postStaged(smem0).insert( t(a0, b1),
                                          t(a1, b0) )
-                                .delete( t(a1, b2),
-                                         t(a0, b2) )
+                                .delete( )
                                 .update( )
               .postStaged( smem1 ).insert( t(a1, b0),
                                            t(a0, b1) )

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,16 @@ import com.google.protobuf.Message;
 import org.drools.core.beliefsystem.simple.BeliefSystemLogicalCallback;
 import org.drools.core.common.DroolsObjectInputStream;
 import org.drools.core.common.DroolsObjectOutputStream;
+import org.drools.core.common.ProjectClassLoader;
 import org.drools.core.common.WorkingMemoryAction;
+import org.drools.core.factmodel.traits.TraitFactory;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl.WorkingMemoryReteAssertAction;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl.WorkingMemoryReteExpireAction;
 import org.drools.core.marshalling.impl.ProtobufMessages.Header;
 import org.drools.core.marshalling.impl.ProtobufMessages.Header.StrategyIndex.Builder;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.PropagationQueuingNode.PropagateAction;
 import org.drools.core.rule.SlidingTimeWindow.BehaviorExpireWMAction;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.Drools;
 import org.drools.core.util.KeyStoreHelper;
 import org.kie.api.marshalling.ObjectMarshallingStrategy;
@@ -43,6 +45,9 @@ import java.security.InvalidKeyException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map.Entry;
 
 public class PersisterHelper {
@@ -125,17 +130,17 @@ public class PersisterHelper {
 
     public static ProtobufInputMarshaller.ActivationKey createActivationKey(final String pkgName,
                                                                             final String ruleName,
-                                                                            final LeftTuple leftTuple) {
+                                                                            final Tuple leftTuple) {
         int[] tuple = createTupleArray( leftTuple );
         return new ProtobufInputMarshaller.ActivationKey( pkgName, ruleName, tuple );
     }
 
-    public static ProtobufMessages.Tuple createTuple( final LeftTuple leftTuple ) {
+    public static ProtobufMessages.Tuple createTuple( final Tuple leftTuple ) {
         ProtobufMessages.Tuple.Builder _tuple = ProtobufMessages.Tuple.newBuilder();
-        for( LeftTuple entry = leftTuple; entry != null ; entry = entry.getParent() ) {
-            if ( entry.getLastHandle() != null ) {
+        for( Tuple entry = leftTuple; entry != null ; entry = entry.getParent() ) {
+            if ( entry.getFactHandle() != null ) {
                 // can be null for eval, not and exists that have no right input
-                _tuple.addHandleId( entry.getLastHandle().getId() );
+                _tuple.addHandleId( entry.getFactHandle().getId() );
             }
         }
         return _tuple.build();
@@ -150,16 +155,16 @@ public class PersisterHelper {
         return tuple;
     }
 
-    public static int[] createTupleArray(final LeftTuple leftTuple) {
+    public static int[] createTupleArray(final Tuple leftTuple) {
         if( leftTuple != null ) {
             int[] tuple = new int[leftTuple.size()];
             // tuple iterations happens backwards
             int i = tuple.length;
-            for( LeftTuple entry = leftTuple; entry != null && i > 0; entry = entry.getParent() ) {
-                if ( entry.getLastHandle() != null ) {
+            for( Tuple entry = leftTuple; entry != null && i > 0; entry = entry.getParent() ) {
+                if ( entry.getFactHandle() != null ) {
                     // can be null for eval, not and exists that have no right input
                     // have to decrement i before assignment
-                    tuple[--i] = entry.getLastHandle().getId();
+                    tuple[--i] = entry.getFactHandle().getId();
                 }
             }
             return tuple;
@@ -172,13 +177,13 @@ public class PersisterHelper {
         return new ProtobufInputMarshaller.TupleKey( createTupleArray( _tuple ) );
     }
     
-    public static ProtobufInputMarshaller.TupleKey createTupleKey(final LeftTuple leftTuple) {
+    public static ProtobufInputMarshaller.TupleKey createTupleKey(final Tuple leftTuple) {
         return new ProtobufInputMarshaller.TupleKey( createTupleArray( leftTuple ) );
     }
     
     public static ProtobufMessages.Activation createActivation(final String packageName,
                                                                final String ruleName,
-                                                               final LeftTuple tuple) {
+                                                               final Tuple tuple) {
         return ProtobufMessages.Activation.newBuilder()
                         .setPackageName( packageName )
                         .setRuleName( ruleName )
@@ -196,16 +201,41 @@ public class PersisterHelper {
                             .build() );
         
         writeStrategiesIndex( context, _header );
-        
+
+        writeRuntimeDefinedClasses( context, _header );
+
         byte[] buff = payload.toByteArray();
         sign( _header, buff );
         _header.setPayload( ByteString.copyFrom( buff ) );
 
-//        LoggerFactory.getLogger(PersisterHelper.class).trace("=============================================================================================================");
-//        LoggerFactory.getLogger(PersisterHelper.class).trace(payload);
         context.stream.write( _header.build().toByteArray() );
     }
-    
+
+    public static void writeRuntimeDefinedClasses( MarshallerWriteContext context,
+                                                  ProtobufMessages.Header.Builder _header ) {
+        if (context.kBase == null) {
+            return;
+        }
+
+        ProjectClassLoader pcl = (ProjectClassLoader) ( context.kBase ).getRootClassLoader();
+        if ( pcl.getStore() == null || pcl.getStore().isEmpty() ) {
+            return;
+        }
+
+        TraitFactory traitFactory = TraitFactory.getTraitBuilderForKnowledgeBase( context.kBase );
+        List<String> runtimeClassNames = new ArrayList( pcl.getStore().keySet() );
+        Collections.sort( runtimeClassNames );
+        ProtobufMessages.RuntimeClassDef.Builder _classDef = ProtobufMessages.RuntimeClassDef.newBuilder();
+        for ( String resourceName : runtimeClassNames ) {
+            if ( traitFactory.isRuntimeClass( resourceName ) ) {
+                _classDef.clear();
+                _classDef.setClassFqName( resourceName );
+                _classDef.setClassDef( ByteString.copyFrom( pcl.getStore().get( resourceName ) ) );
+                _header.addRuntimeClassDefinitions( _classDef.build() );
+            }
+        }
+    }
+
     private static void writeStrategiesIndex(MarshallerWriteContext context,
                                              ProtobufMessages.Header.Builder _header) throws IOException {
         for( Entry<ObjectMarshallingStrategy,Integer> entry : context.usedStrategies.entrySet() ) {
@@ -285,13 +315,29 @@ public class PersisterHelper {
             Context ctx = strategyObject.createContext();
             context.strategyContexts.put( strategyObject, ctx );
             if( _entry.hasData() && ctx != null ) {
-		ClassLoader classLoader = null;
+		        ClassLoader classLoader = null;
                 if (context.classLoader != null ){
                     classLoader = context.classLoader;
                 } else if(context.kBase != null){
                     classLoader = context.kBase.getRootClassLoader();
                 }
+                if ( classLoader instanceof ProjectClassLoader ) {
+                   readRuntimeDefinedClasses( _header, (ProjectClassLoader) classLoader );
+                }
                 ctx.read( new DroolsObjectInputStream( _entry.getData().newInput(), classLoader) );
+            }
+        }
+    }
+
+    public static void readRuntimeDefinedClasses( Header _header,
+                                                  ProjectClassLoader pcl ) throws IOException, ClassNotFoundException {
+        if ( _header.getRuntimeClassDefinitionsCount() > 0 ) {
+            for ( ProtobufMessages.RuntimeClassDef def : _header.getRuntimeClassDefinitionsList() ) {
+                String resourceName = def.getClassFqName();
+                byte[] byteCode = def.getClassDef().toByteArray();
+                if ( ! pcl.getStore().containsKey( resourceName ) ) {
+                    pcl.getStore().put(resourceName, byteCode);
+                }
             }
         }
     }

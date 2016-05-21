@@ -1,14 +1,22 @@
-package org.kie.scanner;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+package org.kie.scanner;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieBuilder;
@@ -16,7 +24,13 @@ import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.model.KieModuleModel;
 
-import static org.junit.Assert.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+import static org.junit.Assert.assertTrue;
 
 public class KieModuleBuilderTest extends AbstractKieCiTest {
 
@@ -49,9 +63,9 @@ public class KieModuleBuilderTest extends AbstractKieCiTest {
         Assert.assertTrue( kieBuilder1.buildAll().getResults().getMessages().isEmpty() );
         InternalKieModule kieModule = (InternalKieModule) kieBuilder1.getKieModule();
 
-        MavenRepository.getMavenRepository().deployArtifact( releaseId,
-                                                             kieModule,
-                                                             pomFile );
+        MavenRepository.getMavenRepository().installArtifact( releaseId,
+                                                              kieModule,
+                                                              pomFile );
 
         //Build a second KieModule, depends on the first KieModule jar which we have deployed into Maven
         ReleaseId releaseId2 = ks.newReleaseId( "org.kie",

@@ -1,8 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.rule.constraint;
 
+import org.drools.core.base.EvaluatorWrapper;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.builder.dialect.asm.ClassGenerator;
 import org.drools.core.rule.builder.dialect.asm.GeneratorHelper;
@@ -27,6 +42,7 @@ import org.drools.core.rule.constraint.ConditionAnalyzer.MapAccessInvocation;
 import org.drools.core.rule.constraint.ConditionAnalyzer.MethodInvocation;
 import org.drools.core.rule.constraint.ConditionAnalyzer.SingleCondition;
 import org.drools.core.rule.constraint.ConditionAnalyzer.VariableExpression;
+import org.drools.core.spi.Tuple;
 import org.mvel2.asm.Label;
 import org.mvel2.asm.MethodVisitor;
 import org.mvel2.util.NullType;
@@ -55,24 +71,44 @@ import static org.mvel2.asm.Opcodes.*;
 
 public class ASMConditionEvaluatorJitter {
 
-    public static ConditionEvaluator jitEvaluator(String expression, Condition condition, Declaration[] declarations, ClassLoader classLoader, LeftTuple leftTuple) {
+    public static ConditionEvaluator jitEvaluator(String expression,
+                                                  Condition condition,
+                                                  Declaration[] declarations,
+                                                  EvaluatorWrapper[] operators,
+                                                  ClassLoader classLoader,
+                                                  Tuple tuple) {
         ClassGenerator generator = new ClassGenerator(getUniqueClassName(), classLoader)
-                .setInterfaces(ConditionEvaluator.class)
-                .addStaticField(ACC_PRIVATE | ACC_FINAL, "EXPRESSION", String.class, expression)
-                .addField(ACC_PRIVATE | ACC_FINAL, "declarations", Declaration[].class)
-                .addDefaultConstructor(new ClassGenerator.MethodBody() {
-                    public void body(MethodVisitor mv) {
-                        putFieldInThisFromRegistry("declarations", Declaration[].class, 1);
-                        mv.visitInsn(RETURN);
-                    }
-                }, Declaration[].class);
+                .setInterfaces( ConditionEvaluator.class )
+                .addStaticField( ACC_PRIVATE | ACC_FINAL, "EXPRESSION", String.class, expression )
+                .addField( ACC_PRIVATE | ACC_FINAL, "declarations", Declaration[].class );
 
         generator.addMethod(ACC_PUBLIC,
                             "evaluate",
-                            generator.methodDescr(boolean.class, InternalFactHandle.class, InternalWorkingMemory.class, LeftTuple.class),
-                            new EvaluateMethodGenerator(condition, declarations, leftTuple));
+                            generator.methodDescr(boolean.class, InternalFactHandle.class, InternalWorkingMemory.class, Tuple.class),
+                            new EvaluateMethodGenerator(condition, declarations, operators, tuple));
 
-        return generator.newInstance(Declaration[].class, declarations);
+        if (operators.length == 0) {
+            generator.addDefaultConstructor( new ClassGenerator.MethodBody() {
+                public void body( MethodVisitor mv ) {
+                    putFieldInThisFromRegistry( "declarations", Declaration[].class, 1 );
+                    mv.visitInsn( RETURN );
+                }
+            }, Declaration[].class );
+
+            return generator.newInstance(Declaration[].class, declarations);
+        }
+
+        generator.addField( ACC_PRIVATE | ACC_FINAL, "operators", EvaluatorWrapper[].class );
+
+        generator.addDefaultConstructor( new ClassGenerator.MethodBody() {
+            public void body( MethodVisitor mv ) {
+                putFieldInThisFromRegistry( "declarations", Declaration[].class, 1 );
+                putFieldInThisFromRegistry( "operators", EvaluatorWrapper[].class, 2 );
+                mv.visitInsn( RETURN );
+            }
+        }, Declaration[].class, EvaluatorWrapper[].class );
+
+        return generator.newInstance(Declaration[].class, declarations, EvaluatorWrapper[].class, operators);
     }
 
     private static String getUniqueClassName() {
@@ -90,62 +126,77 @@ public class ASMConditionEvaluatorJitter {
 
         private final Condition condition;
         private final Declaration[] declarations;
-        private final LeftTuple leftTuple;
+        private final Tuple tuple;
+        private final EvaluatorWrapper[] operators;
 
         private int[] declPositions;
 
-        public EvaluateMethodGenerator(Condition condition, Declaration[] declarations, LeftTuple leftTuple) {
+        public EvaluateMethodGenerator(Condition condition, Declaration[] declarations, EvaluatorWrapper[] operators, Tuple leftTuple) {
             this.condition = condition;
             this.declarations = declarations;
-            this.leftTuple = leftTuple;
+            this.operators = operators;
+            this.tuple = leftTuple;
         }
 
         public void body(MethodVisitor mv) {
             jitArguments();
+            jitOperators();
             jitCondition(condition);
             mv.visitInsn(IRETURN);
         }
 
         private void jitArguments() {
-            if (declarations == null || declarations.length == 0) {
+            if (declarations.length == 0) {
                 return;
             }
 
             declPositions = new int[declarations.length];
             List<GeneratorHelper.DeclarationMatcher> declarationMatchers = matchDeclarationsToTuple(declarations);
 
-            LeftTuple currentLeftTuple = leftTuple;
+            Tuple currentTuple = tuple;
             mv.visitVarInsn(ALOAD, 3);
-            store(4, LeftTuple.class);
+            store(4, Tuple.class);
 
             int decPos = ARGUMENTS;
             for (GeneratorHelper.DeclarationMatcher declarationMatcher : declarationMatchers) {
                 int i = declarationMatcher.getOriginalIndex();
-                if (currentLeftTuple == null || declarationMatcher.getRootDistance() > currentLeftTuple.getIndex()) {
+                if (currentTuple == null || declarationMatcher.getRootDistance() > currentTuple.getIndex()) {
                     getFieldFromThis("declarations", Declaration[].class);
                     push(i);
                     mv.visitInsn(AALOAD); // declarations[i]
                     mv.visitVarInsn(ALOAD, 2); // InternalWorkingMemory
-                    mv.visitVarInsn(ALOAD, 1); // Object
+                    mv.visitVarInsn(ALOAD, 1); // InternalFactHandle
                     invokeInterface( InternalFactHandle.class, "getObject", Object.class );
                     declPositions[i] = decPos;
                     decPos += storeObjectFromDeclaration(declarationMatcher.getDeclaration(), decPos);
                     continue;
                 }
 
-                currentLeftTuple = traverseTuplesUntilDeclaration(currentLeftTuple, declarationMatcher.getRootDistance(), 4);
+                currentTuple = traverseTuplesUntilDeclaration(currentTuple, declarationMatcher.getRootDistance(), 4);
 
                 getFieldFromThis("declarations", Declaration[].class);
                 push(i);
                 mv.visitInsn(AALOAD); // declarations[i]
                 mv.visitVarInsn(ALOAD, 2); // InternalWorkingMemory
                 load(4);
-                invokeInterface(LeftTuple.class, "getHandle", InternalFactHandle.class);
-                invokeInterface(InternalFactHandle.class, "getObject", Object.class); // leftTuple.getHandle().getObject()
+                invokeInterface(Tuple.class, "getFactHandle", InternalFactHandle.class);
+                invokeInterface(InternalFactHandle.class, "getObject", Object.class); // tuple.getFactHandle().getObject()
 
                 declPositions[i] = decPos;
                 decPos += storeObjectFromDeclaration(declarationMatcher.getDeclaration(), decPos);
             }
+        }
+
+        private void jitOperators() {
+            if (operators.length == 0) {
+                return;
+            }
+
+            mv.visitVarInsn(ALOAD, 1); // InternalFactHandle
+            mv.visitVarInsn(ALOAD, 2); // InternalWorkingMemory
+            mv.visitVarInsn(ALOAD, 3); // Tuple
+            getFieldFromThis("operators", EvaluatorWrapper[].class);
+            invokeStatic(EvaluatorHelper.class, "initOperators", void.class, InternalFactHandle.class, InternalWorkingMemory.class, Tuple.class, EvaluatorWrapper[].class);
         }
 
         private void jitCondition(Condition condition) {
@@ -300,7 +351,7 @@ public class ASMConditionEvaluatorJitter {
 
         private void ensureNotNullArgs(Expression exp, Label nullArg) {
             if (exp instanceof FixedExpression) {
-                if (((FixedExpression) exp).canBeNull()) {
+                if (exp.canBeNull()) {
                     mv.visitJumpInsn(GOTO, nullArg);
                 }
             } else if (exp instanceof EvaluatedExpression) {
@@ -413,16 +464,31 @@ public class ASMConditionEvaluatorJitter {
         private Class<?> findComparingParameterClass(Type interfaze) {
             if (interfaze instanceof ParameterizedType) {
                 ParameterizedType pType = (ParameterizedType)interfaze;
-                if (pType.getRawType() == Comparable.class) {
-                    return (Class<?>) pType.getActualTypeArguments()[0];
+                Type rawType = pType.getRawType();
+                if (rawType == Comparable.class) {
+                    Type comparableType = pType.getActualTypeArguments()[0];
+                    return comparableType instanceof Class ?
+                           ( (Class) comparableType ) :
+                           (Class)( (ParameterizedType) comparableType ).getRawType();
+                }
+                if (rawType instanceof Class) {
+                    return findComparingClassOnSuperInterfaces( (Class) rawType );
                 }
             }
             if (interfaze instanceof Class) {
-                for (Type superInterfaze : ((Class) interfaze).getGenericInterfaces()) {
-                    Class<?> comparingClass = findComparingParameterClass(superInterfaze);
-                    if (comparingClass != null) {
-                        return comparingClass;
-                    }
+                if (interfaze == Comparable.class) {
+                    return Object.class;
+                }
+                return findComparingClassOnSuperInterfaces( (Class) interfaze );
+            }
+            return null;
+        }
+
+        private Class<?> findComparingClassOnSuperInterfaces( Class rawType ) {
+            for ( Type superInterfaze : rawType.getGenericInterfaces() ) {
+                Class<?> comparingClass = findComparingParameterClass( superInterfaze );
+                if ( comparingClass != null ) {
+                    return comparingClass;
                 }
             }
             return null;
@@ -534,11 +600,17 @@ public class ASMConditionEvaluatorJitter {
             }
 
             if (!toType.isAssignableFrom(fromType)) {
-                mv.visitTypeInsn(NEW, internalName(toType));
-                mv.visitInsn(DUP);
-                load(regNr);
-                coerceByConstructor(fromType, toType);
-                store(regNr, toType);
+                if (canBeCoercedByStringConstructor(toType)) {
+                    mv.visitTypeInsn( NEW, internalName( toType ) );
+                    mv.visitInsn( DUP );
+                    load( regNr );
+                    coerceByConstructor( fromType, toType );
+                    store( regNr, toType );
+                } else {
+                    mv.visitInsn(ACONST_NULL);
+                    mv.visitVarInsn(ASTORE, regNr);
+                    mv.visitJumpInsn(GOTO, nullLabel);
+                }
             }
 
             if (isNumber) {
@@ -554,6 +626,17 @@ public class ASMConditionEvaluatorJitter {
             }
 
             mv.visitLabel(endOfCoercionLabel);
+        }
+
+        private boolean canBeCoercedByStringConstructor(Class<?> type) {
+            if (type == Character.class) {
+                return true;
+            }
+            try {
+                return type.getConstructor(String.class) != null;
+            } catch (NoSuchMethodException nme) {
+                return false;
+            }
         }
 
         private void coerceByConstructor(Class<?> fromType, Class<?> toType) {
@@ -625,9 +708,7 @@ public class ASMConditionEvaluatorJitter {
         private Class<?> jitEvaluatedExpression(EvaluatedExpression exp, boolean firstInvocation, Class<?> currentClass) {
             if (exp.firstExpression != null) {
                 currentClass = jitExpression(exp.firstExpression, currentClass);
-                if (exp.firstExpression instanceof FixedExpression || exp.firstExpression instanceof CastExpression) {
-                    firstInvocation = false;
-                }
+                firstInvocation = false;
             }
             Iterator<Invocation> invocations = exp.invocations.iterator();
             currentClass = jitInvocation(invocations.next(), currentClass, firstInvocation);
@@ -645,9 +726,17 @@ public class ASMConditionEvaluatorJitter {
         }
 
         private void jitReadVariable(String variableName) {
-            for (int i = 0; i < declarations.length; i++) {
-                if (declarations[i].getBindingName().equals(variableName)) {
-                    load(declPositions[i]);
+            for ( int i = 0; i < declarations.length; i++ ) {
+                if ( declarations[i].getBindingName().equals( variableName ) ) {
+                    load( declPositions[i] );
+                    return;
+                }
+            }
+            for ( int i = 0; i < operators.length; i++ ) {
+                if ( operators[i].getBindingName().equals( variableName ) ) {
+                    getFieldFromThis( "operators", EvaluatorWrapper[].class );
+                    push( i );
+                    mv.visitInsn( AALOAD ); // operators[i]
                     return;
                 }
             }
@@ -675,10 +764,14 @@ public class ASMConditionEvaluatorJitter {
         private void jitStringConcat(Expression left, Expression right) {
             invokeConstructor(StringBuilder.class);
             jitExpression(left, String.class);
-            invokeVirtual(StringBuilder.class, "append", StringBuilder.class, left.getType());
+            invokeVirtual(StringBuilder.class, "append", StringBuilder.class, getTypeForAppend(left.getType()));
             jitExpression(right, String.class);
-            invokeVirtual(StringBuilder.class, "append", StringBuilder.class, right.getType());
+            invokeVirtual(StringBuilder.class, "append", StringBuilder.class, getTypeForAppend(right.getType()));
             invokeVirtual(StringBuilder.class, "toString", String.class);
+        }
+
+        private Class<?> getTypeForAppend(Class<?> c) {
+            return c.isPrimitive() ? c : Object.class;
         }
 
         private void jitExpressionToPrimitiveType(Expression expression, Class<?> primitiveType) {

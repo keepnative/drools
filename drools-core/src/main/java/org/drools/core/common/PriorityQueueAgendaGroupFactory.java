@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,17 +25,16 @@ import java.io.ObjectOutput;
 
 
 public class PriorityQueueAgendaGroupFactory implements AgendaGroupFactory, Externalizable {
+
     private static final AgendaGroupFactory INSTANCE = new PriorityQueueAgendaGroupFactory();
-
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-    }
-
-    public void writeExternal(ObjectOutput out) throws IOException {
-    }
 
     public static AgendaGroupFactory getInstance() {
         return INSTANCE;
     }
+
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException { }
+
+    public void writeExternal(ObjectOutput out) throws IOException { }
 
     public InternalAgendaGroup createAgendaGroup(String name, InternalKnowledgeBase kBase) {
         return new AgendaGroupQueueImpl( name, kBase );

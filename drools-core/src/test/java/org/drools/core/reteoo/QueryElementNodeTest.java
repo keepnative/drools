@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,24 +122,24 @@ public class QueryElementNodeTest extends DroolsTestCase {
         
         LeftTupleImpl leftTuple = (LeftTupleImpl)((Object[])sink.getAsserted().get( 2 ))[0];
         assertEquals(2, leftTuple.size());
-        assertEquals("string", leftTuple.getParent().getLastHandle().getObject() );
-        Object[] variables = (Object[]) leftTuple.getLastHandle().getObject();
+        assertEquals("string", leftTuple.getParent().getFactHandle().getObject() );
+        Object[] variables = (Object[]) leftTuple.getFactHandle().getObject();
         assertEquals( "string_0_2", variables[0] );
         assertEquals( "string_2_2", variables[1] );
         assertEquals( "string_5_2", variables[2] );
         
         leftTuple = (LeftTupleImpl)((Object[])sink.getAsserted().get( 1 ))[0];
         assertEquals(2, leftTuple.size());
-        assertEquals("string", leftTuple.getParent().getLastHandle().getObject() );
-        variables = (Object[]) leftTuple.getLastHandle().getObject();
+        assertEquals("string", leftTuple.getParent().getFactHandle().getObject() );
+        variables = (Object[]) leftTuple.getFactHandle().getObject();
         assertEquals( "string_0_1", variables[0] );
         assertEquals( "string_2_1", variables[1] );
         assertEquals( "string_5_1", variables[2] );
         
         leftTuple = (LeftTupleImpl)((Object[])sink.getAsserted().get( 0 ))[0];
         assertEquals(2, leftTuple.size());
-        assertEquals("string", leftTuple.getParent().getLastHandle().getObject() );
-        variables = (Object[]) leftTuple.getLastHandle().getObject();
+        assertEquals("string", leftTuple.getParent().getFactHandle().getObject() );
+        variables = (Object[]) leftTuple.getFactHandle().getObject();
         assertEquals( "string_0_0", variables[0] );
         assertEquals( "string_2_0", variables[1] );
         assertEquals( "string_5_0", variables[2] );

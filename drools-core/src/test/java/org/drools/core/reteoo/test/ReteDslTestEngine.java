@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,6 @@
  */
 
 package org.drools.core.reteoo.test;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
 
 import junit.framework.AssertionFailedError;
 import org.antlr.runtime.ANTLRInputStream;
@@ -48,28 +36,24 @@ import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.reteoo.EntryPointNode;
-import org.drools.core.reteoo.NodeTypeEnums;
-import org.drools.core.util.Iterator;
-import org.drools.core.util.ObjectHashMap;
-import org.drools.core.util.ObjectHashMap.ObjectEntry;
 import org.drools.core.reteoo.AccumulateNode;
 import org.drools.core.reteoo.AccumulateNode.AccumulateMemory;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.BetaNode;
+import org.drools.core.reteoo.EntryPointNode;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.LeftTupleImpl;
-import org.drools.core.reteoo.LeftTupleMemory;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.ModifyPreviousTuples;
+import org.drools.core.reteoo.NodeTypeEnums;
 import org.drools.core.reteoo.ObjectSink;
 import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.reteoo.RightInputAdapterNode;
-import org.drools.core.reteoo.RightInputAdapterNode.RiaNodeMemory;
 import org.drools.core.reteoo.RightTuple;
-import org.drools.core.reteoo.RightTupleMemory;
+import org.drools.core.reteoo.RightTupleImpl;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.reteoo.Sink;
+import org.drools.core.reteoo.TupleMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.reteoo.test.dsl.AccumulateNodeStep;
 import org.drools.core.reteoo.test.dsl.BetaNodeStep;
@@ -102,11 +86,25 @@ import org.drools.core.reteoo.test.parser.NodeTestDSLParser.compilation_unit_ret
 import org.drools.core.reteoo.test.parser.NodeTestDSLTree;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
+import org.drools.core.util.Iterator;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runner.notification.StoppedByUserException;
 import org.mvel2.MVEL;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 public class ReteDslTestEngine {
 
@@ -242,12 +240,11 @@ public class ReteDslTestEngine {
     
     private NodeTestResult createTestResult(NodeTestDef test,
                                             Map<String, Object> context) {
-        
-        NodeTestResult result = new NodeTestResult( test,
-                                                    Result.NOT_EXECUTED,
-                                                    context,
-                                                    new LinkedList<String>() );
-        return result;
+
+        return new NodeTestResult( test,
+                                   Result.NOT_EXECUTED,
+                                   context,
+                                   new LinkedList<String>() );
     }
     
 
@@ -278,7 +275,7 @@ public class ReteDslTestEngine {
         context.put( "ClassFieldAccessorStore",
                      this.reteTesterHelper.getStore() );
 
-        InternalWorkingMemory wm = (InternalWorkingMemory) rbase.newStatefulSession( true );
+        InternalWorkingMemory wm = rbase.newStatefulSession( true );
         context.put( WORKING_MEMORY,
                      wm );
         return context;
@@ -365,7 +362,7 @@ public class ReteDslTestEngine {
             BetaMemory memory = null;
             if ( node instanceof AccumulateNode ) {
                 AccumulateMemory accmem = (AccumulateMemory) wm.getNodeMemory( node );
-                memory = accmem.betaMemory;
+                memory = accmem.getBetaMemory();
             } else {
                 memory = (BetaMemory) wm.getNodeMemory( node );
             }
@@ -380,7 +377,7 @@ public class ReteDslTestEngine {
                     List< ? > expectedLeftTuples = (List< ? >) MVEL.eval( listString,
                                                                           vars );
 
-                    LeftTupleMemory leftMemory = memory.getLeftTupleMemory();
+                    TupleMemory leftMemory = memory.getLeftTupleMemory();
 
                     if ( expectedLeftTuples.isEmpty() && leftMemory.size() != 0 ) {
                         throw new AssertionFailedError( "line " + step.getLine()
@@ -400,14 +397,14 @@ public class ReteDslTestEngine {
                                                               false);
                     for ( int i = 1; i < first.size(); i++ ) {
                         firstTuple = new LeftTupleImpl( firstTuple,
-                                                        new RightTuple( first.get( i )),
+                                                        new RightTupleImpl( first.get( i )),
                                                         null,
                                                         false );
                     }
 
-                    List<LeftTuple> leftTuples = new ArrayList<LeftTuple>();
+                    List<Tuple> leftTuples = new ArrayList<Tuple>();
 
-                    for ( LeftTuple leftTuple = getFirst(memory.getLeftTupleMemory(), firstTuple); leftTuple != null; leftTuple = (LeftTuple) leftTuple.getNext() ) {
+                    for ( Tuple leftTuple = getFirst(memory.getLeftTupleMemory(), firstTuple); leftTuple != null; leftTuple = (LeftTuple) leftTuple.getNext() ) {
                         leftTuples.add( leftTuple );
                     }
                     
@@ -421,7 +418,7 @@ public class ReteDslTestEngine {
                         // from the OTN which stores things in a hash-set, so
                         // insertion order is not kept.
                         Collections.sort( leftTuples,
-                                          new LeftTupleComparator() );
+                                          new TupleComparator() );
 
                     }
                     
@@ -442,7 +439,7 @@ public class ReteDslTestEngine {
                     List< ? > expectedFactHandles = (List< ? >) MVEL.eval( listString,
                                                                            vars );
 
-                    RightTupleMemory rightMemory = memory.getRightTupleMemory();
+                    TupleMemory rightMemory = memory.getRightTupleMemory();
 
                     if ( expectedFactHandles.isEmpty() && rightMemory.size() != 0 ) {
                         throw new AssertionError( "line " + step.getLine() + ": right Memory expected [] actually " + print( rightMemory ));
@@ -450,9 +447,9 @@ public class ReteDslTestEngine {
                         continue;
                     }
 
-                    RightTuple first = new RightTuple( (InternalFactHandle) expectedFactHandles.get( 0 ) );
-                    List<RightTuple> actualRightTuples = new ArrayList<RightTuple>();
-                    for ( RightTuple rightTuple = getFirst(memory.getRightTupleMemory(), first); rightTuple != null; rightTuple = (RightTuple) rightTuple.getNext() ) {
+                    RightTuple first = new RightTupleImpl( (InternalFactHandle) expectedFactHandles.get( 0 ) );
+                    List<Tuple> actualRightTuples = new ArrayList<Tuple>();
+                    for ( Tuple rightTuple = getFirst(memory.getRightTupleMemory(), first); rightTuple != null; rightTuple = (RightTuple) rightTuple.getNext() ) {
                         actualRightTuples.add( rightTuple );
                     }
 
@@ -478,9 +475,9 @@ public class ReteDslTestEngine {
         }
     }
     
-    private LeftTuple getFirst(LeftTupleMemory memory, LeftTuple leftTuple) {
-        Iterator it = memory.iterator();
-        for ( LeftTuple next = ( LeftTuple ) it.next(); next != null; next = ( LeftTuple ) it.next() ) {
+    private Tuple getFirst(TupleMemory memory, Tuple leftTuple) {
+        Iterator<LeftTuple> it = memory.iterator();
+        for ( LeftTuple next = it.next(); next != null; next = it.next() ) {
           if (next.equals( leftTuple ) ) {
               return next.getMemory().getFirst();
           }            
@@ -489,22 +486,10 @@ public class ReteDslTestEngine {
         return null;
     }    
     
-    private RightTuple  getFirst(RightTupleMemory memory, RightTuple rightTuple) {
-        Iterator it = memory.iterator();
-        for ( RightTuple next = (RightTuple) it.next( ); next != null; next = ( RightTuple ) it.next()) {
-            if (next.equals( rightTuple ) ) {
-                return next.getMemory().getFirst();
-            }
-        }
-        
-        return null;
-    }
-
     private List<List<InternalFactHandle>> getHandlesList(
-                                                          List<LeftTuple> leftTuples) {
-        List<List<InternalFactHandle>> actualLeftTuples = new ArrayList<List<InternalFactHandle>>(
-                                                                                                   leftTuples.size() );
-        for ( LeftTuple leftTuple : leftTuples ) {
+                                                          List<Tuple> leftTuples) {
+        List<List<InternalFactHandle>> actualLeftTuples = new ArrayList<List<InternalFactHandle>>( leftTuples.size() );
+        for ( Tuple leftTuple : leftTuples ) {
             List<InternalFactHandle> tupleHandles = Arrays.asList( leftTuple
                     .toFactHandles() );
             actualLeftTuples.add( tupleHandles );
@@ -512,26 +497,25 @@ public class ReteDslTestEngine {
         return actualLeftTuples;
     }
 
-    private String print(LeftTupleMemory leftMemory,
+    private String print(TupleMemory leftMemory,
                          boolean lrUnlinkingEnabled) {
 
-        List<LeftTuple> tuples = new ArrayList<LeftTuple>();
-        Iterator it = leftMemory.iterator();
-        for ( LeftTuple tuple = (LeftTuple) it.next(); tuple != null; tuple = (LeftTuple) it
-                .next() ) {
+        List<Tuple> tuples = new ArrayList<Tuple>();
+        Iterator<LeftTuple> it = leftMemory.iterator();
+        for ( LeftTuple tuple = it.next(); tuple != null; tuple = it.next() ) {
             tuples.add( tuple );
         }
 
         if ( lrUnlinkingEnabled ) {
             // Necessary only when L&R unlinking are active.
             Collections.sort( tuples,
-                              new LeftTupleComparator() );
+                              new TupleComparator() );
         }
 
         return print( getHandlesList( tuples ) );
     }
 
-    private String print(RightTupleMemory memory) {
+    private String print(TupleMemory memory) {
 
         List<RightTuple> tuples = new ArrayList<RightTuple>();
         Iterator it = memory.iterator();
@@ -552,7 +536,7 @@ public class ReteDslTestEngine {
         for ( java.util.Iterator iterator = tuples.iterator(); iterator
                 .hasNext(); ) {
 
-            Object tuple = (Object) iterator.next();
+            Object tuple = iterator.next();
 
             if ( tuple instanceof List< ? > ) {
                 b.append( "[" );
@@ -562,7 +546,7 @@ public class ReteDslTestEngine {
                 InternalFactHandle h = (InternalFactHandle) tuple;
                 b.append( "h" ).append( h.getId() - 1 );
             } else if ( tuple instanceof RightTuple ) {
-                InternalFactHandle h = (InternalFactHandle) ((RightTuple) tuple)
+                InternalFactHandle h = ((RightTuple) tuple)
                         .getFactHandle();
                 b.append( "h" ).append( h.getId() - 1 );
             }
@@ -618,7 +602,7 @@ public class ReteDslTestEngine {
                                                          false );
                         for ( int i = 1; i < tlist.size(); i++ ) {
                             tuple = new LeftTupleImpl( tuple,
-                                                   new RightTuple( tlist.get( i ) ),
+                                                   new RightTupleImpl( tlist.get( i ) ),
                                                    null,
                                                    false );
                         }
@@ -746,7 +730,7 @@ public class ReteDslTestEngine {
                                            false ); // do not keep generated tuples on the handle list
             } else {
                 tuple = new LeftTupleImpl( tuple,
-                                           new RightTuple( handle ),
+                                           new RightTupleImpl( handle ),
                                            null,
                                            true );
             }
@@ -807,15 +791,11 @@ public class ReteDslTestEngine {
                                                                        wm );
                             } else {
                                 for ( RightTuple rightTuple = handle.getFirstRightTuple(); rightTuple != null; rightTuple = (RightTuple) rightTuple.getHandleNext() ) {
-                                    rightTuple.getRightTupleSink().retractRightTuple( rightTuple,
-                                                                                      pContext,
-                                                                                      wm );
+                                    rightTuple.retractTuple( pContext, wm );
                                 }
                                 handle.clearRightTuples();
-                                for ( LeftTuple leftTuple = handle.getFirstLeftTuple(); leftTuple != null; leftTuple = (LeftTuple) leftTuple.getLeftParentNext() ) {
-                                    leftTuple.getLeftTupleSink().retractLeftTuple( leftTuple,
-                                                                                   pContext,
-                                                                                   wm );
+                                for ( LeftTuple leftTuple = handle.getFirstLeftTuple(); leftTuple != null; leftTuple = (LeftTuple) leftTuple.getHandleNext() ) {
+                                    leftTuple.retractTuple( pContext, wm );
                                 }
                                 handle.clearLeftTuples();
                             }
@@ -983,10 +963,10 @@ public class ReteDslTestEngine {
         return parser;
     }
     
-    private static final class LeftTupleComparator implements Comparator<LeftTuple> {
+    private static final class TupleComparator implements Comparator<Tuple> {
         
-        public int compare(LeftTuple o1,
-                           LeftTuple o2) {
+        public int compare(Tuple o1,
+                           Tuple o2) {
 
             InternalFactHandle[] h1 = o1.toFactHandles();
             InternalFactHandle[] h2 = o2.toFactHandles();

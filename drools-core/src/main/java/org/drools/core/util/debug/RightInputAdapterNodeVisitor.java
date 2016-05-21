@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,15 @@
 
 package org.drools.core.util.debug;
 
-import java.util.Stack;
-
 import org.drools.core.common.Memory;
 import org.drools.core.common.NetworkNode;
 import org.drools.core.reteoo.AccumulateNode.AccumulateMemory;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.BetaNode;
 import org.drools.core.reteoo.NodeTypeEnums;
-import org.drools.core.util.ObjectHashMap;
 import org.drools.core.reteoo.RightInputAdapterNode;
-import org.drools.core.reteoo.RightInputAdapterNode.RiaNodeMemory;
+
+import java.util.Stack;
 
 public class RightInputAdapterNodeVisitor extends AbstractNetworkNodeVisitor {
     
@@ -40,9 +38,9 @@ public class RightInputAdapterNodeVisitor extends AbstractNetworkNodeVisitor {
                            Stack<NetworkNode> nodeStack,
                            StatefulKnowledgeSessionInfo info) {
         RightInputAdapterNode an = (RightInputAdapterNode) node;
-        DefaultNodeInfo ni = (DefaultNodeInfo) info.getNodeInfo( node );
+        DefaultNodeInfo ni = info.getNodeInfo( node );
 
-        BetaNode betaNode = (BetaNode) an.getSinkPropagator().getSinks()[0];
+        BetaNode betaNode = (BetaNode) an.getObjectSinkPropagator().getSinks()[0];
 
         Memory childMemory = info.getSession().getNodeMemory( betaNode );
 

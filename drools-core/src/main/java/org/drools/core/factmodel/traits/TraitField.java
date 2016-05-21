@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.factmodel.traits;
 
 import org.drools.core.WorkingMemory;
@@ -167,11 +182,11 @@ public class TraitField implements Serializable, Externalizable {
             if ( defaultValuesByTraits == null ) {
                 defaultValuesByTraits = new DefaultValueHierarchy();
             }
-            defaultValuesByTraits.addMember( defaultValue, trait.getTypeCode() );
+            defaultValuesByTraits.addMember( defaultValue, trait._getTypeCode() );
             if ( defaultValuesByTraits.getBottomCode() == null ) {
-                defaultValuesByTraits.setBottomCode( (BitSet) trait.getTypeCode().clone() );
+                defaultValuesByTraits.setBottomCode( (BitSet) trait._getTypeCode().clone() );
             } else {
-                defaultValuesByTraits.getBottomCode().or( trait.getTypeCode() );
+                defaultValuesByTraits.getBottomCode().or( trait._getTypeCode() );
             }
         }
 
@@ -262,7 +277,7 @@ public class TraitField implements Serializable, Externalizable {
 
     public Object shed( TraitType trait, TypeWrapper rangeWrapper, TypeWrapper asWrapper, WorkingMemory workingMemory ) {
         if ( this.defaultValuesByTraits != null ) {
-            this.defaultValuesByTraits.removeMember( trait.getTypeCode() );
+            this.defaultValuesByTraits.removeMember( trait._getTypeCode() );
         }
 
         this.rangeTypes.remove( rangeWrapper );

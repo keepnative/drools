@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,13 +102,17 @@ public class MethodInfo {
         final int prime = 31;
         int result = 1;
         result = prime * result + ( ( name == null ) ? 0 : name.hashCode() );
+        result = ~~result;
         result = prime
                 * result
                 + ( ( parametricReturnType == null ) ? 0 : parametricReturnType
                 .hashCode() );
+        result = ~~result;
         result = prime * result + ( ( params == null ) ? 0 : params.hashCode() );
+        result = ~~result;
         result = prime * result
                 + ( ( returnClassType == null ) ? 0 : returnClassType.hashCode() );
+        result = ~~result;
         return result;
     }
 

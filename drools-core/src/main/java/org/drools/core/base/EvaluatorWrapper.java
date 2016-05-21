@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +43,7 @@ public class EvaluatorWrapper
 
     private static final long                          serialVersionUID = 520L;
 
-    private static final SelfReferenceClassFieldReader extractor        = new SelfReferenceClassFieldReader( Object.class,
-                                                                                                             "dummy" );
+    private static final SelfReferenceClassFieldReader extractor        = new SelfReferenceClassFieldReader( Object.class );
 
     private Evaluator                                  evaluator;
     private transient InternalWorkingMemory            workingMemory;
@@ -52,14 +51,16 @@ public class EvaluatorWrapper
     private Declaration                                leftBinding;
     private Declaration                                rightBinding;
 
-    private InternalFactHandle                         leftHandle;
-    private InternalFactHandle                         rightHandle;
+    private transient InternalFactHandle               leftHandle;
+    private transient InternalFactHandle               rightHandle;
 
     private InternalReadAccessor                       leftExtractor;
     private InternalReadAccessor                       rightExtractor;
 
     private boolean                                    selfLeft;
     private boolean                                    selfRight;
+
+    private String                                     bindingName;
 
     public EvaluatorWrapper(Evaluator evaluator,
                             Declaration leftBinding,
@@ -90,7 +91,7 @@ public class EvaluatorWrapper
      */
     public boolean evaluate(Object left,
                             Object right) {
-        if (rightBinding == null) {
+        if (rightHandle == null || rightBinding == null) {
             return evaluator.evaluate( workingMemory,
                                        leftBinding != null ? leftExtractor : new ConstantValueReader(left),
                                        leftHandle,
@@ -99,9 +100,7 @@ public class EvaluatorWrapper
         return evaluator.evaluate( workingMemory,
                                    leftBinding != null ? leftExtractor : new ConstantValueReader(left),
                                    leftHandle,
-                                   rightBinding != null ?
-                                                        ( rightHandle != null ? rightExtractor : new ConstantValueReader( rightExtractor.getValue( workingMemory, right ) ) )
-                                                        : new ConstantValueReader(right),
+                                   rightExtractor,
                                    rightHandle );
     }
 
@@ -271,5 +270,13 @@ public class EvaluatorWrapper
 
     public boolean isSelfRight() {
         return selfRight;
+    }
+
+    public String getBindingName() {
+        return bindingName;
+    }
+
+    public void setBindingName( String bindingName ) {
+        this.bindingName = bindingName;
     }
 }

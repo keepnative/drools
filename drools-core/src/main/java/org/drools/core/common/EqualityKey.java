@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,9 +46,9 @@ public class EqualityKey extends LinkedList<DefaultFactHandle>
     private int          hashCode;
 
     /** Tracks whether this Fact is Stated or Justified */
-    private int                status;
+    private int          status;
     
-    private  BeliefSet beliefSet;
+    private  BeliefSet   beliefSet;
 
     public EqualityKey() {
 
@@ -76,6 +76,23 @@ public class EqualityKey extends LinkedList<DefaultFactHandle>
         super.writeExternal(out);
         out.writeInt(hashCode);
         out.writeInt(status);
+    }
+
+    public InternalFactHandle getLogicalFactHandle() {
+        if ( beliefSet == null ) {
+            return null;
+        }
+
+        return getFirst();
+    }
+
+    public void setLogicalFactHandle(InternalFactHandle logicalFactHandle) {
+        if ( logicalFactHandle == null && beliefSet != null ) {
+            // beliefSet needs to not be null, otherwise someone else has already set the LFH to null
+            removeFirst();
+        } else {
+            addFirst((DefaultFactHandle) logicalFactHandle);
+        }
     }
 
     public InternalFactHandle getFactHandle() {
@@ -148,7 +165,7 @@ public class EqualityKey extends LinkedList<DefaultFactHandle>
             return this == object;
         }
 
-        return (this.getFirst().getObject().equals( object ));
+        return this.getFirst().getObject().equals( object );
     }
 
 }

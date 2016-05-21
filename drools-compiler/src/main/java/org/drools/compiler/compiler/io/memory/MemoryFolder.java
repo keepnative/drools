@@ -1,12 +1,27 @@
-package org.drools.compiler.compiler.io.memory;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.util.Collection;
+package org.drools.compiler.compiler.io.memory;
 
 import org.drools.compiler.compiler.io.File;
 import org.drools.compiler.compiler.io.Folder;
 import org.drools.compiler.compiler.io.Path;
 import org.drools.compiler.compiler.io.Resource;
 import org.drools.core.util.StringUtils;
+
+import java.util.Collection;
 
 public class MemoryFolder
         implements
@@ -72,7 +87,7 @@ public class MemoryFolder
                 for ( int i = 0; i < elements.length - 1; i++ ) {
                     if ( !StringUtils.isEmpty( elements[i] ) ) {
                         if ( !first ) {
-                            newPath = newPath + "/";;
+                            newPath = newPath + "/";
                         }
                         newPath = newPath + elements[i];
                         first = false;
@@ -83,13 +98,14 @@ public class MemoryFolder
             }
         }
         
-        
-        
         return pFolder;
     }
     
     
     public static String trimLeadingAndTrailing(String p) {
+        if (p.isEmpty()) {
+            return p;
+        }
         while ( p.charAt( 0 ) == '/') {
             p = p.substring( 1 );
         }
@@ -103,23 +119,16 @@ public class MemoryFolder
 
     public Collection<? extends Resource> getMembers() {
         return mfs.getMembers( this );
-    }    
+    }
 
     public boolean exists() {
         return mfs.existsFolder( path );
     }
 
     public boolean create() {
-        createFolder( this );
+        path = trimLeadingAndTrailing( path );
+        mfs.createFolder( this );
         return true;
-
-    }
-
-    private void createFolder(MemoryFolder folder) {
-        // trim lead and trailing slashes
-        String p = trimLeadingAndTrailing( folder.path );
-        
-        mfs.createFolder( folder );
     }
 
     @Override

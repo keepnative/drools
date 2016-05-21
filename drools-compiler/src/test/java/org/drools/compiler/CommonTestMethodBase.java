@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderConfigurationImpl;
@@ -6,16 +21,21 @@ import org.drools.compiler.kie.builder.impl.InternalKieModule;
 import org.drools.compiler.lang.descr.PackageDescr;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.KnowledgeBaseImpl;
+import org.drools.core.reteoo.builder.NodeFactory;
 import org.junit.Assert;
+import org.kie.api.KieBase;
 import org.kie.api.KieBaseConfiguration;
 import org.kie.api.KieServices;
-import org.kie.api.builder.KieBuilder;
-import org.kie.api.builder.KieFileSystem;
-import org.kie.api.builder.KieModule;
-import org.kie.api.builder.ReleaseId;
+import org.kie.api.builder.*;
+import org.kie.api.builder.Message;
+import org.kie.api.builder.Results;
+import org.kie.api.builder.model.KieModuleModel;
 import org.kie.api.io.Resource;
 import org.kie.api.io.ResourceType;
+import org.kie.api.marshalling.Marshaller;
 import org.kie.api.runtime.Environment;
+import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.KieSessionConfiguration;
 import org.kie.api.runtime.conf.KieSessionOption;
 import org.kie.internal.KnowledgeBase;
@@ -26,9 +46,12 @@ import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.builder.conf.RuleEngineOption;
 import org.kie.internal.definition.KnowledgePackage;
 import org.kie.internal.io.ResourceFactory;
+import org.kie.internal.marshalling.MarshallerFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.runtime.StatelessKnowledgeSession;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.Collection;
 
 /**
@@ -40,8 +63,18 @@ import java.util.Collection;
 public class CommonTestMethodBase extends Assert {
 	public static RuleEngineOption phreak = RuleEngineOption.PHREAK;
 
+	protected KieSession createKieSession(KieBase kbase) {
+		return kbase.newKieSession();
+	}
+
+	protected KieSession createKieSession(KieBase kbase, KieSessionOption option) {
+		KieSessionConfiguration ksconf = KnowledgeBaseFactory.newKnowledgeSessionConfiguration();
+		ksconf.setOption(option);
+		return kbase.newKieSession(ksconf, null);
+	}
+
 	protected StatefulKnowledgeSession createKnowledgeSession(KnowledgeBase kbase) {
-		return kbase.newStatefulKnowledgeSession();
+	    return kbase.newStatefulKnowledgeSession();
 	}
 
 	protected StatefulKnowledgeSession createKnowledgeSession(KnowledgeBase kbase, KieSessionOption option) {
@@ -63,27 +96,31 @@ public class CommonTestMethodBase extends Assert {
 	}
 
 	protected KnowledgeBase loadKnowledgeBaseFromString(String... drlContentStrings) {
-		return loadKnowledgeBaseFromString(null, null, phreak,
-				drlContentStrings);
+		return loadKnowledgeBaseFromString(null, null, phreak, drlContentStrings);
+	}
+
+	protected KnowledgeBase loadKnowledgeBaseFromString(NodeFactory nodeFactory, String... drlContentStrings) {
+		return loadKnowledgeBaseFromString(null, null, phreak, nodeFactory, drlContentStrings);
 	}
 
 	protected KnowledgeBase loadKnowledgeBaseFromString(RuleEngineOption phreak, String... drlContentStrings) {
-		return loadKnowledgeBaseFromString(null, null, phreak,
-				drlContentStrings);
+		return loadKnowledgeBaseFromString(null, null, phreak, drlContentStrings);
 	}
 
 	protected KnowledgeBase loadKnowledgeBaseFromString(KnowledgeBuilderConfiguration config, String... drlContentStrings) {
-		return loadKnowledgeBaseFromString(config, null, phreak,
-				drlContentStrings);
+		return loadKnowledgeBaseFromString(config, null, phreak, drlContentStrings);
 	}
 
 	protected KnowledgeBase loadKnowledgeBaseFromString(
 			KieBaseConfiguration kBaseConfig, String... drlContentStrings) {
-		return loadKnowledgeBaseFromString(null, kBaseConfig, phreak,
-				drlContentStrings);
+		return loadKnowledgeBaseFromString(null, kBaseConfig, phreak, drlContentStrings);
 	}
 
 	protected KnowledgeBase loadKnowledgeBaseFromString( KnowledgeBuilderConfiguration config, KieBaseConfiguration kBaseConfig, RuleEngineOption phreak, String... drlContentStrings) {
+		return loadKnowledgeBaseFromString( config, kBaseConfig, phreak, (NodeFactory)null, drlContentStrings);
+	}
+
+	protected KnowledgeBase loadKnowledgeBaseFromString( KnowledgeBuilderConfiguration config, KieBaseConfiguration kBaseConfig, RuleEngineOption phreak, NodeFactory nodeFactory, String... drlContentStrings) {
 		KnowledgeBuilder kbuilder = config == null ? KnowledgeBuilderFactory.newKnowledgeBuilder() : KnowledgeBuilderFactory.newKnowledgeBuilder(config);
 		for (String drlContentString : drlContentStrings) {
 			kbuilder.add(ResourceFactory.newByteArrayResource(drlContentString
@@ -98,6 +135,9 @@ public class CommonTestMethodBase extends Assert {
 		}
 		kBaseConfig.setOption(phreak);
 		KnowledgeBase kbase = kBaseConfig == null ? KnowledgeBaseFactory.newKnowledgeBase() : KnowledgeBaseFactory.newKnowledgeBase(kBaseConfig);
+		if (nodeFactory != null) {
+			((KnowledgeBaseImpl) kbase).getConfiguration().getComponentFactory().setNodeFactoryProvider( nodeFactory);
+		}
 		kbase.addKnowledgePackages(kbuilder.getKnowledgePackages());
 		return kbase;
 	}
@@ -245,7 +285,7 @@ public class CommonTestMethodBase extends Assert {
 		return (InternalAgenda) session.getAgenda();
 	}
 
-	public static byte[] createJar(KieServices ks, 
+	public static byte[] createJar(KieServices ks,
 			                       ReleaseId releaseId,
 			                       String... drls) {
 		KieFileSystem kfs = ks.newKieFileSystem().generateAndWritePomXML(
@@ -256,7 +296,7 @@ public class CommonTestMethodBase extends Assert {
 			}
 		}
 		KieBuilder kb = ks.newKieBuilder(kfs).buildAll();
-		assertFalse( kb.getResults().getMessages(org.kie.api.builder.Message.Level.ERROR).toString(), 
+		assertFalse( kb.getResults().getMessages(org.kie.api.builder.Message.Level.ERROR).toString(),
 		        kb.getResults().hasMessages(org.kie.api.builder.Message.Level.ERROR) );
 		InternalKieModule kieModule = (InternalKieModule) ks.getRepository()
 				.getKieModule(releaseId);
@@ -286,7 +326,12 @@ public class CommonTestMethodBase extends Assert {
 				kfs.write(resources[i]);
 			}
 		}
-		ks.newKieBuilder(kfs).buildAll();
+		KieBuilder kieBuilder = ks.newKieBuilder(kfs);
+		kieBuilder.buildAll();
+		Results results = kieBuilder.getResults();
+		if (results.hasMessages(Message.Level.ERROR)) {
+			throw new IllegalStateException(results.getMessages(Message.Level.ERROR).toString());
+		}
 		InternalKieModule kieModule = (InternalKieModule) ks.getRepository()
 				.getKieModule(releaseId);
 		byte[] jar = kieModule.getBytes();
@@ -321,11 +366,22 @@ public class CommonTestMethodBase extends Assert {
         return jar;
     }
 
+	public static byte[] createKJar(KieServices ks,
+									ReleaseId releaseId,
+									String pom,
+									String... drls) {
+		return createKJar( ks, null, releaseId, pom, drls );
+	}
+
     public static byte[] createKJar(KieServices ks,
-                                    ReleaseId releaseId,
+									KieModuleModel kproj,
+									ReleaseId releaseId,
                                     String pom,
                                     String... drls) {
         KieFileSystem kfs = ks.newKieFileSystem();
+		if (kproj != null) {
+			kfs.writeKModuleXML(kproj.toXML());
+		}
         if( pom != null ) {
             kfs.write("pom.xml", pom);
         } else {
@@ -356,4 +412,25 @@ public class CommonTestMethodBase extends Assert {
         return km;
     }
 
+    public static KieSession marshallAndUnmarshall(KieServices ks, KieBase kbase, KieSession ksession) {
+        return marshallAndUnmarshall(ks, kbase, ksession, null);
+    }
+
+    public static KieSession marshallAndUnmarshall(KieServices ks, KieBase kbase, KieSession ksession, KieSessionConfiguration sessionConfig) {
+        // Serialize and Deserialize
+        try {
+            Marshaller marshaller = ks.getMarshallers().newMarshaller(kbase);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            marshaller.marshall(baos, ksession);
+            marshaller = MarshallerFactory.newMarshaller(kbase);
+            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+            baos.close();
+            ksession = marshaller.unmarshall(bais, sessionConfig, null);
+            bais.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            fail("unexpected exception :" + e.getMessage());
+        }
+        return ksession;
+    }
 }

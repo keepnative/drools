@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ public class NodeTypeEnums {
     public static final short TimerConditionNode      = 133;
     public static final short QueryRiaFixerNode       = 141;
     public static final short FromNode                = 151;
+    public static final short ReactiveFromNode        = 153;
     public static final short UnificationNode         = 165; // these two need to be merged
     public static final short QueryElementNode        = 165;
     public static final short ConditionalBranchNode   = 167;
@@ -93,5 +94,13 @@ public class NodeTypeEnums {
 
     public static boolean isLeftTupleSink(NetworkNode node) {
         return node.getType() % 2 != 0;
+    }
+
+    public static boolean isEndNode(NetworkNode node) {
+        return NodeTypeEnums.isTerminalNode(node) || NodeTypeEnums.RightInputAdaterNode == node.getType();
+    }
+
+    public static boolean isLeftTupleNode(NetworkNode node) {
+        return isLeftTupleSource(node) || isLeftTupleSink(node);
     }
 }

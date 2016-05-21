@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.drools.decisiontable.parser;
 
+import java.io.File;
 import java.io.InputStream;
 
 /**
@@ -25,5 +26,10 @@ public interface DecisionTableParser {
     /**
      * Parse an input stream, store the resulting rulebase.
      */
-    public void parseFile(InputStream inStream);
+    void parseFile(InputStream inStream);
+
+    /**
+     * Parse a file, store the resulting rulebase.
+     */
+    void parseFile(File file);
 }

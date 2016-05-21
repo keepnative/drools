@@ -6,21 +6,23 @@
   <parent>
     <groupId>org.kie</groupId>
     <artifactId>kie-parent-with-dependencies</artifactId>
-    <version>6.2.0.Final</version>
+    <version>6.4.0.Final</version>
     <!-- relativePath causes out-of-date problems on hudson slaves -->
     <!--<relativePath>../droolsjbpm-build-bootstrap/pom.xml</relativePath>-->
   </parent>
 
   <groupId>org.drools</groupId>
-  <!-- TODO rename to drools once parent pom has been moved -->
-  <artifactId>drools-multiproject</artifactId>
-  <version>6.2.0-SNAPSHOT</version>
+  <artifactId>drools</artifactId>
   <packaging>pom</packaging>
 
-  <name>Drools multiproject</name>
+  <name>Drools Multiproject</name>
   <description>
     Drools Expert is the rule engine and Drools Fusion does complex event processing (CEP).
   </description>
+
+  <properties>
+    <surefire.forkCount>1</surefire.forkCount>
+  </properties>
 
   <repositories>
     <!-- Bootstrap repository to locate the parent pom when the parent pom has not been build locally. -->
@@ -60,7 +62,8 @@
   </scm>
 
   <modules>
-      <module>drools-beliefs</module>
+    <module>kie-test-util</module>
+    <module>drools-beliefs</module>
     <module>drools-core</module>
     <module>drools-reteoo</module>
     <module>drools-compiler</module>
@@ -72,7 +75,6 @@
     <module>drools-examples</module>
     <module>drools-pmml</module>
     <module>drools-scorecards</module>
-    <module>kie-maven-plugin</module>
     <module>kie-ci</module>
     <module>kie-ci-osgi</module>
     <module>drools-examples-api</module>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -129,13 +129,20 @@ public class Characteristic {
         int result;
         long temp;
         result = fact != null ? fact.hashCode() : 0;
+        result = ~~result;
         result = 31 * result + ( field != null ? field.hashCode() : 0 );
+        result = ~~result;
         temp = Double.doubleToLongBits( baselineScore );
         result = 31 * result + (int) ( temp ^ ( temp >>> 32 ) );
+        result = ~~result;
         result = 31 * result + ( reasonCode != null ? reasonCode.hashCode() : 0 );
+        result = ~~result;
         result = 31 * result + ( attributes != null ? attributes.hashCode() : 0 );
+        result = ~~result;
         result = 31 * result + ( name != null ? name.hashCode() : 0 );
+        result = ~~result;
         result = 31 * result + ( dataType != null ? dataType.hashCode() : 0 );
+        result = ~~result;
         return result;
     }
 

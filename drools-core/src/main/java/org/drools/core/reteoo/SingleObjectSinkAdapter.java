@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,8 @@ public class SingleObjectSinkAdapter extends AbstractObjectSinkAdapter {
 
     private static final long serialVersionUID = 510l;
 
-    protected ObjectSink      sink;
+    private ObjectSink      sink;
+    private ObjectSink[]    sinks;
 
     public SingleObjectSinkAdapter() {
         super( null );
@@ -41,12 +42,14 @@ public class SingleObjectSinkAdapter extends AbstractObjectSinkAdapter {
                                    final ObjectSink sink) {
         super( partitionId );
         this.sink = sink;
+        this.sinks = new ObjectSink[]{this.sink};
     }
 
     public void readExternal(ObjectInput in) throws IOException,
                                             ClassNotFoundException {
         super.readExternal( in );
-        sink = (ObjectSink) in.readObject();
+        this.sink = (ObjectSink) in.readObject();
+        this.sinks = new ObjectSink[]{this.sink};
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -88,10 +91,10 @@ public class SingleObjectSinkAdapter extends AbstractObjectSinkAdapter {
         if ( sink.getType() == NodeTypeEnums.AccumulateNode ) {
             AccumulateNode accnode = ( AccumulateNode ) sink;
             AccumulateMemory accMem = ( AccumulateMemory ) wm.getNodeMemory( accnode );
-            bm = ( BetaMemory ) accMem.getBetaMemory();            
+            bm = accMem.getBetaMemory();
         } else if ( NodeTypeEnums.isBetaNode( sink ) ) {
             BetaNode betaNode = ( BetaNode ) sink;
-            bm = (BetaMemory) BetaNode.getBetaMemoryFromRightInput(betaNode, wm);
+            bm = BetaNode.getBetaMemoryFromRightInput(betaNode, wm);
         } else {
             throw new RuntimeException( "Should not be possible to have link into a node of type" + sink);
         }
@@ -114,10 +117,10 @@ public class SingleObjectSinkAdapter extends AbstractObjectSinkAdapter {
         if ( sink.getType() == NodeTypeEnums.AccumulateNode ) {
             AccumulateNode accnode = ( AccumulateNode ) sink;
             AccumulateMemory accMem = ( AccumulateMemory ) wm.getNodeMemory( accnode );
-            bm = ( BetaMemory ) accMem.getBetaMemory();            
+            bm = accMem.getBetaMemory();
         } else if ( NodeTypeEnums.isBetaNode( sink ) ) {
             BetaNode betaNode = ( BetaNode ) sink;
-            bm = (BetaMemory) BetaNode.getBetaMemoryFromRightInput(betaNode, wm);                       
+            bm = BetaNode.getBetaMemoryFromRightInput(betaNode, wm);
         } else {
             throw new RuntimeException( "Should not be possible to have link into a node of type" + sink);
         }
@@ -130,14 +133,14 @@ public class SingleObjectSinkAdapter extends AbstractObjectSinkAdapter {
     }
 
     public BaseNode getMatchingNode(BaseNode candidate) {
-        if ( candidate.equals( sink ) ) {
+        if (sink.thisNodeEquals(candidate)) {
             return (BaseNode) sink;
         }
         return null;
     }
 
     public ObjectSink[] getSinks() {
-        return new ObjectSink[]{this.sink};
+        return sinks;
     }
 
     public int size() {

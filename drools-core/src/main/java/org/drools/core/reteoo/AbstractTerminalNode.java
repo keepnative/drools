@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.reteoo;
 
 import org.drools.core.RuleBaseConfiguration;
@@ -5,9 +20,9 @@ import org.drools.core.base.ClassObjectType;
 import org.drools.core.common.BaseNode;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.Memory;
 import org.drools.core.common.MemoryFactory;
 import org.drools.core.common.RuleBasePartitionId;
+import org.drools.core.common.UpdateContext;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.phreak.SegmentUtilities;
 import org.drools.core.reteoo.RightInputAdapterNode.RiaNodeMemory;
@@ -19,6 +34,7 @@ import org.drools.core.spi.PropagationContext;
 import org.drools.core.util.bitmask.AllSetBitMask;
 import org.drools.core.util.bitmask.BitMask;
 import org.drools.core.util.bitmask.EmptyBitMask;
+import org.kie.api.definition.rule.Rule;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -28,7 +44,7 @@ import java.util.List;
 
 import static org.drools.core.reteoo.PropertySpecificUtil.*;
 
-public abstract class AbstractTerminalNode extends BaseNode implements TerminalNode, MemoryFactory, Externalizable {
+public abstract class AbstractTerminalNode extends BaseNode implements TerminalNode, PathEndNode, Externalizable {
 
     private LeftTupleSource tupleSource;
 
@@ -36,11 +52,17 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
     private BitMask inferredMask = EmptyBitMask.get();
     private BitMask negativeMask = EmptyBitMask.get();
 
+    private LeftTupleNode[] pathNodes;
+
+    private transient PathEndNode[] pathEndNodes;
+
     public AbstractTerminalNode() { }
 
-    public AbstractTerminalNode(int id, RuleBasePartitionId partitionId, boolean partitionsEnabled, LeftTupleSource source) {
+
+    public AbstractTerminalNode(int id, RuleBasePartitionId partitionId, boolean partitionsEnabled, LeftTupleSource source, final BuildContext context) {
         super(id, partitionId, partitionsEnabled);
         this.tupleSource = source;
+        context.getPathEndNodes().add(this);
     }
 
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
@@ -57,6 +79,20 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
         out.writeObject(declaredMask);
         out.writeObject(inferredMask);
         out.writeObject(negativeMask);
+    }
+
+    @Override
+    public void setPathEndNodes(PathEndNode[] pathEndNodes) {
+        this.pathEndNodes = pathEndNodes;
+    }
+
+    @Override
+    public PathEndNode[] getPathEndNodes() {
+        return pathEndNodes;
+    }
+
+    public int getPositionInPath() {
+        return tupleSource.getPositionInPath() + 1;
     }
 
     public void initDeclaredMask(BuildContext context) {
@@ -115,24 +151,21 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
     public abstract RuleImpl getRule();
     
 
-    public Memory createMemory(RuleBaseConfiguration config, InternalWorkingMemory wm) {
+    public PathMemory createMemory(RuleBaseConfiguration config, InternalWorkingMemory wm) {
         PathMemory pmem = new PathMemory(this);
-        initPathMemory(pmem, getLeftTupleSource(), null, wm, null );
+        initPathMemory(pmem, null, wm, null);
         return pmem;
     }
 
     /**
      * Creates and return the node memory
      */
-    public static void initPathMemory(PathMemory pmem, LeftTupleSource tupleSource, LeftTupleSource startTupleSource, InternalWorkingMemory wm, RuleImpl removingRule) {
-        int counter = 0;
+    public static void initPathMemory(PathMemory pmem, LeftTupleSource startTupleSource, InternalWorkingMemory wm, Rule removingRule) {
+        int counter = 1;
         long allLinkedTestMask = 0;
 
-
-        int size = tupleSource.getSinkPropagator().size();
-        if ( size > 2 ) {
-            counter++;
-        } else if ( size == 2 && ( removingRule == null || !tupleSource.getAssociations().containsKey( removingRule )  ) ) {
+        LeftTupleSource tupleSource = pmem.getPathEndNode().getLeftTupleSource();
+        if ( SegmentUtilities.isRootNode(pmem.getPathEndNode(), removingRule)) {
             counter++;
         }
 
@@ -140,7 +173,7 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
         // @TODO optimization would be to split path's into two, to avoid wasted rule evaluation for segments after the first branch CE
 
         boolean updateBitInNewSegment = true; // Avoids more than one isBetaNode check per segment
-        boolean updateAllLinkedTest = ( cen == null ) ? true : false; // if there is a CEN, do not set bit until it's reached
+        boolean updateAllLinkedTest = cen == null; // if there is a CEN, do not set bit until it's reached
         boolean subnetworkBoundaryCrossed = false;
         while (  tupleSource.getType() != NodeTypeEnums.LeftInputAdapterNode ) {
             if ( !subnetworkBoundaryCrossed &&  tupleSource.getType() == NodeTypeEnums.ConditionalBranchNode ) {
@@ -156,7 +189,7 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
                 if ( bn.isRightInputIsRiaNode() ) {
                     updateBitInNewSegment = false;
                     // only ria's without reactive subnetworks can be disabled and thus need checking
-                    // The getNodeMemory will7 call this method recursive for sub networks it reaches
+                    // The getNodeMemory will call this method recursive for sub networks it reaches
                     RiaNodeMemory rnmem = ( RiaNodeMemory ) wm.getNodeMemory((MemoryFactory) bn.getRightInput());
                     if ( rnmem.getRiaPathMemory().getAllLinkedMaskTest() != 0 ) {
                         allLinkedTestMask = allLinkedTestMask | 1;
@@ -168,7 +201,7 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
                 }
             }
 
-            if ( !SegmentUtilities.parentInSameSegment( tupleSource, removingRule ) ) {
+            if ( SegmentUtilities.isRootNode( tupleSource, removingRule ) ) {
                 updateBitInNewSegment = true; // allow bit to be set for segment
                 allLinkedTestMask = allLinkedTestMask << 1;
                 counter++;
@@ -187,8 +220,7 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
         }
 
         pmem.setAllLinkedMaskTest( allLinkedTestMask );
-        pmem.setlinkedSegmentMask(0);
-        pmem.setSegmentMemories( new SegmentMemory[counter + 1] ); // +1 as arras are zero based.
+        pmem.setSegmentMemories( new SegmentMemory[counter] );
     }
 
     private static ConditionalBranchNode getConditionalBranchNode(LeftTupleSource tupleSource) {
@@ -210,11 +242,12 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
         return peer;
     }
 
-    protected void doRemove(final RuleRemovalContext context,
-                            final ReteooBuilder builder,
-                            final InternalWorkingMemory[] workingMemories) {
+    protected boolean doRemove(final RuleRemovalContext context,
+                               final ReteooBuilder builder,
+                               final InternalWorkingMemory[] workingMemories) {
         getLeftTupleSource().removeTupleSink(this);
         this.tupleSource = null;
+        return true;
     }
 
     public LeftTupleSource getLeftTupleSource() {
@@ -247,5 +280,40 @@ public abstract class AbstractTerminalNode extends BaseNode implements TerminalN
 
     public void setNegativeMask(BitMask mask) {
         negativeMask = mask;
+    }
+
+    public void networkUpdated(UpdateContext updateContext) {
+        getLeftTupleSource().networkUpdated(updateContext);
+    }
+
+    public boolean isInUse() {
+        return false;
+    }
+
+    public boolean isLeftTupleMemoryEnabled() {
+        return false;
+    }
+
+    public void setLeftTupleMemoryEnabled(boolean tupleMemoryEnabled) {
+        // do nothing, this can only ever be false
+    }
+
+    public static LeftTupleNode[] getPathNodes(PathEndNode endNode) {
+        LeftTupleNode[] pathNodes = new LeftTupleNode[endNode.getPositionInPath()+1];
+        for (LeftTupleNode node = endNode; node != null; node = node.getLeftTupleSource()) {
+            pathNodes[node.getPositionInPath()] = node;
+        }
+        return pathNodes;
+    }
+
+    public LeftTupleNode[] getPathNodes() {
+        if (pathNodes == null) {
+            pathNodes = getPathNodes( this );
+        }
+        return pathNodes;
+    }
+
+    public LeftTupleSinkPropagator getSinkPropagator() {
+        return EmptyLeftTupleSinkAdapter.getInstance();
     }
 }

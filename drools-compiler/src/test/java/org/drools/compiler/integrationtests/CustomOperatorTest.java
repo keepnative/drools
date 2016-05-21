@@ -1,9 +1,19 @@
-package org.drools.compiler.integrationtests;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collection;
+package org.drools.compiler.integrationtests;
 
 import org.drools.compiler.Address;
 import org.drools.compiler.CommonTestMethodBase;
@@ -20,11 +30,20 @@ import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.junit.Test;
+import org.kie.api.KieServices;
+import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.KieSession;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.builder.KnowledgeBuilderConfiguration;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.builder.conf.EvaluatorOption;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
+import org.kie.internal.utils.KieHelper;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
 
 public class CustomOperatorTest extends CommonTestMethodBase {
 
@@ -281,5 +300,37 @@ public class CustomOperatorTest extends CommonTestMethodBase {
         public boolean evaluateAll(Collection leftCollection, Collection rightCollection) {
             return rightCollection.containsAll(leftCollection);
         }
+    }
+
+    @Test
+    public void testCustomOperatorOnKieModule() {
+        String str =
+                "import org.drools.compiler.Person\n" +
+                "import org.drools.compiler.Address\n" +
+                "rule R when\n" +
+                "    $alice : Person(name == \"Alice\")\n" +
+                "    $bob : Person(name == \"Bob\", addresses supersetOf $alice.addresses)\n" +
+                "then\n" +
+                "end\n";
+
+        KieServices ks = KieServices.Factory.get();
+        KieSession ksession = new KieHelper()
+                .setKieModuleModel(ks.newKieModuleModel()
+                                     .setConfigurationProperty("drools.evaluator.supersetOf",
+                                                               SupersetOfEvaluatorDefinition.class.getName()))
+                .addContent(str, ResourceType.DRL)
+                .build()
+                .newKieSession();
+
+        Person alice = new Person("Alice", 30);
+        alice.addAddress(new Address("Large Street", "BigTown", "12345"));
+        Person bob = new Person("Bob", 30);
+        bob.addAddress(new Address("Large Street", "BigTown", "12345"));
+        bob.addAddress(new Address("Long Street", "SmallTown", "54321"));
+
+        ksession.insert(alice);
+        ksession.insert(bob);
+
+        assertEquals(1, ksession.fireAllRules());
     }
 }

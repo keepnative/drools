@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.kproject;
 
 import static org.junit.Assert.assertEquals;
@@ -19,6 +34,8 @@ import org.kie.api.KieServices;
 import org.kie.api.runtime.KieContainer;
 
 public class KieProjectDefaultClasspathTest extends AbstractKnowledgeTest {
+
+    private KieServicesEventListerner listener;
 
     @Test
     public void createMultpleJarAndFileResources() throws IOException,
@@ -50,7 +67,7 @@ public class KieProjectDefaultClasspathTest extends AbstractKnowledgeTest {
             InternalKieServices ks = (InternalKieServices) KieServices.Factory.get();
 
             final AtomicInteger kieModulesCounter = new AtomicInteger(0);
-            KieServicesEventListerner listener = new AbstractKieServicesEventListerner() {
+            listener = new AbstractKieServicesEventListerner() {
                 @Override
                 public void onKieModuleDiscovered(KieModuleDiscovered event) {
                     // skip kmodule.xml contained in test/resources
@@ -68,8 +85,7 @@ public class KieProjectDefaultClasspathTest extends AbstractKnowledgeTest {
             testEntry(new KProjectTestClassImpl( "jar1", kContainer ), "jar1");
             testEntry(new KProjectTestClassImpl( "jar2", kContainer ), "jar2");
             testEntry(new KProjectTestClassImpl( "jar3", kContainer ), "jar3");
-            testEntry(new KProjectTestClassImpl( "fol4", kContainer ), "fol4");
-
+            testEntry(new KProjectTestClassImpl("fol4", kContainer), "fol4");
         } finally {
             // FIXME Java 7+
             // on Windows, the URLClassLoader will not release all resources,

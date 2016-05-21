@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import org.drools.core.rule.Declaration;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.time.impl.Timer;
 import org.drools.core.util.AbstractBaseLinkedListNode;
-import org.drools.core.util.index.LeftTupleList;
+import org.drools.core.util.index.TupleList;
 
 import java.io.IOException;
 import java.io.ObjectInput;
@@ -37,7 +37,7 @@ import java.util.Arrays;
 public class TimerNode extends LeftTupleSource
         implements
         LeftTupleSinkNode,
-        MemoryFactory {
+        MemoryFactory<TimerNode.TimerNodeMemory> {
 
     private static final long serialVersionUID = 510l;
     private Timer             timer;
@@ -68,6 +68,8 @@ public class TimerNode extends LeftTupleSource
         this.tupleMemoryEnabled = context.isTupleMemoryEnabled();
 
         initMasks(context, tupleSource);
+
+        hashcode = calculateHashCode();
     }
 
     public void readExternal(ObjectInput in) throws IOException,
@@ -122,30 +124,31 @@ public class TimerNode extends LeftTupleSource
      * @return The debug string.
      */
     public String toString() {
-        return "[TimeNodeNode: cond=" + this.timer + " calendars=" + ((calendarNames == null) ? "null" : Arrays.asList(calendarNames)) + "]";
+        return "[TimerNode(" + this.id + "): cond=" + this.timer + " calendars=" + ((calendarNames == null) ? "null" : Arrays.asList(calendarNames)) + "]";
     }
 
-    public int hashCode() {
+    private int calculateHashCode() {
         int hash = this.leftInput.hashCode() ^ this.timer.hashCode();
         if (calendarNames != null) {
-            for (int i = 0; i < calendarNames.length; i++) {
-                hash = hash ^ calendarNames[i].hashCode();
+            for ( String calendarName : calendarNames ) {
+                hash = hash ^ calendarName.hashCode();
             }
         }
         return hash;
     }
 
     public boolean equals(final Object object) {
-        if (this == object) {
-            return true;
-        }
+        return this == object ||
+               ( internalEquals( object ) && this.leftInput.thisNodeEquals(((TimerNode)object).leftInput) );
+    }
 
-        if (object == null || object.getClass() != TimerNode.class) {
+    @Override
+    protected boolean internalEquals( Object object ) {
+        if ( object == null || !(object instanceof TimerNode) || this.hashCode() != object.hashCode() ) {
             return false;
         }
 
-        final TimerNode other = (TimerNode) object;
-
+        TimerNode other = (TimerNode) object;
         if (calendarNames != null) {
             if (other.getCalendarNames() == null || other.getCalendarNames().length != calendarNames.length) {
                 return false;
@@ -158,11 +161,11 @@ public class TimerNode extends LeftTupleSource
             }
         }
 
-        return Arrays.deepEquals(declarations, other.declarations) &&
-               this.timer.equals(other.timer) && this.leftInput.equals(other.leftInput);
+        return Arrays.deepEquals( declarations, other.declarations ) &&
+               this.timer.equals(other.timer);
     }
 
-    public Memory createMemory(final RuleBaseConfiguration config, InternalWorkingMemory wm) {
+    public TimerNodeMemory createMemory(final RuleBaseConfiguration config, InternalWorkingMemory wm) {
         return new TimerNodeMemory();
     }
 
@@ -174,12 +177,14 @@ public class TimerNode extends LeftTupleSource
         return peer;
     }
 
-    protected void doRemove(final RuleRemovalContext context,
+    protected boolean doRemove(final RuleRemovalContext context,
                             final ReteooBuilder builder,
                             final InternalWorkingMemory[] workingMemories) {
         if (!this.isInUse()) {
             getLeftTupleSource().removeTupleSink(this);
+            return true;
         }
+        return false;
     }
 
     public boolean isLeftTupleMemoryEnabled() {
@@ -231,26 +236,26 @@ public class TimerNode extends LeftTupleSource
     }
 
     public LeftTuple createLeftTuple(InternalFactHandle factHandle,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new EvalNodeLeftTuple(factHandle, sink, leftTupleMemoryEnabled);
     }
 
     public LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                                      final LeftTuple leftTuple,
-                                     final LeftTupleSink sink) {
+                                     final Sink sink) {
         return new EvalNodeLeftTuple(factHandle, leftTuple, sink);
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      PropagationContext pctx, boolean leftTupleMemoryEnabled) {
         return new EvalNodeLeftTuple(leftTuple, sink, pctx, leftTupleMemoryEnabled);
     }
 
     public LeftTuple createLeftTuple(LeftTuple leftTuple,
                                      RightTuple rightTuple,
-                                     LeftTupleSink sink) {
+                                     Sink sink) {
         return new EvalNodeLeftTuple(leftTuple, rightTuple, sink);
     }
 
@@ -258,7 +263,7 @@ public class TimerNode extends LeftTupleSource
                                      RightTuple rightTuple,
                                      LeftTuple currentLeftChild,
                                      LeftTuple currentRightChild,
-                                     LeftTupleSink sink,
+                                     Sink sink,
                                      boolean leftTupleMemoryEnabled) {
         return new EvalNodeLeftTuple(leftTuple, rightTuple, currentLeftChild, currentRightChild, sink, leftTupleMemoryEnabled);
     }
@@ -272,22 +277,22 @@ public class TimerNode extends LeftTupleSource
             Memory {
 
         private static final long serialVersionUID = 510l;
-        private LeftTupleList insertOrUpdateLeftTuples;
-        private LeftTupleList deleteLeftTuples;
+        private TupleList insertOrUpdateLeftTuples;
+        private TupleList deleteLeftTuples;
         private SegmentMemory memory;
         private long          nodePosMaskBit;
 
 
         public TimerNodeMemory() {
-            this.insertOrUpdateLeftTuples = new LeftTupleList();
-            this.deleteLeftTuples = new LeftTupleList();
+            this.insertOrUpdateLeftTuples = new TupleList();
+            this.deleteLeftTuples = new TupleList();
         }
 
-        public LeftTupleList getInsertOrUpdateLeftTuples() {
+        public TupleList getInsertOrUpdateLeftTuples() {
             return this.insertOrUpdateLeftTuples;
         }
 
-        public LeftTupleList getDeleteLeftTuples() {
+        public TupleList getDeleteLeftTuples() {
             return this.deleteLeftTuples;
         }
 

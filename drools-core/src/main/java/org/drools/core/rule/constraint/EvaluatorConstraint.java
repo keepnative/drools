@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.rule.constraint;
 
 import org.drools.core.common.InternalFactHandle;
@@ -12,11 +27,13 @@ import org.drools.core.rule.VariableRestriction.VariableContextEntry;
 import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
+import org.drools.core.spi.Tuple;
 import org.drools.core.time.Interval;
 
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.Arrays;
 
 public class EvaluatorConstraint extends MutableTypeConstraint implements IntervalProviderConstraint {
 
@@ -44,7 +61,7 @@ public class EvaluatorConstraint extends MutableTypeConstraint implements Interv
         return declarations.length == 0;
     }
 
-    public boolean isAllowed(InternalFactHandle handle, InternalWorkingMemory workingMemory, ContextEntry context) {
+    public boolean isAllowed(InternalFactHandle handle, InternalWorkingMemory workingMemory) {
         if (isLiteral()) {
             return evaluator.evaluate(workingMemory, rightReadAccessor, handle, field);
         }
@@ -69,7 +86,7 @@ public class EvaluatorConstraint extends MutableTypeConstraint implements Interv
                                              handle );
     }
 
-    public boolean isAllowedCachedRight(LeftTuple tuple, ContextEntry context) {
+    public boolean isAllowedCachedRight(Tuple tuple, ContextEntry context) {
         if (isLiteral()) {
             return evaluator.evaluate( ((LiteralContextEntry) context).workingMemory,
                                        ((LiteralContextEntry) context).getFieldExtractor(),
@@ -201,7 +218,7 @@ public class EvaluatorConstraint extends MutableTypeConstraint implements Interv
         }
 
         public void updateFromTuple(final InternalWorkingMemory workingMemory,
-                                    final LeftTuple tuple) {
+                                    final Tuple tuple) {
             this.workingMemory = workingMemory;
         }
 
@@ -212,5 +229,30 @@ public class EvaluatorConstraint extends MutableTypeConstraint implements Interv
             this.factHandle = null;
         }
 
+    }
+
+    @Override
+    public boolean equals( Object o ) {
+        if ( this == o ) return true;
+        if ( !( o instanceof EvaluatorConstraint ) ) return false;
+
+        EvaluatorConstraint that = (EvaluatorConstraint) o;
+
+        if ( !Arrays.equals( declarations, that.declarations ) ) return false;
+        if ( evaluator != null ? !evaluator.equals( that.evaluator ) : that.evaluator != null ) return false;
+        if ( field != null ? !field.equals( that.field ) : that.field != null ) return false;
+        if ( rightReadAccessor != null ? !rightReadAccessor.equals( that.rightReadAccessor ) : that.rightReadAccessor != null )
+            return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = declarations != null ? Arrays.hashCode( declarations ) : 0;
+        result = 31 * result + ( evaluator != null ? evaluator.hashCode() : 0 );
+        result = 31 * result + ( rightReadAccessor != null ? rightReadAccessor.hashCode() : 0 );
+        result = 31 * result + ( field != null ? field.hashCode() : 0 );
+        return result;
     }
 }

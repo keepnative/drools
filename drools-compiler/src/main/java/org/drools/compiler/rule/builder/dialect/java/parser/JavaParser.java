@@ -1,24 +1,31 @@
-// $ANTLR 3.5 src/main/resources/org/drools/compiler/semantics/java/parser/Java.g 2013-10-30 10:19:54
+// $ANTLR 3.5 src/main/resources/org/drools/compiler/semantics/java/parser/Java.g 2015-10-27 17:56:25
 
     package org.drools.compiler.rule.builder.dialect.java.parser;
-    import java.util.Iterator;
-    import java.util.Queue;
-    import java.util.LinkedList;   
-    import java.util.Stack; 
-    
-    import org.drools.compiler.rule.builder.dialect.java.parser.JavaLocalDeclarationDescr;
-    import org.drools.compiler.rule.builder.dialect.java.parser.JavaRootBlockDescr;
-    import org.drools.compiler.rule.builder.dialect.java.parser.JavaContainerBlockDescr;
-    import org.drools.compiler.rule.builder.dialect.java.parser.JavaBlockDescr;
-    
+    import org.antlr.runtime.BaseRecognizer;
+import org.antlr.runtime.BitSet;
+import org.antlr.runtime.CommonToken;
+import org.antlr.runtime.DFA;
+import org.antlr.runtime.EarlyExitException;
+import org.antlr.runtime.FailedPredicateException;
+import org.antlr.runtime.IntStream;
+import org.antlr.runtime.MismatchedNotSetException;
+import org.antlr.runtime.MismatchedSetException;
+import org.antlr.runtime.MismatchedTokenException;
+import org.antlr.runtime.MismatchedTreeNodeException;
+import org.antlr.runtime.NoViableAltException;
+import org.antlr.runtime.Parser;
+import org.antlr.runtime.ParserRuleReturnScope;
+import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.RecognizerSharedState;
+import org.antlr.runtime.Token;
+import org.antlr.runtime.TokenStream;
 
-
-import org.antlr.runtime.*;
-import java.util.Stack;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Stack;
 
 /** A Java 1.5 grammar for ANTLR v3 derived from the spec
  *
@@ -7609,7 +7616,7 @@ public class JavaParser extends Parser {
 			if (state.failed) return;
 			c=(Token)match(input,32,FOLLOW_32_in_retractStatement4115); if (state.failed) return;
 			if ( state.backtracking==0 ) {	
-			        JavaStatementBlockDescr d = new JavaStatementBlockDescr( (expression9!=null?input.toString(expression9.start,expression9.stop):null), JavaBlockDescr.BlockType.RETRACT );
+			        JavaStatementBlockDescr d = new JavaStatementBlockDescr( (expression9!=null?input.toString(expression9.start,expression9.stop):null), JavaBlockDescr.BlockType.DELETE );
 			        d.setStart( ((CommonToken)s).getStartIndex() );
 			        this.addBlockDescr( d );
 			        d.setEnd( ((CommonToken)c).getStopIndex() );

@@ -1,4 +1,34 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
+
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.Serializable;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.drools.compiler.compiler.PackageRegistry;
 import org.drools.compiler.compiler.TypeDeclarationError;
@@ -25,21 +55,7 @@ import org.drools.core.util.ClassUtils;
 import org.drools.core.util.asm.ClassFieldInspector;
 import org.kie.api.definition.type.Key;
 import org.kie.api.definition.type.Position;
-
-import java.io.Externalizable;
-import java.io.IOException;
-import java.io.Serializable;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import org.kie.api.io.Resource;
 
 public class ClassDefinitionFactory {
 
@@ -221,6 +237,9 @@ public class ClassDefinitionFactory {
             FieldDefinition fieldDef = new FieldDefinition( field.getFieldName(), fullFieldType );
             fieldDefs.add(fieldDef);
 
+            if ( field.hasOverride() ) {
+                fieldDef.setOverriding( field.getOverriding().getPattern().getObjectType() );
+            }
             fieldDef.setInherited( field.isInherited() );
             fieldDef.setRecursive(  field.isRecursive() );
             fieldDef.setInitExpr( TypeDeclarationUtils.rewriteInitExprWithImports( field.getInitExpr(), typeResolver ) );
@@ -246,34 +265,34 @@ public class ClassDefinitionFactory {
                 fieldDef.addMetaData("key", null);
             }
 
-            if (typeResolver != null) {
-                for (AnnotationDescr annotationDescr : field.getAnnotations()) {
-                    if (annotationDescr.getFullyQualifiedName() == null) {
-                        if (annotationDescr.isStrict()) {
-                            kbuilder.addBuilderResult( new TypeDeclarationError( field,
-                                                                                 "Unknown annotation @" + annotationDescr.getName() + " on field " + field.getFieldName() ) );
-                        } else {
-                            continue;
-                        }
-                    }
-                    Annotation annotation = AnnotationFactory.buildAnnotation(typeResolver, annotationDescr);
-                    if (annotation != null) {
-                        try {
-                            AnnotationDefinition annotationDefinition = AnnotationDefinition.build( annotation.annotationType(),
-                                                                                                    field.getAnnotation(annotationDescr.getFullyQualifiedName()).getValueMap(),
-                                                                                                    typeResolver );
-                            fieldDef.addAnnotation( annotationDefinition );
-                        } catch ( Exception e ) {
-                            kbuilder.addBuilderResult( new TypeDeclarationError( field,
-                                                                                 "Annotated field " + field.getFieldName() +
-                                                                                 "  - undefined property in @annotation " +
-                                                                                 annotationDescr.getName() + ": " + e.getMessage() + ";" ) );
-                        }
+            for (AnnotationDescr annotationDescr : field.getAnnotations()) {
+                if (annotationDescr.getFullyQualifiedName() == null) {
+                    if (annotationDescr.isStrict()) {
+                        kbuilder.addBuilderResult( new TypeDeclarationError( field,
+                                                                             "Unknown annotation @" + annotationDescr.getName() + " on field " + field.getFieldName() ) );
                     } else {
-                        if (annotationDescr.isStrict()) {
-                            kbuilder.addBuilderResult(new TypeDeclarationError(field,
-                                                                               "Unknown annotation @" + annotationDescr.getName() + " on field " + field.getFieldName()));
-                        }
+                        // Annotation is custom metadata
+                        fieldDef.addMetaData(annotationDescr.getName(), annotationDescr.getSingleValue());
+                        continue;
+                    }
+                }
+                Annotation annotation = AnnotationFactory.buildAnnotation(typeResolver, annotationDescr);
+                if (annotation != null) {
+                    try {
+                        AnnotationDefinition annotationDefinition = AnnotationDefinition.build( annotation.annotationType(),
+                                                                                                field.getAnnotation(annotationDescr.getFullyQualifiedName()).getValueMap(),
+                                                                                                typeResolver );
+                        fieldDef.addAnnotation( annotationDefinition );
+                    } catch ( Exception e ) {
+                        kbuilder.addBuilderResult( new TypeDeclarationError( field,
+                                                                             "Annotated field " + field.getFieldName() +
+                                                                             "  - undefined property in @annotation " +
+                                                                             annotationDescr.getName() + ": " + e.getMessage() + ";" ) );
+                    }
+                } else {
+                    if (annotationDescr.isStrict()) {
+                        kbuilder.addBuilderResult(new TypeDeclarationError(field,
+                                                                           "Unknown annotation @" + annotationDescr.getName() + " on field " + field.getFieldName()));
                     }
                 }
             }
@@ -300,7 +319,7 @@ public class ClassDefinitionFactory {
         return fieldDefs;
     }
 
-    public static void populateDefinitionFromClass( ClassDefinition def, Class<?> concrete, boolean asTrait ) {
+    public static void populateDefinitionFromClass( ClassDefinition def, Resource resource, Class<?> concrete, boolean asTrait ) {
         try {
             def.setClassName( concrete.getName() );
             if ( concrete.getSuperclass() != null ) {
@@ -330,6 +349,7 @@ public class ClassDefinitionFactory {
 
                     Class ret = methods.get( fieldName ).getReturnType();
                     TypeFieldDescr field = new TypeFieldDescr(  );
+                    field.setResource(resource);
                     field.setFieldName( fieldName );
                     field.setPattern( new PatternDescr( ret.getName() ) );
                     field.setIndex( position != null ? position.value() : -1 );

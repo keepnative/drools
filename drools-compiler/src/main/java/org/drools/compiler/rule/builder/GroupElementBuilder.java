@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 JBoss Inc
+ * Copyright 2006 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 
 package org.drools.compiler.rule.builder;
-
-import java.util.Iterator;
 
 import org.drools.compiler.lang.descr.AndDescr;
 import org.drools.compiler.lang.descr.BaseDescr;
@@ -46,18 +44,20 @@ public class GroupElementBuilder
         final ConditionalElementDescr cedescr = (ConditionalElementDescr) descr;
 
         final GroupElement ge = this.newGroupElementFor( descr );
-        context.getBuildStack().push( ge );
+        context.getDeclarationResolver().pushOnBuildStack( ge );
 
         if ( prefixPattern != null ) {
             ge.addChild( prefixPattern );
         }
 
         // iterate over child descriptors
-        for ( final Iterator it = cedescr.getDescrs().iterator(); it.hasNext(); ) {
+        for ( final BaseDescr child : cedescr.getDescrs() ) {
             // gets child to build
-            final BaseDescr child = (BaseDescr) it.next();
-            child.setResource(context.getRuleDescr().getResource());
-            child.setNamespace(context.getRuleDescr().getNamespace());
+
+            // child.setResource(..) does not seem to be necessary (since builderImpls have already set the resource for all children)
+            // but leaving it in here to be save
+            child.setResource( context.getRuleDescr().getResource() );
+            child.setNamespace( context.getRuleDescr().getNamespace() );
 
             // gets corresponding builder
             final RuleConditionBuilder builder = (RuleConditionBuilder) context.getDialect().getBuilder( child.getClass() );
@@ -73,10 +73,9 @@ public class GroupElementBuilder
             } else {
                 throw new RuntimeException( "BUG: no builder found for descriptor class " + child.getClass() );
             }
-
         }
 
-        context.getBuildStack().pop();
+        context.getDeclarationResolver().popBuildStack();
 
         return ge;
     }

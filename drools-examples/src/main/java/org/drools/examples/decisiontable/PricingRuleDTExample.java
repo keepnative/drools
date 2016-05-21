@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,14 +28,12 @@ import java.util.Arrays;
 public class PricingRuleDTExample {
 
     public static final void main(String[] args) {
-        PricingRuleDTExample launcher = new PricingRuleDTExample();
-        launcher.executeExample();
-    }
-
-    public int executeExample() {
-
         KieContainer kc = KieServices.Factory.get().getKieClasspathContainer();
         System.out.println(kc.verify().getMessages().toString());
+        execute( kc );
+    }
+
+    public static void execute( KieContainer kc ) {
         StatelessKieSession ksession = kc.newStatelessKieSession( "DecisionTableKS");
 
         //now create some test data
@@ -47,8 +45,7 @@ public class PricingRuleDTExample {
         System.out.println( "BASE PRICE IS: " + policy.getBasePrice() );
         System.out.println( "DISCOUNT IS: " + policy.getDiscountPercent() );
 
-        return policy.getBasePrice();
-
+        policy.getBasePrice();
     }
 
 }

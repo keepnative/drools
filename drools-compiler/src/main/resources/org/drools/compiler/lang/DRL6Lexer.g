@@ -45,7 +45,7 @@ tokens {
         return errors;
     }
 
-    /** Overrided this method to not output mesages */
+    /** Overridden to not output messages */
     public void emitErrorMessage(String msg) {
     }
     
@@ -333,6 +333,10 @@ ID
 
 // must come after the commentaries that use 2-character sequences with /	
 DIV	:	'/'	
+    ;
+
+QUESTION_DIV
+    :	'?/'
     ;
 
 MISC 	:

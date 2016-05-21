@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,19 @@
 
 package org.drools.core.common;
 
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.marshalling.impl.MarshallerReaderContext;
+import org.drools.core.marshalling.impl.MarshallerWriteContext;
+import org.drools.core.marshalling.impl.ProtobufMessages;
+import org.drools.core.phreak.PropagationEntry;
+import org.drools.core.spi.Activation;
+import org.drools.core.spi.PropagationContext;
+
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import org.drools.core.impl.InternalKnowledgeBase;
-import org.drools.core.spi.PropagationContext;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.marshalling.impl.MarshallerReaderContext;
-import org.drools.core.marshalling.impl.MarshallerWriteContext;
-import org.drools.core.marshalling.impl.ProtobufMessages;
-import org.drools.core.spi.Activation;
 
 /**
  * Implementation of a <code>RuleFlowGroup</code> that collects activations
@@ -201,7 +199,7 @@ public class RuleFlowGroupImpl
 //        }
 //
 //        // making sure we re-evaluate agenda in case we are waiting for activations
-//        ((InternalAgenda) workingMemory.getAgenda()).notifyHalt();
+//        ((InternalAgenda) workingMemory.getAgenda()).notifyWaitOnRest();
 //    }
 
     public void clear() {
@@ -382,8 +380,8 @@ public class RuleFlowGroupImpl
     }
 
     public static class DeactivateCallback
-        implements
-        WorkingMemoryAction {
+            extends PropagationEntry.AbstractPropagationEntry
+            implements WorkingMemoryAction {
 
         private static final long     serialVersionUID = 510l;
 
@@ -402,11 +400,6 @@ public class RuleFlowGroupImpl
             this.ruleFlowGroup = (InternalRuleFlowGroup) context.wm.getAgenda().getRuleFlowGroup( _action.getDeactivateCallback().getRuleflowGroup() );
         }
 
-        public void write(MarshallerWriteContext context) throws IOException {
-            context.writeShort( WorkingMemoryAction.DeactivateCallback );
-            context.writeUTF( ruleFlowGroup.getName() );
-        }
-        
         public ProtobufMessages.ActionQueue.Action serialize(MarshallerWriteContext context) {
             return ProtobufMessages.ActionQueue.Action.newBuilder()
                     .setType( ProtobufMessages.ActionQueue.ActionType.DEACTIVATE_CALLBACK )
@@ -416,15 +409,6 @@ public class RuleFlowGroupImpl
                     .build();
         }
 
-        public void readExternal(ObjectInput in) throws IOException,
-                                                ClassNotFoundException {
-            ruleFlowGroup = (InternalRuleFlowGroup) in.readObject();
-        }
-
-        public void writeExternal(ObjectOutput out) throws IOException {
-            out.writeObject( ruleFlowGroup );
-        }
-
         public void execute(InternalWorkingMemory workingMemory) {
             // check whether ruleflow group is still empty first
             if ( this.ruleFlowGroup.isEmpty() ) {
@@ -432,9 +416,11 @@ public class RuleFlowGroupImpl
                 this.ruleFlowGroup.setActive( false );
             }
         }
-        public void execute(InternalKnowledgeRuntime kruntime) {
-            execute(((StatefulKnowledgeSessionImpl) kruntime).getInternalWorkingMemory());
-        }
+    }
+
+    @Override
+    public boolean isSequential() {
+        return agendaGroup.isSequential();
     }
 
     @Override

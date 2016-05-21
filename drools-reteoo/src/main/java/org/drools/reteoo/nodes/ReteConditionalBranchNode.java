@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.nodes;
 
 import org.drools.core.base.DroolsQuery;
@@ -34,7 +49,7 @@ public class ReteConditionalBranchNode extends ConditionalBranchNode {
                                 PropagationContext context,
                                 InternalWorkingMemory workingMemory) {
         LeftTupleSourceUtils.doModifyLeftTuple(factHandle, modifyPreviousTuples, context, workingMemory,
-                                               (LeftTupleSink) this, getLeftInputOtnId(), getLeftInferredMask());
+                                               this, getLeftInputOtnId(), getLeftInferredMask());
     }
 
     public void attach( BuildContext context ) {
@@ -105,7 +120,7 @@ public class ReteConditionalBranchNode extends ConditionalBranchNode {
 
         if ( wasPropagated ) {
             LeftTupleSink mainSink = this.sink.getSinks()[0];
-            LeftTupleSink oldSink = leftTuple.getFirstChild().getSink();
+            LeftTupleSink oldSink = leftTuple.getFirstChild().getTupleSink();
 
             if ( conditionalExecution != null ) {
                 LeftTupleSink newSink = conditionalExecution.getSink().getSinks()[0];
@@ -208,20 +223,21 @@ public class ReteConditionalBranchNode extends ConditionalBranchNode {
 
                 while ( childLeftTuple != null && childLeftTuple.getRightParent() == rightParent ) {
                     // skip to the next child that has a different right parent
-                    childLeftTuple = childLeftTuple.getLeftParentNext();
+                    childLeftTuple = childLeftTuple.getHandleNext();
                 }
             }
         }
     }
 
-    protected void doRemove(final RuleRemovalContext context,
-                            final ReteooBuilder builder,
-                            final InternalWorkingMemory[] workingMemories) {
+    protected boolean doRemove(final RuleRemovalContext context,
+                               final ReteooBuilder builder,
+                               final InternalWorkingMemory[] workingMemories) {
         if ( !this.isInUse() ) {
             for( InternalWorkingMemory workingMemory : workingMemories ) {
                 workingMemory.clearNodeMemory( this );
             }
             getLeftTupleSource().removeTupleSink(this);
+            return true;
         } else {
             throw new RuntimeException("ConditionalBranchNode cannot be shared");
         }

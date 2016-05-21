@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ public class PatternDescrBuilderImpl<P extends DescrBuilder< ?, ? >> extends Bas
         ExprConstraintDescr constr = new ExprConstraintDescr( constraint );
         constr.setType( ExprConstraintDescr.Type.NAMED );
         constr.setPosition( descr.getConstraint().getDescrs().size() );
+        constr.setResource(descr.getResource());
         descr.addConstraint( constr );
         return this;
     }
@@ -73,6 +74,7 @@ public class PatternDescrBuilderImpl<P extends DescrBuilder< ?, ? >> extends Bas
         ExprConstraintDescr constr = new ExprConstraintDescr( constraint );
         constr.setType( positional ? ExprConstraintDescr.Type.POSITIONAL : ExprConstraintDescr.Type.NAMED );
         constr.setPosition( descr.getConstraint().getDescrs().size() );
+        constr.setResource(descr.getResource());
         descr.addConstraint( constr );
         return this;
     }
@@ -80,9 +82,11 @@ public class PatternDescrBuilderImpl<P extends DescrBuilder< ?, ? >> extends Bas
     public PatternDescrBuilder<P> bind( String var,
                                         String target,
                                         boolean isUnification ) {
-        descr.addConstraint( new BindingDescr( var,
-                                               target,
-                                               isUnification ) );
+        BindingDescr bindDescr = new BindingDescr( var,
+                                                   target,
+                                                   isUnification );
+        bindDescr.setResource(descr.getResource());
+        descr.addConstraint( bindDescr );
         return this;
     }
 

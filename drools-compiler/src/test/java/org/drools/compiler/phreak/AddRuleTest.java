@@ -1,8 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.phreak;
 
 import org.drools.core.base.ClassObjectType;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.EvalConditionNode;
 import org.drools.core.reteoo.JoinNode;
@@ -10,13 +25,12 @@ import org.drools.core.reteoo.LeftInputAdapterNode;
 import org.drools.core.reteoo.LeftInputAdapterNode.LiaNodeMemory;
 import org.drools.core.reteoo.ObjectTypeNode;
 import org.drools.core.reteoo.PathMemory;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.reteoo.SegmentMemory;
 import org.junit.Test;
+import org.kie.api.KieBaseConfiguration;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.rule.Match;
-import org.kie.api.KieBaseConfiguration;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
@@ -29,11 +43,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import static java.util.Arrays.asList;
+import static junit.framework.Assert.assertTrue;
 import static junit.framework.TestCase.assertSame;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 public class AddRuleTest {
 
@@ -43,7 +56,7 @@ public class AddRuleTest {
         kconf.setOption( RuleEngineOption.PHREAK );
 
         KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase(kconf);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         wm.insert(new A(1));
         wm.insert(new B(1));
@@ -60,14 +73,14 @@ public class AddRuleTest {
         wm.setGlobal("list", list);
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase, A.class );
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
 
         LiaNodeMemory lm = ( LiaNodeMemory ) wm.getNodeMemory(liaNode);
         SegmentMemory sm = lm.getSegmentMemory();
-        assertEquals(1, sm.getStagedLeftTuples().insertSize());
+        assertNotNull(sm.getStagedLeftTuples().getInsertFirst());
 
         wm.fireAllRules();
-        assertEquals(0, sm.getStagedLeftTuples().insertSize());
+        assertNull(sm.getStagedLeftTuples().getInsertFirst());
         assertEquals(1, list.size() );
 
         assertEquals( "r1", ((Match)list.get(0)).getRule().getName() );
@@ -79,7 +92,7 @@ public class AddRuleTest {
         kconf.setOption( RuleEngineOption.PHREAK );
 
         KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase(kconf);
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         wm.insert(new A(1));
         wm.insert(new A(2));
@@ -95,22 +108,26 @@ public class AddRuleTest {
         wm.setGlobal("list", list);
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase, A.class );
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
 
         LiaNodeMemory lm = ( LiaNodeMemory ) wm.getNodeMemory(liaNode);
         SegmentMemory sm = lm.getSegmentMemory();
-        assertEquals(0, sm.getStagedLeftTuples().insertSize());
+        assertNull( sm.getStagedLeftTuples().getInsertFirst() );
 
         SegmentMemory subSm = sm.getFirst();
         SegmentMemory mainSm = subSm.getNext();
 
 
-        assertEquals(2, subSm.getStagedLeftTuples().insertSize());
-        assertEquals(2, mainSm.getStagedLeftTuples().insertSize());
+        assertNotNull( subSm.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( subSm.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNull( subSm.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
+        assertNotNull( mainSm.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( mainSm.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNull( mainSm.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
 
         wm.fireAllRules();
-        assertEquals(0, subSm.getStagedLeftTuples().insertSize());
-        assertEquals(0, mainSm.getStagedLeftTuples().insertSize());
+        assertNull(subSm.getStagedLeftTuples().getInsertFirst());
+        assertNull(mainSm.getStagedLeftTuples().getInsertFirst());
         assertEquals(2, list.size() );
 
         assertEquals( "r1", ((Match)list.get(0)).getRule().getName() );
@@ -119,7 +136,7 @@ public class AddRuleTest {
     @Test
     public void testPopulatedRuleMidwayShare() throws Exception {
         KnowledgeBase kbase1 = buildKnowledgeBase("r1", "   a : A() B() C(1;) D() E()\n");
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
@@ -138,7 +155,7 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r2", "   a : A() B() C(2;) D() E()\n") );
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase1, A.class );
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         JoinNode bNode = (JoinNode) liaNode.getSinkPropagator().getFirstLeftTupleSink();
 
         JoinNode c1Node = (JoinNode) bNode.getSinkPropagator().getFirstLeftTupleSink();
@@ -157,12 +174,15 @@ public class AddRuleTest {
         assertSame( c2Smem, c2Mem.getSegmentMemory());
         assertEquals( 0, c2Mem.getLeftTupleMemory().size() );
         assertEquals( 0, c2Mem.getRightTupleMemory().size() );
-        assertEquals(3, c2Smem.getStagedLeftTuples().insertSize());
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
+        assertNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext().getStagedNext() );
 
         wm.fireAllRules();
         assertEquals( 3, c2Mem.getLeftTupleMemory().size() );
         assertEquals( 1, c2Mem.getRightTupleMemory().size() );
-        assertEquals( 0, c2Smem.getStagedLeftTuples().insertSize());
+        assertNull(c2Smem.getStagedLeftTuples().getInsertFirst());
         assertEquals(6, list.size() );
 
         assertEquals( "r1", ((Match)list.get(0)).getRule().getName() );
@@ -179,7 +199,7 @@ public class AddRuleTest {
     @Test
     public void testPopulatedRuleWithEvals() throws Exception {
         KnowledgeBase kbase1 = buildKnowledgeBase("r1", "   a:A() B() eval(1==1) eval(1==1) C(1;) \n");
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
@@ -196,7 +216,7 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r2", "   a:A() B() eval(1==1) eval(1==1) C(2;) \n") );
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase1, A.class );
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         JoinNode bNode = (JoinNode) liaNode.getSinkPropagator().getFirstLeftTupleSink();
 
         EvalConditionNode e1 = (EvalConditionNode) bNode.getSinkPropagator().getFirstLeftTupleSink();
@@ -218,12 +238,15 @@ public class AddRuleTest {
         assertSame( c2Smem, c2Mem.getSegmentMemory());
         assertEquals( 0, c2Mem.getLeftTupleMemory().size() );
         assertEquals( 0, c2Mem.getRightTupleMemory().size() );
-        assertEquals(3, c2Smem.getStagedLeftTuples().insertSize());
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNotNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
+        assertNull( c2Smem.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext().getStagedNext() );
 
         wm.fireAllRules();
         assertEquals( 3, c2Mem.getLeftTupleMemory().size() );
         assertEquals( 1, c2Mem.getRightTupleMemory().size() );
-        assertEquals( 0, c2Smem.getStagedLeftTuples().insertSize());
+        assertNull( c2Smem.getStagedLeftTuples().getInsertFirst() );
         assertEquals(6, list.size() );
 
         assertEquals( "r1", ((Match)list.get(0)).getRule().getName() );
@@ -240,7 +263,7 @@ public class AddRuleTest {
     @Test
     public void testPopulatedSharedLiaNode() throws Exception {
         KnowledgeBase kbase1 = buildKnowledgeBase("r1", "   A() B(1;) C() D() E()\n");
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
@@ -259,33 +282,39 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r2", "   a : A() B(2;) C() D() E()\n") );
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase1, A.class );
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         JoinNode bNode1 = (JoinNode) liaNode.getSinkPropagator().getFirstLeftTupleSink();
         JoinNode bNode2 = (JoinNode) liaNode.getSinkPropagator().getLastLeftTupleSink();
 
         BetaMemory bm = ( BetaMemory ) wm.getNodeMemory(bNode2);
         SegmentMemory sm = bm.getSegmentMemory();
-        assertEquals(3, sm.getStagedLeftTuples().insertSize());
+        assertNotNull( sm.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( sm.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNotNull( sm.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
+        assertNull( sm.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext().getStagedNext() );
 
         wm.fireAllRules();
-        assertEquals(0, sm.getStagedLeftTuples().insertSize());
+        assertNull( sm.getStagedLeftTuples().getInsertFirst() );
         assertEquals(6, list.size() );
 
         assertEquals( "r1", ((Match)list.get(0)).getRule().getName() );
         assertEquals( "r1", ((Match)list.get(1)).getRule().getName() );
         assertEquals( "r1", ((Match)list.get(2)).getRule().getName() );
         assertEquals( "r2", ((Match)list.get(3)).getRule().getName() );
-        assertEquals( 3, ((A)((Match)list.get(3)).getDeclarationValue("a")).getObject() );
         assertEquals( "r2", ((Match)list.get(4)).getRule().getName() );
-        assertEquals( 2, ((A)((Match)list.get(4)).getDeclarationValue("a")).getObject() );
         assertEquals( "r2", ((Match)list.get(5)).getRule().getName() );
-        assertEquals( 1, ((A)((Match)list.get(5)).getDeclarationValue("a")).getObject() );
+
+        List results = new ArrayList();
+        results.add(((A)((Match)list.get(3)).getDeclarationValue("a")).getObject());
+        results.add(((A)((Match)list.get(4)).getDeclarationValue("a")).getObject());
+        results.add(((A)((Match)list.get(5)).getDeclarationValue("a")).getObject());
+        assertTrue(results.containsAll(asList(1, 2, 3)));
     }
 
     @Test
     public void testPopulatedSharedToRtn() throws Exception {
         KnowledgeBase kbase1 = buildKnowledgeBase("r1", "   A() B() C() D() E()\n");
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
@@ -302,18 +331,18 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r2", "   A() B() C() D() E()\n") );
 
         ObjectTypeNode eotn = getObjectTypeNode(kbase1, E.class );
-        JoinNode eNode = (JoinNode) eotn.getSinkPropagator().getSinks()[0];
+        JoinNode eNode = (JoinNode) eotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn = ( RuleTerminalNode ) eNode.getSinkPropagator().getLastLeftTupleSink();
 
         PathMemory pm = (PathMemory) wm.getNodeMemory(rtn);
         SegmentMemory sm = pm.getSegmentMemory();
-        assertEquals(2, sm.getStagedLeftTuples().insertSize());
+        assertNotNull( sm.getStagedLeftTuples().getInsertFirst() );
+        assertNotNull( sm.getStagedLeftTuples().getInsertFirst().getStagedNext() );
+        assertNull( sm.getStagedLeftTuples().getInsertFirst().getStagedNext().getStagedNext() );
 
         wm.fireAllRules();
-        assertEquals(0, sm.getStagedLeftTuples().insertSize());
+        assertNull( sm.getStagedLeftTuples().getInsertFirst() );
         assertEquals(4, list.size() );
-
-        System.out.println( list );
 
         assertEquals("r1", ((Match) list.get(0)).getRule().getName());
         assertEquals( "r1", ((Match)list.get(1)).getRule().getName() );
@@ -324,7 +353,7 @@ public class AddRuleTest {
     @Test
     public void testPopulatedMultipleShares() throws Exception {
         KnowledgeBase kbase1 = buildKnowledgeBase("r1", "   A(1;)  A(2;) B(1;) B(2;) C(1;) D() E()\n" );
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
@@ -348,6 +377,7 @@ public class AddRuleTest {
 
 
         wm.fireAllRules();
+        System.out.println(list);
         assertEquals( 5, list.size() );
 
         assertEquals("r1", ((Match) list.get(0)).getRule().getName());
@@ -364,17 +394,18 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r3", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(2;)\n") );
         kbase1.addKnowledgePackages( buildKnowledgePackage("r4", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) \n") );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
         wm.insert(new E(1));
         wm.insert(new E(2));
+        wm.flushPropagations();
 
-        RuleTerminalNode rtn1 = getRtn( "r1", kbase1 );
-        RuleTerminalNode rtn2 = getRtn( "r2", kbase1 );
-        RuleTerminalNode rtn3 = getRtn( "r3", kbase1 );
-        RuleTerminalNode rtn4 = getRtn( "r4", kbase1 );
+        RuleTerminalNode rtn1 = getRtn( "org.kie.r1", kbase1 );
+        RuleTerminalNode rtn2 = getRtn( "org.kie.r2", kbase1 );
+        RuleTerminalNode rtn3 = getRtn( "org.kie.r3", kbase1 );
+        RuleTerminalNode rtn4 = getRtn( "org.kie.r4", kbase1 );
 
         PathMemory pm1 = (PathMemory) wm.getNodeMemory(rtn1);
         SegmentMemory[] smems = pm1.getSegmentMemories();
@@ -400,7 +431,7 @@ public class AddRuleTest {
         assertEquals( 8, sm.getSegmentPosMaskBit() );
         assertEquals( 8, pm1.getLinkedSegmentMask() );
 
-        RuleTerminalNode rtn5 = getRtn( "r5", kbase1 );
+        RuleTerminalNode rtn5 = getRtn( "org.kie.r5", kbase1 );
         PathMemory pm5 = (PathMemory) wm.getNodeMemory(rtn5);
         smems = pm5.getSegmentMemories();
         assertEquals(2, smems.length);
@@ -416,17 +447,18 @@ public class AddRuleTest {
         kbase1.addKnowledgePackages( buildKnowledgePackage("r3", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(2;)\n") );
         kbase1.addKnowledgePackages( buildKnowledgePackage("r4", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) \n") );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
         wm.insert(new D(1));
         wm.insert(new D(2));
+        wm.flushPropagations();
 
-        RuleTerminalNode rtn1 = getRtn( "r1", kbase1 );
-        RuleTerminalNode rtn2 = getRtn( "r2", kbase1 );
-        RuleTerminalNode rtn3 = getRtn( "r3", kbase1 );
-        RuleTerminalNode rtn4 = getRtn( "r4", kbase1 );
+        RuleTerminalNode rtn1 = getRtn( "org.kie.r1", kbase1 );
+        RuleTerminalNode rtn2 = getRtn( "org.kie.r2", kbase1 );
+        RuleTerminalNode rtn3 = getRtn( "org.kie.r3", kbase1 );
+        RuleTerminalNode rtn4 = getRtn( "org.kie.r4", kbase1 );
 
         PathMemory pm1 = (PathMemory) wm.getNodeMemory(rtn1);
         SegmentMemory[] smems = pm1.getSegmentMemories();
@@ -472,7 +504,7 @@ public class AddRuleTest {
         assertEquals( 4, sm.getSegmentPosMaskBit() );
         assertEquals( 4, pm1.getLinkedSegmentMask() );
 
-        RuleTerminalNode rtn5 = getRtn( "r5", kbase1 );
+        RuleTerminalNode rtn5 = getRtn( "org.kie.r5", kbase1 );
         PathMemory pm5 = (PathMemory) wm.getNodeMemory(rtn5);
         smems = pm5.getSegmentMemories();
         assertEquals(2, smems.length);
@@ -482,21 +514,25 @@ public class AddRuleTest {
 
     @Test
     public void testSplitOnCreatedSegment() throws Exception {
+        // this test splits D1 and D2 on the later add rule
         KnowledgeBase kbase1 =          buildKnowledgeBase("r1", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(2;) E(1;) E(2;)\n" );
         kbase1.addKnowledgePackages( buildKnowledgePackage("r2", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(2;) E(1;) E(2;)\n") );
         kbase1.addKnowledgePackages( buildKnowledgePackage("r3", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(2;)\n") );
         kbase1.addKnowledgePackages( buildKnowledgePackage("r4", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) \n") );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase1.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase1.newStatefulKnowledgeSession());
         List list = new ArrayList();
         wm.setGlobal("list", list);
 
         wm.insert(new D(1));
         wm.insert(new D(2));
+        wm.insert(new D(3));
+        wm.flushPropagations();
 
-        RuleTerminalNode rtn1 = getRtn( "r1", kbase1 );
+        RuleTerminalNode rtn1 = getRtn( "org.kie.r1", kbase1 );
 
         PathMemory pm1 = (PathMemory) wm.getNodeMemory(rtn1);
+        assertEquals( 2, pm1.getLinkedSegmentMask() );
         SegmentMemory[] smems = pm1.getSegmentMemories();
         assertEquals(4, smems.length);
         assertNull( smems[0]);
@@ -505,10 +541,12 @@ public class AddRuleTest {
         SegmentMemory sm = smems[1];
         assertEquals( 1, sm.getPos() );
         assertEquals( 2, sm.getSegmentPosMaskBit() );
-        assertEquals( 2, pm1.getLinkedSegmentMask() );
+
 
         kbase1.addKnowledgePackages( buildKnowledgePackage("r5", "   A(1;)  A(2;) B(1;) B(2;) C(1;) C(2;) D(1;) D(3;)\n") );
+        wm.fireAllRules();
 
+        assertEquals( 6, pm1.getLinkedSegmentMask() );
         smems = pm1.getSegmentMemories();
         assertEquals(5, smems.length);
         assertNull( smems[0]);
@@ -517,26 +555,25 @@ public class AddRuleTest {
         sm = smems[1];
         assertEquals( 1, sm.getPos() );
         assertEquals( 2, sm.getSegmentPosMaskBit() );
-        assertEquals( 6, pm1.getLinkedSegmentMask() );
 
         sm = smems[2];
         assertEquals( 2, sm.getPos() );
         assertEquals( 4, sm.getSegmentPosMaskBit() );
-        assertEquals( 6, pm1.getLinkedSegmentMask() );
 
-        RuleTerminalNode rtn5 = getRtn( "r5", kbase1 );
+        RuleTerminalNode rtn5 = getRtn( "org.kie.r5", kbase1 );
         PathMemory pm5 = (PathMemory) wm.getNodeMemory(rtn5);
+        assertEquals( 6, pm5.getLinkedSegmentMask() );
+
         smems = pm5.getSegmentMemories();
         assertEquals(3, smems.length);
         assertNull( smems[0]);
         sm = smems[1];
         assertEquals( 1, sm.getPos() );
         assertEquals( 2, sm.getSegmentPosMaskBit() );
-        assertEquals( 6, pm5.getLinkedSegmentMask() );
+
         sm = smems[2];
         assertEquals( 2, sm.getPos() );
         assertEquals( 4, sm.getSegmentPosMaskBit() );
-        assertEquals( 6, pm5.getLinkedSegmentMask() );
     }
 
 

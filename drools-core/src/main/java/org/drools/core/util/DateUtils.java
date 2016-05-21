@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-
-import org.drools.core.type.DateFormats;
 
 public class DateUtils {
 
@@ -60,12 +58,8 @@ public class DateUtils {
         return fmt;
     }
 
-    public static Date parseDate(final String input) {
-        return parseDate(input, null);
-    }
-
     /** Use the simple date formatter to read the date from a string */
-    public static Date parseDate(final String input, DateFormats dateFormats) {
+    public static Date parseDate(final String input) {
         try {
             return df.get().parse(input);
         } catch (final ParseException e) {
@@ -85,12 +79,12 @@ public class DateUtils {
     }
     
     /** Converts the right hand side date as appropriate */
-    public static Date getRightDate(final Object object2, DateFormats dateFormats) {
+    public static Date getRightDate(final Object object2) {
         if (object2 == null) {
             return null;
         }
         if (object2 instanceof String) {
-            return parseDate((String) object2, dateFormats);
+            return parseDate((String) object2);
         } else if (object2 instanceof Date) {
             return (Date) object2;
         } else {

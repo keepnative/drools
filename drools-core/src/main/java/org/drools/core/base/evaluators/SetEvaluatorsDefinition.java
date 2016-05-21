@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,6 @@
 
 package org.drools.core.base.evaluators;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.drools.core.base.BaseEvaluator;
 import org.drools.core.base.ValueType;
 import org.drools.core.common.InternalFactHandle;
@@ -32,6 +25,13 @@ import org.drools.core.rule.VariableRestriction.VariableContextEntry;
 import org.drools.core.spi.Evaluator;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * This class defines all the set built in evaluators like contains, memberOf,
@@ -387,7 +387,7 @@ public class SetEvaluatorsDefinition
             return getArrayContains( array.getClass() ).contains( array,
                                                                   workingMemory,
                                                                   context.declaration.getExtractor(),
-                                                                  context.reteTuple.get( context.declaration ).getObject() );
+                                                                  context.tuple.getObject( context.declaration ) );
         }
 
         public boolean evaluate(InternalWorkingMemory workingMemory,
@@ -460,7 +460,7 @@ public class SetEvaluatorsDefinition
             return !getArrayContains( array.getClass() ).contains( array,
                                                                    workingMemory,
                                                                    context.declaration.getExtractor(),
-                                                                   context.getTuple().get( context.getVariableDeclaration() ).getObject() );
+                                                                   context.getTuple().getObject( context.getVariableDeclaration() ) );
         }
 
         public boolean evaluate(InternalWorkingMemory workingMemory,

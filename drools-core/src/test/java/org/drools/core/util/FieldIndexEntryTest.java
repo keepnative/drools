@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,18 @@ import org.drools.core.base.ClassFieldAccessorStore;
 import org.drools.core.base.ClassFieldReader;
 import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.InternalFactHandle;
+import org.drools.core.reteoo.RightTuple;
+import org.drools.core.reteoo.RightTupleImpl;
+import org.drools.core.rule.constraint.MvelConstraint;
+import org.drools.core.spi.Tuple;
 import org.drools.core.test.model.Cheese;
 import org.drools.core.util.AbstractHashTable.FieldIndex;
 import org.drools.core.util.AbstractHashTable.SingleIndex;
-import org.drools.core.util.index.RightTupleList;
-import org.drools.core.reteoo.RightTuple;
-import org.drools.core.rule.constraint.MvelConstraint;
+import org.drools.core.util.index.TupleList;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
+import static org.junit.Assert.*;
 
 public class FieldIndexEntryTest {
 
@@ -47,8 +47,7 @@ public class FieldIndexEntryTest {
     @Test
     public void testSingleEntry() {
         final ClassFieldReader extractor = store.getReader( Cheese.class,
-                                                                  "type",
-                                                                  getClass().getClassLoader() );
+                                                                  "type" );
 
         final FieldIndex fieldIndex = new FieldIndex( extractor,
                                                       null,
@@ -56,11 +55,10 @@ public class FieldIndexEntryTest {
         final SingleIndex singleIndex = new SingleIndex( new FieldIndex[]{fieldIndex},
                                                          1 );
 
-        final RightTupleList index = new RightTupleList( singleIndex,
-                                                           "stilton".hashCode() );
+        final TupleList index = new TupleList( singleIndex, "stilton".hashCode() );
 
         // Test initial construction
-        assertNull( index.first );
+        assertNull( index.getFirst() );
         assertEquals( "stilton".hashCode(),
                       index.hashCode() );
 
@@ -70,10 +68,10 @@ public class FieldIndexEntryTest {
                                                              stilton1 );
 
         // test add
-        RightTuple h1RightTuple = new RightTuple( h1, null );
+        RightTuple h1RightTuple = new RightTupleImpl( h1, null );
         index.add( h1RightTuple );
 
-        final RightTuple entry1 = index.first;
+        final Tuple entry1 = index.getFirst();
         assertSame( h1,
                     entry1.getFactHandle() );
         assertNull( entry1.getNext() );
@@ -81,28 +79,26 @@ public class FieldIndexEntryTest {
                     index.get( h1 ) );
 
         // test get
-        final RightTuple entry2 = index.get( new RightTuple( h1, null ) );
+        final Tuple entry2 = index.get( new RightTupleImpl( h1, null ) );
         assertSame( entry1,
                     entry2 );
 
         // test remove
         index.remove( h1RightTuple );
-        assertNull( index.first );
+        assertNull( index.getFirst() );
     }
 
     @Test
     public void testTwoEntries() {
         final ClassFieldReader extractor = store.getReader( Cheese.class,
-                                                                  "type",
-                                                                  getClass().getClassLoader() );
+                                                                  "type" );
         final FieldIndex fieldIndex = new FieldIndex( extractor,
                                                       null,
                                                       MvelConstraint.INDEX_EVALUATOR );
         final SingleIndex singleIndex = new SingleIndex( new FieldIndex[]{fieldIndex},
                                                          1 );
 
-        final RightTupleList index = new RightTupleList( singleIndex,
-                                                           "stilton".hashCode() );
+        final TupleList index = new TupleList( singleIndex, "stilton".hashCode() );
 
         final Cheese stilton1 = new Cheese( "stilton",
                                             35 );
@@ -113,16 +109,16 @@ public class FieldIndexEntryTest {
         final InternalFactHandle h2 = new DefaultFactHandle( 2,
                                                              stilton2 );
         
-        RightTuple h1RightTuple = new RightTuple( h1, null );
-        RightTuple h2RightTuple = new RightTuple( h2, null );
+        RightTuple h1RightTuple = new RightTupleImpl( h1, null );
+        RightTuple h2RightTuple = new RightTupleImpl( h2, null );
 
         // test add
         index.add( h1RightTuple );
         index.add( h2RightTuple );
         assertEquals( h1,
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
         assertEquals( h2,
-                      ((RightTuple) index.first.getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext()).getFactHandle() );
 
         // test get
         assertEquals( h1,
@@ -134,13 +130,13 @@ public class FieldIndexEntryTest {
         // remove first
         index.remove( h2RightTuple );
         assertEquals( h1RightTuple.getFactHandle(),
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
 
         // remove second
         index.add( h2RightTuple );
         index.remove( h1RightTuple );
         assertEquals( h2RightTuple.getFactHandle(),
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
 
         // check index type does not change, as this fact is removed
         stilton1.setType( "cheddar" );
@@ -149,16 +145,14 @@ public class FieldIndexEntryTest {
     @Test
     public void testThreeEntries() {
         final ClassFieldReader extractor = store.getReader( Cheese.class,
-                                                                  "type",
-                                                                  getClass().getClassLoader() );
+                                                                  "type" );
         final FieldIndex fieldIndex = new FieldIndex( extractor,
                                                       null,
                                                       MvelConstraint.INDEX_EVALUATOR );
         final SingleIndex singleIndex = new SingleIndex( new FieldIndex[]{fieldIndex},
                                                          1 );
 
-        final RightTupleList index = new RightTupleList( singleIndex,
-                                                           "stilton".hashCode() );
+        final TupleList index = new TupleList( singleIndex, "stilton".hashCode() );
 
         final Cheese stilton1 = new Cheese( "stilton",
                                             35 );
@@ -173,20 +167,20 @@ public class FieldIndexEntryTest {
         final InternalFactHandle h3 = new DefaultFactHandle( 3,
                                                              stilton3 );
 
-        RightTuple h1RightTuple = new RightTuple( h1, null );
-        RightTuple h2RightTuple = new RightTuple( h2, null );
-        RightTuple h3RightTuple = new RightTuple( h3, null );
+        RightTuple h1RightTuple = new RightTupleImpl( h1, null );
+        RightTuple h2RightTuple = new RightTupleImpl( h2, null );
+        RightTuple h3RightTuple = new RightTupleImpl( h3, null );
         
         // test add
         index.add( h1RightTuple );
         index.add( h2RightTuple );
         index.add( h3RightTuple );
         assertEquals( h1,
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
         assertEquals( h2,
-                      ((RightTuple) index.first.getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext()).getFactHandle() );
         assertEquals( h3,
-                      ((RightTuple) index.first.getNext().getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext().getNext()).getFactHandle() );
 
         // test get
         assertEquals( h1,
@@ -200,25 +194,25 @@ public class FieldIndexEntryTest {
         //remove first
         index.remove( h3RightTuple );
         assertEquals( h1,
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
         assertEquals( h2,
-                      ((RightTuple) index.first.getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext()).getFactHandle() );
 
         index.add( h3RightTuple );
         index.remove( h2RightTuple );
         assertEquals( h1,
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
         assertEquals( h3,
-                      ((RightTuple) index.first.getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext()).getFactHandle() );
 
         index.add( h2RightTuple );
         index.remove( h1RightTuple );
         assertEquals( h3,
-                      index.first.getFactHandle() );
+                      index.getFirst().getFactHandle() );
         assertEquals( h2,
-                      ((RightTuple) index.first.getNext()).getFactHandle() );
+                      ((RightTuple) index.getFirst().getNext()).getFactHandle() );
 
-        index.remove( index.first );
+        index.remove( index.getFirst() );
         // check index type does not change, as this fact is removed
         stilton2.setType( "cheddar" );
     }

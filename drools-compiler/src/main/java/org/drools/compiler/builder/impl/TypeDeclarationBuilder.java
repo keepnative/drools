@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.builder.impl;
 
 import org.drools.compiler.compiler.PackageRegistry;
@@ -17,6 +32,7 @@ import org.drools.core.factmodel.traits.TraitFactory;
 import org.drools.core.factmodel.traits.Traitable;
 import org.drools.core.rule.TypeDeclaration;
 import org.kie.api.io.Resource;
+import org.kie.internal.builder.ResourceChange;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -51,6 +67,10 @@ public class TypeDeclarationBuilder {
 
     public TypeDeclaration getAndRegisterTypeDeclaration( Class<?> cls, String packageName ) {
         return classDeclarationExtractor.getAndRegisterTypeDeclaration( cls, packageName );
+    }
+
+    public TypeDeclaration getExistingTypeDeclaration( String className ) {
+        return classDeclarationExtractor.getCachedTypeDeclaration( className );
     }
 
     public TypeDeclaration getTypeDeclaration( Class<?> cls ) {
@@ -91,7 +111,7 @@ public class TypeDeclarationBuilder {
         setResourcesInDescriptors( packageDescrs );
 
         // ensure all names are fully qualified before continuing
-        typeDeclarationNameResolver.resolveTypes( packageDescrs, unsortedDescrs, unresolvedTypes, unprocesseableDescrs );
+        typeDeclarationNameResolver.resolveTypes( packageDescrs, unresolvedTypes );
 
         // create "implicit" packages
         for ( PackageDescr packageDescr : packageDescrs ) {
@@ -196,9 +216,7 @@ public class TypeDeclarationBuilder {
         }
 
         TypeDeclaration type = typeDeclarationFactory.processTypeDeclaration( pkgRegistry,
-                                                                              typeDescr,
-                                                                              unresolvedTypes,
-                                                                              unprocesseableDescrs );
+                                                                              typeDescr );
         boolean success = ! kbuilder.hasErrors();
 
         try {
@@ -266,7 +284,7 @@ public class TypeDeclarationBuilder {
         Map<String, PackageDescr> foreignPackages = null;
 
         for ( AbstractClassTypeDeclarationDescr typeDescr : packageDescr.getClassAndEnumDeclarationDescrs() ) {
-            if ( kbuilder.filterAccepts(typeDescr.getNamespace(), typeDescr.getTypeName()) ) {
+            if ( kbuilder.filterAccepts( ResourceChange.Type.DECLARATION, typeDescr.getNamespace(), typeDescr.getTypeName()) ) {
 
                 if ( ! typeDescr.getNamespace().equals( packageDescr.getNamespace() ) ) {
                     // If the type declaration is for a different namespace, process that separately.
@@ -280,6 +298,7 @@ public class TypeDeclarationBuilder {
                         altDescr = foreignPackages.get( typeDescr.getNamespace() );
                     } else {
                         altDescr = new PackageDescr(typeDescr.getNamespace());
+                        altDescr.setResource(packageDescr.getResource());
                         foreignPackages.put( typeDescr.getNamespace(), altDescr );
                     }
 
@@ -330,6 +349,10 @@ public class TypeDeclarationBuilder {
                     String availableName = typeDescr.getType().getFullName();
                     Class<?> resolvedType = reg.getTypeResolver().resolveType(availableName);
                     if (!Thing.class.isAssignableFrom(resolvedType)) {
+                        if ( ! resolvedType.isInterface() ) {
+                            kbuilder.addBuilderResult( new TypeDeclarationError( typeDescr, "Unable to redeclare concrete class " + resolvedType.getName() + " as a trait." ) );
+                            return;
+                        }
                         updateTraitDefinition( type,
                                                resolvedType,
                                                false );
@@ -340,7 +363,9 @@ public class TypeDeclarationBuilder {
                         tempDescr.setFields(typeDescr.getFields());
                         tempDescr.setType(target,
                                           typeDescr.getNamespace());
+                        tempDescr.setTrait( true );
                         tempDescr.addSuperType(typeDescr.getType());
+                        tempDescr.setResource(type.getResource());
                         TypeDeclaration tempDeclr = new TypeDeclaration(target);
                         tempDeclr.setKind(TypeDeclaration.Kind.TRAIT);
                         tempDeclr.setTypesafe(type.isTypesafe());
@@ -359,8 +384,6 @@ public class TypeDeclarationBuilder {
                         tempDef.setDefinedClass(resolvedType);
                         tempDef.setAbstrakt(true);
                         tempDeclr.setTypeClassDef(tempDef);
-
-                        type.setKind(TypeDeclaration.Kind.CLASS);
 
                         declaredClassBuilder.generateBeanFromDefinition( tempDescr,
                                                                          tempDeclr,
@@ -406,7 +429,7 @@ public class TypeDeclarationBuilder {
     protected void updateTraitDefinition( TypeDeclaration type,
                                           Class concrete,
                                           boolean asTrait ) {
-        classDefinitionFactory.populateDefinitionFromClass( type.getTypeClassDef(), concrete, asTrait );
+        ClassDefinitionFactory.populateDefinitionFromClass( type.getTypeClassDef(), type.getResource(), concrete, asTrait );
     }
 
 }

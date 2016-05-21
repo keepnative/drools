@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.reteoo;
 
 import org.drools.core.base.ClassObjectType;
@@ -66,8 +81,8 @@ public class NodeSegmentUnlinkingTest {
             }
         }
 
-        mockObjectSource.attach();
-        betaNode.attach();
+        mockObjectSource.attach(buildContext);
+        betaNode.attach(buildContext);
 
         return betaNode;
     }
@@ -103,7 +118,7 @@ public class NodeSegmentUnlinkingTest {
                                                       rule1.getLhs(),
                                                       0,
                                                       buildContext );
-        rtn1.attach();
+        rtn1.attach(buildContext);
         
         
         n3 = createBetaNode( 12, type[2], n1 );
@@ -116,7 +131,7 @@ public class NodeSegmentUnlinkingTest {
                                                       rule2.getLhs(),
                                                       0,
                                                       buildContext );
-        rtn2.attach();       
+        rtn2.attach(buildContext);
 
         n7 = createBetaNode( 16, type[6], n6 );
         n8 = createBetaNode( 17, type[7], n7 );
@@ -126,7 +141,7 @@ public class NodeSegmentUnlinkingTest {
                                                       rule3.getLhs(),
                                                       0,
                                                       buildContext );
-        rtn3.attach(); 
+        rtn3.attach(buildContext);
         
         // n1 -> n2 -> r1
         //  \ 
@@ -134,24 +149,24 @@ public class NodeSegmentUnlinkingTest {
         //                      \
         //                      n7 -> n8 -> r3          
         
-        n1.getAssociations().put( rule1, null );
-        n1.getAssociations().put( rule2, null );
-        n1.getAssociations().put( rule3, null );
-        n2.getAssociations().put( rule1, null );
-        n2.getAssociations().put( rule2, null );
-        n2.getAssociations().put( rule3, null );
+        n1.addAssociation( rule1 );
+        n1.addAssociation( rule2 );
+        n1.addAssociation( rule3 );
+        n2.addAssociation( rule1 );
+        n2.addAssociation( rule2 );
+        n2.addAssociation( rule3 );
 
-        n3.getAssociations().put( rule2, null );
-        n3.getAssociations().put( rule3, null );
-        n4.getAssociations().put( rule2, null );
-        n4.getAssociations().put( rule3, null );
-        n5.getAssociations().put( rule2, null );
-        n5.getAssociations().put( rule3, null );
-        n6.getAssociations().put( rule2, null );
-        n6.getAssociations().put( rule3, null );
+        n3.addAssociation( rule2 );
+        n3.addAssociation( rule3 );
+        n4.addAssociation( rule2 );
+        n4.addAssociation( rule3 );
+        n5.addAssociation( rule2 );
+        n5.addAssociation( rule3 );
+        n6.addAssociation( rule2 );
+        n6.addAssociation( rule3 );
 
-        n7.getAssociations().put( rule3, null );
-        n8.getAssociations().put( rule3, null );
+        n7.addAssociation( rule3 );
+        n8.addAssociation( rule3 );
     }
 
     @Test
@@ -182,24 +197,24 @@ public class NodeSegmentUnlinkingTest {
         BetaNode n5 = new JoinNode( 14, n2, mockObjectSource,
                                     new EmptyBetaConstraints(), buildContext );
 
-        n1.addAssociation( rule1, null );
-        n1.addAssociation( rule2, null );
-        n1.addAssociation( rule3, null );
+        n1.addAssociation( rule1 );
+        n1.addAssociation( rule2 );
+        n1.addAssociation( rule3 );
 
-        n2.addAssociation( rule2, null );
-        n2.addAssociation( rule3, null );
+        n2.addAssociation( rule2 );
+        n2.addAssociation( rule3 );
 
-        n3.addAssociation( rule1, null );
-        n4.addAssociation( rule2, null );
-        n5.addAssociation( rule3, null );
+        n3.addAssociation( rule1 );
+        n4.addAssociation( rule2 );
+        n5.addAssociation( rule3 );
 
-        mockObjectSource.attach();
-        mockTupleSource.attach();
-        n1.attach();
-        n2.attach();
-        n3.attach();
-        n4.attach();
-        n5.attach();
+        mockObjectSource.attach(buildContext);
+        mockTupleSource.attach(buildContext);
+        n1.attach(buildContext);
+        n2.attach(buildContext);
+        n3.attach(buildContext);
+        n4.attach(buildContext);
+        n5.attach(buildContext);
 
         StatefulKnowledgeSessionImpl ksession = (StatefulKnowledgeSessionImpl)kBase.newStatefulKnowledgeSession();
         createSegmentMemory( n2, ksession );

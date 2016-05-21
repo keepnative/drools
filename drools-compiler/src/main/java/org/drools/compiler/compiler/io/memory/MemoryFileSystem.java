@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.compiler.io.memory;
 
 import org.drools.compiler.commons.jci.readers.ResourceReader;
@@ -9,6 +24,8 @@ import org.drools.compiler.compiler.io.Path;
 import org.drools.compiler.compiler.io.Resource;
 import org.drools.core.util.IoUtils;
 import org.drools.core.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -38,16 +55,21 @@ public class MemoryFileSystem
     ResourceReader,
     ResourceStore {
 
-    private MemoryFolder               folder;
+    private static final Logger log = LoggerFactory.getLogger( MemoryFileSystem.class );
 
-    private Map<String, Set<Resource>> folders;
+    private final MemoryFolder               folder;
 
-    private Map<String, byte[]>        fileContents;
+    private final Map<String, Set<Resource>> folders;
 
-    private Set<String>                modifiedFilesSinceLastMark;
+    private final Map<String, Folder>        folderMap;
+
+    private final Map<String, byte[]>        fileContents;
+
+    private Set<String>                      modifiedFilesSinceLastMark;
 
     public MemoryFileSystem() {
         folders = new HashMap<String, Set<Resource>>();
+        folderMap = new HashMap<String, Folder>();
         fileContents = new HashMap<String, byte[]>();
 
         folder = new MemoryFolder( this,
@@ -89,17 +111,19 @@ public class MemoryFileSystem
                                    path,
                                    folder );
         }
-
     }
 
     public Folder getFolder(Path path) {
-        return new MemoryFolder( this,
-                                 path.toPortableString() );
+        return getFolder( path.toPortableString() );
     }
 
     public Folder getFolder(String path) {
-        return new MemoryFolder( this,
-                                 path );
+        Folder folder = folderMap.get(path);
+        if (folder == null) {
+            folder = new MemoryFolder( this, path );
+            folderMap.put( path, folder );
+        }
+        return folder;
     }
 
     public Set< ? extends Resource> getMembers(Folder folder) {
@@ -143,11 +167,17 @@ public class MemoryFileSystem
     }
 
     public boolean existsFolder(String path) {
-        return folders.get( path ) != null;
+        if (path == null) {
+            throw new NullPointerException("Folder path can not be null!");
+        }
+        return folders.get(MemoryFolder.trimLeadingAndTrailing(path)) != null;
     }
 
     public boolean existsFile(String path) {
-        return fileContents.containsKey( MemoryFolder.trimLeadingAndTrailing( path ) );
+        if (path == null) {
+            throw new NullPointerException("File path can not be null!");
+        }
+        return fileContents.containsKey(MemoryFolder.trimLeadingAndTrailing(path));
     }
 
     public void createFolder(MemoryFolder folder) {                
@@ -337,6 +367,11 @@ public class MemoryFileSystem
     public void write(String pResourceName,
                       byte[] pResourceData,
                       boolean createFolder) {
+        if (pResourceData.length == 0 && pResourceName.endsWith( "/" )) {
+            // avoid to create files for empty folders
+            return;
+        }
+
         MemoryFile memoryFile = (MemoryFile) getFile( pResourceName );
         if ( createFolder ) {
             String folderPath = memoryFile.getFolder().getPath().toPortableString();
@@ -395,6 +430,7 @@ public class MemoryFileSystem
                     out.close();
                 }
             } catch ( IOException e ) {
+                log.error(e.getMessage(), e);
             }
         }
     }
@@ -439,6 +475,11 @@ public class MemoryFileSystem
                 out.putNextEntry( entry );
 
                 byte[] contents = getFileContents( (MemoryFile) rs );
+                if (contents == null) {
+                    IOException e = new IOException("No content found for: " + rs);
+                    log.error(e.getMessage(), e);
+                    throw e;
+                }
                 out.write( contents );
                 out.closeEntry();
             }
@@ -454,8 +495,7 @@ public class MemoryFileSystem
             while ( entries.hasMoreElements() ) {
                 ZipEntry entry = entries.nextElement();
                 int separator = entry.getName().lastIndexOf( '/' );
-                String path = entry.getName().substring( 0,
-                                                         separator );
+                String path = separator > 0 ? entry.getName().substring( 0, separator ) : "";
                 String name = entry.getName().substring( separator + 1 );
 
                 Folder folder = mfs.getFolder( path );
@@ -470,7 +510,9 @@ public class MemoryFileSystem
             if ( zipFile != null ) {
                 try {
                     zipFile.close();
-                } catch ( IOException e ) { }
+                } catch ( IOException e ) {
+                    log.error(e.getMessage(), e);
+                }
             }
         }
         return mfs;
@@ -485,11 +527,11 @@ public class MemoryFileSystem
         JarInputStream zipFile = null;
         try {
             zipFile = new JarInputStream( jarFile );
-            ZipEntry entry = null;
+            ZipEntry entry;
             while ( (entry = zipFile.getNextEntry()) != null ) {
                 // entry.getSize() is not accurate according to documentation, so have to read bytes until -1 is found
                 ByteArrayOutputStream content = new ByteArrayOutputStream();
-                int b = -1;
+                int b;
                 while( (b = zipFile.read()) != -1 ) {
                     content.write( b );
                 }
@@ -501,7 +543,9 @@ public class MemoryFileSystem
             if ( zipFile != null ) {
                 try {
                     zipFile.close();
-                } catch ( IOException e ) { }
+                } catch ( IOException e ) {
+                    log.error(e.getMessage(), e);
+                }
             }
         }
         return mfs;

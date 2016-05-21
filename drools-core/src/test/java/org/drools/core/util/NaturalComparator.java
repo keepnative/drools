@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@ package org.drools.core.util;
 
 import java.util.Comparator;
 
-public final class NaturalComparator
+public final class NaturalComparator<T>
     implements
-    Comparator {
+    Comparator<T> {
     public static final NaturalComparator INSTANCE = new NaturalComparator();
 
     private NaturalComparator() {
     }
 
-    public int compare(final Object a,
-                       final Object b) {
+    public int compare(final T a,
+                       final T b) {
         return ((Comparable) a).compareTo( b );
     }
 }

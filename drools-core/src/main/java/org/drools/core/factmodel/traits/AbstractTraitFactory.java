@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,10 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 public abstract class AbstractTraitFactory<T extends Thing<K>, K extends TraitableBean> implements Opcodes, Externalizable {
 
@@ -57,22 +57,40 @@ public abstract class AbstractTraitFactory<T extends Thing<K>, K extends Traitab
 
     protected Map<Class, Class<? extends CoreWrapper<?>>> wrapperCache = new HashMap<Class, Class<? extends CoreWrapper<?>>>();
 
+    private InstantiatorFactory instantiatorFactory = new InstantiatorFactory() {
+        @Override
+        public TraitableBean instantiate( Class<?> trait, Object id ) {
+            return new Entity( id.toString() );
+        }
+
+        @Override
+        public Object createId( Class<?> klass ) {
+            return UUID.randomUUID().toString();
+        }
+    };
 
     public AbstractTraitFactory() {
     }
-
 
     protected static void setMode( VirtualPropertyMode newMode, KieComponentFactory rcf ) {
         ClassBuilderFactory cbf = rcf.getClassBuilderFactory();
         rcf.getTraitFactory().mode = newMode;
         switch ( newMode ) {
             case MAP    :
-                cbf.setPropertyWrapperBuilder( new TraitMapPropertyWrapperClassBuilderImpl() );
-                cbf.setTraitProxyBuilder( new TraitMapProxyClassBuilderImpl() );
+                if ( ! ( cbf.getPropertyWrapperBuilder() instanceof TraitMapProxyClassBuilderImpl ) ) {
+                    cbf.setPropertyWrapperBuilder( new TraitMapPropertyWrapperClassBuilderImpl() );
+                }
+                if ( ! ( cbf.getTraitProxyBuilder() instanceof TraitMapProxyClassBuilderImpl ) ) {
+                    cbf.setTraitProxyBuilder( new TraitMapProxyClassBuilderImpl() );
+                }
                 break;
             case TRIPLES:
-                cbf.setPropertyWrapperBuilder( new TraitTriplePropertyWrapperClassBuilderImpl() );
-                cbf.setTraitProxyBuilder( new TraitTripleProxyClassBuilderImpl() );
+                if ( ! ( cbf.getPropertyWrapperBuilder() instanceof TraitTriplePropertyWrapperClassBuilderImpl ) ) {
+                    cbf.setPropertyWrapperBuilder( new TraitTriplePropertyWrapperClassBuilderImpl() );
+                }
+                if ( ! ( cbf.getTraitProxyBuilder() instanceof TraitTripleProxyClassBuilderImpl ) ) {
+                    cbf.setTraitProxyBuilder( new TraitTripleProxyClassBuilderImpl() );
+                }
                 break;
             default     :   throw new RuntimeException( " This should not happen : unexpected property wrapping method " + newMode );
         }
@@ -89,8 +107,15 @@ public abstract class AbstractTraitFactory<T extends Thing<K>, K extends Traitab
         factoryCache = (Map<String, Constructor>) in.readObject();
         wrapperCache = (Map<Class, Class<? extends CoreWrapper<?>>>) in.readObject();
     }
-    
 
+
+    public InstantiatorFactory getInstantiatorFactory() {
+        return instantiatorFactory;
+    }
+
+    public void setInstantiatorFactory( InstantiatorFactory instantiatorFactory ) {
+        this.instantiatorFactory = instantiatorFactory;
+    }
 
     @Deprecated()
     /**
@@ -292,7 +317,7 @@ public abstract class AbstractTraitFactory<T extends Thing<K>, K extends Traitab
     }
 
     public <K> TraitableBean<K,CoreWrapper<K>> asTraitable( K core, ClassDefinition coreDef) {
-        if ( coreDef.getDefinedClass() != core.getClass() ) {
+        if ( coreDef == null || coreDef.getDefinedClass() != core.getClass() ) {
             // ensure that a compatible interface cDef is not replaced for the missing actual definition
             try {
                 coreDef = buildClassDefinition( core.getClass(), core.getClass() );

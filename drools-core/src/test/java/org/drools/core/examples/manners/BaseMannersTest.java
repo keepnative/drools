@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.InternalKnowledgePackage;
 import org.drools.core.definitions.impl.KnowledgePackageImpl;
 import org.drools.core.definitions.rule.impl.RuleImpl;
+import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.GroupElement;
 import org.drools.core.rule.GroupElementFactory;
@@ -39,7 +40,6 @@ import org.drools.core.spi.ConsequenceException;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.spi.KnowledgeHelper;
-import org.drools.core.spi.Tuple;
 import org.junit.Before;
 
 import java.beans.IntrospectionException;
@@ -196,7 +196,7 @@ public abstract class BaseMannersTest {
                                  WorkingMemory workingMemory) throws ConsequenceException {
                 try {
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     Guest guest = (Guest) drools.get( guestDeclaration );
                     Context context = (Context) drools.get( contextDeclaration );
@@ -475,7 +475,7 @@ public abstract class BaseMannersTest {
                     //                    visitor.visit( workingMemory.getRuleBase() );
 
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     Context context = (Context) drools.get( contextDeclaration );
                     Count count = (Count) drools.get( countDeclaration );
@@ -666,7 +666,7 @@ public abstract class BaseMannersTest {
                                  WorkingMemory workingMemory) throws ConsequenceException {
                 try {
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     int id = seatingIdDeclaration.getExtractor().getIntValue( (InternalWorkingMemory) workingMemory,
                                                                               tuple.get( seatingIdDeclaration ).getObject() );
@@ -768,7 +768,7 @@ public abstract class BaseMannersTest {
                                  WorkingMemory workingMemory) throws ConsequenceException {
                 try {
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     Context context = (Context) drools.get( contextDeclaration );
                     Seating seating = (Seating) drools.get( seatingDeclaration );
@@ -880,7 +880,7 @@ public abstract class BaseMannersTest {
                                  WorkingMemory workingMemory) throws ConsequenceException {
                 try {
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     Context context = (Context) drools.get( contextDeclaration );
                     context.setState( Context.PRINT_RESULTS );
@@ -955,7 +955,7 @@ public abstract class BaseMannersTest {
                                  WorkingMemory workingMemory) throws ConsequenceException {
                 try {
                     RuleImpl rule = drools.getRule();
-                    Tuple tuple = drools.getTuple();
+                    LeftTuple tuple = (LeftTuple)drools.getTuple();
 
                     Context context = (Context) drools.get( contextDeclaration );
                     context.setState( Context.ASSIGN_SEATS );
@@ -1180,8 +1180,7 @@ public abstract class BaseMannersTest {
         final Class clazz = ((ClassObjectType) pattern.getObjectType()).getClassType();
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
 
         final FieldValue field = new LongFieldImpl( fieldValue );
 
@@ -1196,8 +1195,7 @@ public abstract class BaseMannersTest {
         final Class clazz = ((ClassObjectType) pattern.getObjectType()).getClassType();
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
 
         final FieldValue field = new BooleanFieldImpl( fieldValue );
 
@@ -1212,8 +1210,7 @@ public abstract class BaseMannersTest {
         final Class clazz = ((ClassObjectType) pattern.getObjectType()).getClassType();
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
 
         pattern.addDeclaration( identifier ).setReadAccessor( extractor );
     }
@@ -1225,8 +1222,7 @@ public abstract class BaseMannersTest {
         final Class clazz = ((ClassObjectType) pattern.getObjectType()).getClassType();
 
         final InternalReadAccessor extractor = store.getReader( clazz,
-                                                                fieldName,
-                                                                getClass().getClassLoader() );
+                                                                fieldName );
 
         String expression = fieldName + " " + operator + " " + declaration.getIdentifier();
         return new MvelConstraintTestUtil(expression, declaration, extractor);

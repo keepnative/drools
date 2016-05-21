@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,6 @@
 
 package org.drools.compiler.lang.api;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-
 import org.drools.compiler.Cheese;
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.StockTick;
@@ -36,19 +28,25 @@ import org.drools.core.rule.GroupElement;
 import org.drools.core.rule.Pattern;
 import org.drools.core.rule.RuleConditionElement;
 import org.junit.Test;
+import org.kie.api.definition.type.FactType;
+import org.kie.api.event.rule.AfterMatchFiredEvent;
+import org.kie.api.event.rule.AgendaEventListener;
+import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.rule.EntryPoint;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.definition.KnowledgePackage;
-import org.kie.api.definition.type.FactType;
-import org.kie.api.event.rule.AfterMatchFiredEvent;
-import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.internal.io.ResourceFactory;
 import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.io.ResourceType;
-import org.kie.api.runtime.rule.EntryPoint;
 import org.mockito.ArgumentCaptor;
+
+import java.util.*;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * DescrBuilderTest
@@ -415,8 +413,8 @@ public class DescrBuilderTest extends CommonTestMethodBase {
                             .source()
                                 .pattern("StockTick").constraint( "company == \"RHT\"" ).bind( "$p", "price", false ).end()
                             .end()
-                            .function( "sum", "$sum", "$p" )
-                            .function( "count", "$cnt", "$p" )
+                            .function( "sum", "$sum", false, "$p" )
+                            .function( "count", "$cnt", false, "$p" )
                         .end()
                     .end()
                     .rhs( "// some comment" )
@@ -560,6 +558,103 @@ public class DescrBuilderTest extends CommonTestMethodBase {
 
     }
 
+    @Test
+    public void testAccumulate() throws InstantiationException,
+            IllegalAccessException {
+
+        PackageDescrBuilder packBuilder =
+                DescrFactory.newPackage()
+                        .newGlobal().identifier( "list" ).type( List.class.getName() ).end()
+                        .name( "org.drools.compiler" )
+                            .newRule().name( "r1" )
+                                .lhs()
+                                    .pattern().id( "$tot", true ).type( Double.class.getName() ).end()
+                                    .accumulate().source().pattern().id( "$i", false ).type( Integer.class.getName() ).end().end()
+                                        .function( "sum", "$tot", true, "$i" )
+                                        .constraint( "$tot > 15" )
+                                .end()
+                            .end()
+                            .rhs( "list.add( $tot );" )
+                            .end()
+                            .newRule().name( "r2" )
+                                .attribute( "dialect", "mvel" )
+                                .lhs()
+                                    .pattern().id( "$tot", true ).type( Double.class.getName() ).end()
+                                    .accumulate().source().pattern().id( "$i", false ).type( Integer.class.getName() ).end().end()
+                                        .function( "sum", "$tot", true, "$i" )
+                                        .constraint( "$tot > 15" )
+                                .end()
+                            .end()
+                            .rhs( "list.add( $tot * 2 );" )
+                        .end();
+
+        String drl = new DrlDumper().dump( packBuilder.getDescr() );
+        System.out.println(drl);
+
+        KnowledgeBuilder knowledgeBuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
+        knowledgeBuilder.add( new ByteArrayResource( drl.getBytes() ), ResourceType.DRL );
+        System.err.println( knowledgeBuilder.getErrors() );
+        assertFalse(  knowledgeBuilder.getErrors().toString(), knowledgeBuilder.hasErrors() );
+
+
+        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
+        kbase.addKnowledgePackages( knowledgeBuilder.getKnowledgePackages() );
+        StatefulKnowledgeSession knowledgeSession = kbase.newStatefulKnowledgeSession();
+        List list = new ArrayList();
+        knowledgeSession.setGlobal( "list", list );
+
+        knowledgeSession.insert( 3 );
+        knowledgeSession.insert( 39 );
+        knowledgeSession.insert( 24.0 );
+        knowledgeSession.insert( 42.0 );
+
+        knowledgeSession.fireAllRules();
+        assertEquals( Arrays.asList( 42.0, 84.0 ), list );
+    }
+
+    @Test
+    public void testDumperPositional() {
+        PackageDescr pkg = DescrFactory.newPackage().name( "org.test" )
+                .newRule().name( "org.test" )
+                .lhs()
+                .pattern().type( "Integer" ).constraint( "this > 10", true ).constraint( "this > 11", true ).constraint( "this > 12", false).constraint( "this > 13", false).end()
+                .end()
+                .rhs( "" )
+                .end()
+                .end().getDescr();
+
+        String drl = new DrlDumper().dump( pkg );
+        assertTrue(drl.contains("Integer( this > 10, this > 11; this > 12, this > 13 )"));
+    }
+
+    @Test
+    public void testDumperDuration() {
+        PackageDescr pkg = DescrFactory.newPackage().name("org.test")
+                .newRule().name("org.test").attribute("duration").value("int: 0 3600000; repeat-limit = 6").end()
+                .lhs()
+                .end()
+                .rhs( "" )
+                .end()
+                .end().getDescr();
+
+        String drl = new DrlDumper().dump( pkg );
+        assertTrue( drl.contains("duration (int: 0 3600000; repeat-limit = 6)" ) );
+    }
+
+    @Test
+    public void testDumperTimer() {
+        PackageDescr pkg = DescrFactory.newPackage().name("org.test")
+                .newRule().name("org.test").attribute("timer").value("cron:0/5 * * * * ?").end()
+                .lhs()
+                .end()
+                .rhs( "" )
+                .end()
+                .end().getDescr();
+
+        String drl = new DrlDumper().dump( pkg );
+        assertTrue( drl.contains("timer (cron:0/5 * * * * ?)" ) );
+    }
+
     private KnowledgePackage compilePkgDescr( PackageDescr pkg ) {
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newDescrResource( pkg ),
@@ -575,4 +670,22 @@ public class DescrBuilderTest extends CommonTestMethodBase {
 
     }
 
+    @Test
+    public void testBehaviorForSlidingWindow() throws InstantiationException, IllegalAccessException {
+        // DROOLS-852
+        List<String> myParams = new LinkedList<String>();
+        myParams.add("5s");
+
+        PackageDescr pkg = DescrFactory
+                .newPackage().name( "org.drools" )
+                .newRule().name( "from rule" )
+                .lhs()
+                .not().pattern().type( "StockTick" ).constraint( "price > 10" ).behavior().type( "window", "time" ).parameters( myParams ).end().end().end()
+                .end()
+                .rhs("//System.out.println(s);")
+                .end().getDescr();
+
+        String drl = new DrlDumper().dump( pkg );
+        assertTrue( drl.contains("window:time(5s)" ) );
+    }
 }

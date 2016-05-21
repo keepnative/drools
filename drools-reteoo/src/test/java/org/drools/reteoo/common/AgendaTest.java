@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -227,7 +227,7 @@ public class AgendaTest extends DroolsTestCase {
             public void evaluate(final KnowledgeHelper knowledgeHelper,
                                  final WorkingMemory workingMemory) {
                 AgendaItem item = (AgendaItem) knowledgeHelper.getMatch();
-                final Cheese cheese = (Cheese) item.getTuple().getHandle().getObject();
+                final Cheese cheese = (Cheese) item.getTuple().getFactHandle().getObject();
                 final int oldPrice = cheese.getPrice();
                 cheese.setPrice(100);
 
@@ -1705,7 +1705,7 @@ public class AgendaTest extends DroolsTestCase {
         agenda.fireNextItem(null, 0, -1);
         assertEquals(0,
                      ruleFlowGroup0.size());
-        ksession.executeQueuedActions();
+        ksession.executeQueuedActionsForRete();
         assertEquals(0, ruleFlowGroup0.size());
         agenda.fireNextItem(null, 0, -1);
         assertFalse(ruleFlowGroup0.isActive());

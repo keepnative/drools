@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,11 @@ public class AttributeDescr extends BaseDescr {
             // needs escaping
             return "\""+this.value+"\"";
         }
+
+        if(this.name.equals("timer") || this.name.equals("duration")) {
+            return "("+this.value+")";
+        }
+
         return this.value;
     }
 }

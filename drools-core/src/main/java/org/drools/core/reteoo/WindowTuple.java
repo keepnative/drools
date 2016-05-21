@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.drools.core.common.InternalFactHandle;
  * @author etirelli
  *
  */
-public class WindowTuple extends RightTuple {
+public class WindowTuple extends RightTupleImpl {
     private WindowTupleList       windowList;
     
     private WindowTuple           windowPrevious;

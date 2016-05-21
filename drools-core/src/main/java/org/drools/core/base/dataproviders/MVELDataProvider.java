@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,10 @@
 
 package org.drools.core.base.dataproviders;
 
-import org.drools.core.WorkingMemory;
 import org.drools.core.base.mvel.MVELCompilationUnit;
 import org.drools.core.base.mvel.MVELCompileable;
-import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.spi.DataProvider;
@@ -68,8 +65,26 @@ public class MVELDataProvider
         this.id = id;
     }
 
-    public void readExternal(ObjectInput in) throws IOException,
-                                            ClassNotFoundException {
+    @Override
+    public boolean equals( Object obj ) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || !(obj instanceof MVELDataProvider)) {
+            return false;
+        }
+
+        return unit.equals( ((MVELDataProvider) obj).unit );
+    }
+
+    @Override
+    public int hashCode() {
+        return unit.hashCode();
+    }
+
+    public void readExternal( ObjectInput in ) throws IOException,
+                                                      ClassNotFoundException {
         id = in.readUTF();
         unit = (MVELCompilationUnit) in.readObject();
         clones = (List<MVELDataProvider>) in.readObject();
@@ -113,14 +128,13 @@ public class MVELDataProvider
     }
 
     public Iterator getResults(final Tuple tuple,
-                               final WorkingMemory wm,
+                               final InternalWorkingMemory wm,
                                final PropagationContext ctx,
                                final Object executionContext) {
-        VariableResolverFactory factory = unit.getFactory( null, null, null, ( InternalFactHandle ) null, (LeftTuple) tuple, null, (InternalWorkingMemory) wm, wm.getGlobalResolver()  );
+        VariableResolverFactory factory = unit.getFactory( null, null, null, null, tuple, null, wm, wm.getGlobalResolver()  );
 
         //this.expression.
-        final Object result = MVELSafeHelper.getEvaluator().executeExpression( this.expr,
-                                                      factory );
+        final Object result = MVELSafeHelper.getEvaluator().executeExpression( this.expr, factory );
 
         if ( result == null ) {
             return Collections.EMPTY_LIST.iterator();

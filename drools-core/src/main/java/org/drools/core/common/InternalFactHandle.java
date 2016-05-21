@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 package org.drools.core.common;
 
 import org.drools.core.factmodel.traits.TraitTypeEnum;
-import org.kie.api.runtime.rule.FactHandle;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.RightTuple;
-import org.kie.api.runtime.rule.EntryPoint;
+import org.drools.core.spi.Tuple;
+import org.kie.api.runtime.rule.FactHandle;
 
 public interface InternalFactHandle
     extends
@@ -30,6 +30,8 @@ public interface InternalFactHandle
     long getRecency();
 
     Object getObject();
+
+    String getObjectClassName();
 
     void setObject(Object object);
 
@@ -67,30 +69,23 @@ public interface InternalFactHandle
     TraitTypeEnum getTraitType();
     
     RightTuple getFirstRightTuple();
-
     RightTuple getLastRightTuple();
 
     LeftTuple getFirstLeftTuple();
-    
     LeftTuple getLastLeftTuple();
-    
-    EntryPoint getEntryPoint();
-    
-    void setEntryPoint( EntryPoint ep );
+
+    InternalWorkingMemoryEntryPoint getEntryPoint();
+    void setEntryPoint( InternalWorkingMemoryEntryPoint ep );
     
     InternalFactHandle clone();
     
     String toExternalForm();
-    
-    String toTupleTree( int indent );
     
     void disconnect();
 
     void addFirstLeftTuple(LeftTuple leftTuple);
 
     void addLastLeftTuple( LeftTuple leftTuple );
-
-    void addLeftTupleInPosition( LeftTuple leftTuple );
 
     void setFirstLeftTuple(LeftTuple leftTuple);
 
@@ -106,9 +101,14 @@ public interface InternalFactHandle
 
     void addLastRightTuple( RightTuple rightTuple );
 
-    void addRightTupleInPosition( RightTuple rightTuple );
-
     void removeRightTuple( RightTuple rightTuple );
-    
+
+    void addTupleInPosition( Tuple tuple );
+
     InternalFactHandle quickClone();
+
+    boolean isNegated();
+    void setNegated(boolean negated);
+
+    <K> K as( Class<K> klass ) throws ClassCastException;
 }

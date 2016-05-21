@@ -1,28 +1,68 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.decisiontable;
+
+import org.drools.compiler.compiler.DecisionTableProvider;
+import org.drools.core.util.StringUtils;
+import org.kie.api.io.Resource;
+import org.kie.internal.builder.DecisionTableConfiguration;
+import org.kie.internal.builder.DecisionTableInputType;
+import org.kie.internal.builder.KnowledgeBuilderFactory;
+import org.kie.internal.builder.RuleTemplateConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-
-import org.drools.compiler.compiler.DecisionTableProvider;
-import org.drools.core.util.StringUtils;
-import org.kie.internal.builder.DecisionTableConfiguration;
-import org.kie.internal.builder.DecisionTableInputType;
-import org.kie.internal.builder.KnowledgeBuilderFactory;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DecisionTableProviderImpl
     implements
     DecisionTableProvider {
 
-    public String loadFromInputStream(InputStream is,
-                                      DecisionTableConfiguration configuration) {
+    private static final transient Logger logger = LoggerFactory.getLogger( DecisionTableProviderImpl.class );
 
-        return compileStream( is,
-                              configuration );
+    public String loadFromResource(Resource resource,
+                                   DecisionTableConfiguration configuration) {
+
+        try {
+            return compileResource( resource, configuration );
+        } catch (IOException e) {
+            throw new RuntimeException( e );
+        }
     }
 
-    private String compileStream(InputStream is,
-                                 DecisionTableConfiguration configuration) {
+    public List<String> loadFromInputStreamWithTemplates(Resource resource,
+                                                         DecisionTableConfiguration configuration) {
+        List<String> drls = new ArrayList<String>( configuration.getRuleTemplateConfigurations().size() );
+        ExternalSpreadsheetCompiler converter = new ExternalSpreadsheetCompiler();
+        for ( RuleTemplateConfiguration template : configuration.getRuleTemplateConfigurations() ) {
+            try {
+                drls.add(converter.compile(resource.getInputStream(), template.getTemplate().getInputStream(), template.getRow(), template.getCol()));
+            } catch (IOException e) {
+                logger.error( "Cannot open " + template.getTemplate(), e );
+            }
+        }
+        return drls;
+    }
+
+    private String compileResource(Resource resource,
+                                   DecisionTableConfiguration configuration) throws IOException {
         SpreadsheetCompiler compiler = new SpreadsheetCompiler();
 
         //JBRULES-3005: Sensible default when DecisionTableConfiguration is not provided
@@ -32,17 +72,17 @@ public class DecisionTableProviderImpl
         }
 
         switch ( configuration.getInputType() ) {
-            case XLS : {
+            case XLS :
+            case XLSX :
                 if ( StringUtils.isEmpty( configuration.getWorksheetName() ) ) {
-                    return compiler.compile( is,
+                    return compiler.compile( resource,
                                              InputType.XLS );
                 } else {
-                    return compiler.compile( is,
+                    return compiler.compile( resource.getInputStream(),
                                              configuration.getWorksheetName() );
                 }
-            }
             case CSV : {
-                return compiler.compile( is,
+                return compiler.compile( resource.getInputStream(),
                                          InputType.CSV );
             }
         }

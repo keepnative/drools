@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.drools.core.spi;
 
 import org.drools.core.WorkingMemory;
+import org.drools.core.common.InternalFactHandle;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.factmodel.traits.Thing;
 import org.drools.core.factmodel.traits.TraitableBean;
@@ -30,7 +31,6 @@ import org.kie.internal.runtime.beliefs.Mode;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.Map;
 
 /**
@@ -59,7 +59,7 @@ public interface KnowledgeHelper
      * @param object -
      *            the object to be asserted
      */
-    FactHandle insert(Object object) ;
+    InternalFactHandle insert(Object object) ;
     
     /**
      * Asserts an object specifying that it implement the onPropertyChange
@@ -70,23 +70,23 @@ public interface KnowledgeHelper
      * @param dynamic -
      *            specifies the object implements onPropertyChangeListener
      */
-    FactHandle insert(Object object,
+    InternalFactHandle insert(Object object,
                 boolean dynamic) ;
     
-    public void insertLogical(Object object) ;
+    public InternalFactHandle insertLogical(Object object) ;
     
-    public void insertLogical(Object object,
+    public InternalFactHandle insertLogical(Object object,
                               boolean dynamic) ;
 
-    public void insertLogical(Object object, Mode belief) ;
+    public InternalFactHandle insertLogical(Object object, Mode belief) ;
 
-    public void insertLogical(Object object, Mode... beliefs) ;
+    public InternalFactHandle insertLogical(Object object, Mode... beliefs) ;
     
     public void cancelRemainingPreviousLogicalDependencies();
     
-    FactHandle getFactHandle(Object object);
+    InternalFactHandle getFactHandle(Object object);
     
-    FactHandle getFactHandle(FactHandle handle);
+    InternalFactHandle getFactHandle(InternalFactHandle handle);
     
     void update(FactHandle handle, Object newObject);
 
@@ -106,13 +106,16 @@ public interface KnowledgeHelper
     /**
      * @deprecated Use delete
      */
-    void retract(Object handle) ;
+    void retract(Object handle);
 
-    void delete(FactHandle handle) ;
 
-    void delete(Object handle) ;
+    void delete(Object handle);
+    void delete(Object object, FactHandle.State fhState);
 
-    public Object get(Declaration declaration);
+    void delete(FactHandle handle);
+    void delete(FactHandle handle, FactHandle.State fhState);
+
+    Object get(Declaration declaration);
 
     /**
      * @return - The rule name
@@ -137,19 +140,11 @@ public interface KnowledgeHelper
     
     void halt();
 
-    IdentityHashMap<Object, FactHandle> getIdentityMap();
-
-    void setIdentityMap(IdentityHashMap<Object, FactHandle> identityMap);
-    
     <T> T getContext(Class<T> contextClass);
 
     <T, K> T don( K core, Class<T> trait, boolean logical );
 
-    <T, K> T don( Thing<K> core, Class<T> trait, boolean logical );
-
     <T, K> T don( K core, Class<T> trait, Mode... modes );
-
-    <T, K> T don( Thing<K> core, Class<T> trait, Mode... modes );
 
     <T, K> T don( K core, Class<T> trait );
 
@@ -165,4 +160,9 @@ public interface KnowledgeHelper
 
     <T, K, X extends TraitableBean> Thing<K> shed( TraitableBean<K,X> core, Class<T> trait );
 
+    InternalFactHandle bolster( Object object, Object value );
+
+    InternalFactHandle bolster( Object object );
+
+    ClassLoader getProjectClassLoader();
 }

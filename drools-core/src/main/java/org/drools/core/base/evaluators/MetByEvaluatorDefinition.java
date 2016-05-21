@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,6 @@ public class MetByEvaluatorDefinition
     private static String[]             SUPPORTED_IDS;
 
     private Map<String, MetByEvaluator> cache         = Collections.emptyMap();
-    private volatile TimeIntervalParser parser        = new TimeIntervalParser();
 
     { init(); }
 
@@ -156,7 +155,7 @@ public class MetByEvaluatorDefinition
         String key = isNegated + ":" + parameterText;
         MetByEvaluator eval = this.cache.get( key );
         if ( eval == null ) {
-            Long[] params = parser.parse( parameterText );
+            long[] params = TimeIntervalParser.parse( parameterText );
             eval = new MetByEvaluator( type,
                                        isNegated,
                                        params,
@@ -215,7 +214,7 @@ public class MetByEvaluatorDefinition
 
         public MetByEvaluator(final ValueType type,
                               final boolean isNegated,
-                              final Long[] parameters,
+                              final long[] parameters,
                               final String paramText) {
             super( type,
                    isNegated ? NOT_MET_BY : MET_BY );
@@ -332,13 +331,13 @@ public class MetByEvaluatorDefinition
          *
          * @param parameters
          */
-        private void setParameters(Long[] parameters) {
+        private void setParameters(long[] parameters) {
             if ( parameters == null || parameters.length == 0 ) {
                 this.finalRange = 0;
             } else if ( parameters.length == 1 ) {
-                if ( parameters[0].longValue() >= 0 ) {
+                if ( parameters[0] >= 0 ) {
                     // defined max distance
-                    this.finalRange = parameters[0].longValue();
+                    this.finalRange = parameters[0];
                 } else {
                     throw new RuntimeException( "[MetBy Evaluator]: Not possible to use negative parameter: '" + paramText + "'" );
                 }

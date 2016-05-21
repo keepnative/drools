@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,29 +16,29 @@
 
 package org.drools.core.spi;
 
+import org.drools.core.common.InternalWorkingMemory;
+import org.drools.core.rule.Declaration;
+
 import java.io.Serializable;
 import java.util.Iterator;
-
-import org.drools.core.WorkingMemory;
-import org.drools.core.rule.Declaration;
 
 public interface DataProvider
     extends
     Serializable,
     Cloneable {
 
-    public Declaration[] getRequiredDeclarations();
+    Declaration[] getRequiredDeclarations();
 
-    public Object createContext();
+    Object createContext();
 
-    public Iterator getResults(Tuple tuple,
-                               WorkingMemory wm,
-                               PropagationContext ctx,
-                               Object providerContext);
+    Iterator getResults(Tuple tuple,
+                        InternalWorkingMemory wm,
+                        PropagationContext ctx,
+                        Object providerContext);
 
-    public DataProvider clone();
+    DataProvider clone();
 
-    public void replaceDeclaration(Declaration declaration,
-                                   Declaration resolved);
+    void replaceDeclaration(Declaration declaration,
+                            Declaration resolved);
 
 }

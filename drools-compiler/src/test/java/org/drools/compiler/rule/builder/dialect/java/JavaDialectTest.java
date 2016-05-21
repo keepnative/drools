@@ -1,16 +1,22 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.java;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.StringReader;
-import java.util.List;
 
 import org.drools.compiler.Person;
 import org.drools.core.base.ClassObjectType;
-import org.drools.core.base.mvel.MVELPredicateExpression;
 import org.drools.core.impl.KnowledgeBaseImpl;
 import org.drools.core.reteoo.AlphaNode;
 import org.drools.core.reteoo.BetaNode;
@@ -23,13 +29,18 @@ import org.drools.core.spi.CompiledInvoker;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.PredicateExpression;
 import org.junit.Test;
+import org.kie.api.io.ResourceType;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderErrors;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.io.ResourceFactory;
-import org.kie.api.io.ResourceType;
+
+import java.io.StringReader;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class JavaDialectTest {
     
@@ -67,13 +78,12 @@ public class JavaDialectTest {
             }
         }
         
-        AlphaNode alphanode = (AlphaNode) node.getSinkPropagator().getSinks()[0];
+        AlphaNode alphanode = (AlphaNode) node.getObjectSinkPropagator().getSinks()[0];
         PredicateConstraint c = ( PredicateConstraint ) alphanode.getConstraint();
         assertTrue( c.getPredicateExpression() instanceof PredicateExpression );
         assertTrue( c.getPredicateExpression() instanceof CompiledInvoker );
-        assertTrue( !(c.getPredicateExpression() instanceof MVELPredicateExpression ) );
-        
-        alphanode = (AlphaNode) alphanode.getSinkPropagator().getSinks()[0];
+
+        alphanode = (AlphaNode) alphanode.getObjectSinkPropagator().getSinks()[0];
         AlphaNodeFieldConstraint constraint = alphanode.getConstraint();
 
         if (constraint instanceof MvelConstraint) {
@@ -119,11 +129,10 @@ public class JavaDialectTest {
             }
         }
         
-        BetaNode betaanode = (BetaNode) node.getSinkPropagator().getSinks()[0];
+        BetaNode betaanode = (BetaNode) node.getObjectSinkPropagator().getSinks()[0];
         BetaNodeFieldConstraint[] constraint = betaanode.getConstraints();
         PredicateConstraint c = ( PredicateConstraint ) constraint[0];
         assertTrue( c.getPredicateExpression() instanceof PredicateExpression );
         assertTrue( c.getPredicateExpression() instanceof CompiledInvoker );
-        assertTrue( !(c.getPredicateExpression() instanceof MVELPredicateExpression ) );
     }
 }

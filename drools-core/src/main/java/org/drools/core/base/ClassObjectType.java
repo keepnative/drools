@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 package org.drools.core.base;
 
 import org.drools.core.InitialFact;
+import org.drools.core.common.DroolsObjectInput;
 import org.drools.core.reteoo.InitialFactImpl;
 import org.drools.core.spi.ClassWireable;
 import org.drools.core.spi.ObjectType;
+import org.drools.core.util.ClassUtils;
 import org.drools.core.util.bitmask.BitMask;
 import org.kie.api.runtime.rule.Match;
 
@@ -113,8 +115,13 @@ public class ClassObjectType
             this.valueType = ValueType.QUERY_TYPE;
         } else {
             try {
-                setClassType(Class.forName(clsName));
-            } catch (ClassNotFoundException e) { }
+                Class<?> clazz = in instanceof DroolsObjectInput ?
+                                 ClassUtils.getClassFromName( clsName, false, ( (DroolsObjectInput) in ).getClassLoader() ) :
+                                 ClassUtils.getClassFromName( clsName );
+                setClassType( clazz );
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException( e );
+            }
         }
 
         this.isEvent = in.readBoolean();
@@ -180,11 +187,7 @@ public class ClassObjectType
     //    }
 
     public boolean isAssignableFrom(ObjectType objectType) {
-        if ( !(objectType instanceof ClassObjectType) ) {
-            return false;
-        } else {
-            return this.cls.isAssignableFrom( ((ClassObjectType) objectType).getClassType() );
-        }
+        return objectType instanceof ClassObjectType && this.cls.isAssignableFrom( ( (ClassObjectType) objectType ).getClassType() );
     }
 
     public ValueType getValueType() {

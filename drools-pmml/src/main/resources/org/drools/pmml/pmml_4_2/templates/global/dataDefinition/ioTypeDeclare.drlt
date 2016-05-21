@@ -1,6 +1,6 @@
 @comment{
 
-  Copyright 2011 JBoss Inc
+  Copyright 2011 Red Hat, Inc. and/or its affiliates.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
   @@role(event)
   @Traitable
 
-    value : @{type} @@key @position(1) @comment{
+    value : @{type} @@key @position(0) @comment{
                                         //@if{continuous} @@comparable @elseif{cyclic} @@comparable(cyclic) @elseif{ordinal} @@comparable(ordinal) @end{}
                                        }
     displayValue : String = @if{ fullName != null } @{format("string",fullName)} @else{} @{format("string",name)} @end{}

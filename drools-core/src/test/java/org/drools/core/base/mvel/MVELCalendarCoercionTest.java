@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 package org.drools.core.base.mvel;
 
-import java.text.SimpleDateFormat;
-import java.util.*;
-
-import org.junit.Test;
-import static org.junit.Assert.*;
-
 import org.drools.core.util.DateUtils;
-import org.drools.core.type.DateFormatsImpl;
+import org.junit.Test;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+
+import static org.junit.Assert.*;
 
 public class MVELCalendarCoercionTest {
 
@@ -46,8 +47,7 @@ public class MVELCalendarCoercionTest {
 
         String dt = df.format(df.parse("10-Jul-1974"));
 
-        Date dt_ = DateUtils.parseDate(dt,
-                new DateFormatsImpl());
+        Date dt_ = DateUtils.parseDate(dt);
         Calendar cal = Calendar.getInstance();
         cal.setTime( dt_ );
         assertEquals(cal, co.convertFrom( dt ));

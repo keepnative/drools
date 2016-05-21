@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package org.drools.compiler.lang.descr;
+
+import org.drools.core.rule.Declaration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +34,7 @@ public class PatternDescr extends AnnotatedBaseDescr
     private PatternSourceDescr      source;
     private List<BehaviorDescr>     behaviors;
     private boolean                 query;
+    private Declaration             xpathStartDeclaration;
 
     public PatternDescr() {
         this( null,
@@ -101,6 +104,35 @@ public class PatternDescr extends AnnotatedBaseDescr
         return this.constraint;
     }
 
+    public List< ? extends BaseDescr> getPositionalConstraints() {
+        return this.doGetConstraints(ExprConstraintDescr.Type.POSITIONAL);
+    }
+
+    public List< ? extends BaseDescr> getSlottedConstraints() {
+        return this.doGetConstraints(ExprConstraintDescr.Type.NAMED);
+    }
+
+    private List< ? extends BaseDescr> doGetConstraints(ExprConstraintDescr.Type type) {
+        List<BaseDescr> returnList = new ArrayList<BaseDescr>();
+        for(BaseDescr descr : this.constraint.getDescrs()) {
+
+            // if it is a ExprConstraintDescr - check the type
+            if(descr instanceof ExprConstraintDescr) {
+                ExprConstraintDescr desc = (ExprConstraintDescr) descr;
+                if(desc.getType().equals(type)) {
+                    returnList.add(desc);
+                }
+            } else {
+                // otherwise, assume 'NAMED'
+                if(type.equals(ExprConstraintDescr.Type.NAMED)) {
+                    returnList.add(descr);
+                }
+            }
+        }
+
+        return returnList;
+    }
+
     public boolean isInternalFact() {
         return this.getSource() != null && !(this.getSource() instanceof EntryPointDescr);
     }
@@ -145,6 +177,12 @@ public class PatternDescr extends AnnotatedBaseDescr
         this.source = source;
     }
 
+    @Override
+    public void setResource(org.kie.api.io.Resource resource) {
+        super.setResource(resource);
+        ((BaseDescr) this.constraint).setResource(resource);
+    };
+
     /**
      * @return the behaviors
      */
@@ -183,6 +221,14 @@ public class PatternDescr extends AnnotatedBaseDescr
         this.unification = unification;
     }
 
+    public Declaration getXpathStartDeclaration() {
+        return xpathStartDeclaration;
+    }
+
+    public void setXpathStartDeclaration( Declaration xpathStartDeclaration ) {
+        this.xpathStartDeclaration = xpathStartDeclaration;
+    }
+
     public Object clone() {
         PatternDescr clone = new PatternDescr( this.objectType,
                                                this.identifier );
@@ -206,8 +252,7 @@ public class PatternDescr extends AnnotatedBaseDescr
                 clone.addBehavior( behavior );
             }
         }
+        clone.setXpathStartDeclaration( xpathStartDeclaration );
         return clone;
     }
-
-
 }

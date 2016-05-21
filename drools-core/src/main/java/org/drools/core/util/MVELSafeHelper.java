@@ -1,27 +1,42 @@
-package org.drools.core.util;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.Map;
+package org.drools.core.util;
 
 import org.kie.internal.security.KiePolicyHelper;
 import org.mvel2.MVEL;
 import org.mvel2.compiler.CompiledExpression;
 import org.mvel2.integration.VariableResolverFactory;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Map;
+
 public class MVELSafeHelper {
 
-    private static final MVELEvaluator evaluator;
-
-    static {
-        evaluator = KiePolicyHelper.isPolicyEnabled() ? new SafeMVELEvaluator() : new RawMVELEvaluator();
+    private static class MVELEvaluatorHolder {
+        private static final MVELEvaluator evaluator = KiePolicyHelper.isPolicyEnabled() ?
+                                                       new SafeMVELEvaluator() :
+                                                       new RawMVELEvaluator();
     }
 
     private MVELSafeHelper() {
     }
 
-    public static synchronized MVELEvaluator getEvaluator() {
-        return evaluator;
+    public static MVELEvaluator getEvaluator() {
+        return MVELEvaluatorHolder.evaluator;
     }
 
     public static interface MVELEvaluator {

@@ -1,9 +1,19 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.phreak;
-
-import static org.drools.compiler.phreak.A.a;
-import static org.drools.compiler.phreak.B.b;
-
-import java.beans.IntrospectionException;
 
 import org.drools.core.RuleBaseConfiguration;
 import org.drools.core.common.EmptyBetaConstraints;
@@ -23,6 +33,9 @@ import org.drools.core.reteoo.SegmentMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.junit.Test;
+
+import java.beans.IntrospectionException;
+
 import static org.drools.compiler.phreak.Pair.t;
 
 public class PhreakJoinNodeTest {
@@ -107,8 +120,7 @@ public class PhreakJoinNodeTest {
                                   t(a2, b1),
                                   t(a2, b3),
                                   t(a2, b4) )
-                         .delete( t(a1, b0),
-                                  t(a1, b3) )
+                         .delete( )
 
                 .left( a0, a2 )
                 .right( b1, b3, b4 )
@@ -135,23 +147,23 @@ public class PhreakJoinNodeTest {
 
         test().left().delete( a1 )
               .result().insert( )
-                       .delete( t(a1, b0) )    
+                       .delete( )
                        .update( )
               .preStaged(smem0).insert( t(a0, b1) )
                                .delete( )
                                .update( )
               .postStaged(smem0).insert( t(a0, b1) )
-                                .delete( t(a1, b0) )
+                                .delete( )
                                 .update( )
               .run();
         
         test().left().update( a0 )
               .result().update()
               .preStaged(smem0).insert( )
-                               .delete( t(a1,b0) )
+                               .delete( )
                                .update( )
               .postStaged(smem0).insert( t(a0, b1)  )
-                                .delete( t(a1, b0) )
+                                .delete( )
                                 .update( )
                              
               .run();        
@@ -188,7 +200,7 @@ public class PhreakJoinNodeTest {
                                            t(a2, b0),
                                            t(a1, b2),
                                            t(a1, b0) )
-                                  .delete(t(a2, b2))
+                                  .delete( )
                                   .update( )
                 .run();             
      // @formatter:on        

@@ -1,74 +1,79 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
-import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
-import static org.hamcrest.CoreMatchers.is;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import org.drools.compiler.Cheese;
+import org.drools.compiler.CheeseEqual;
+import org.drools.compiler.CommonTestMethodBase;
+import org.drools.compiler.Father;
+import org.drools.compiler.Person;
+import org.drools.compiler.Sensor;
+import org.drools.compiler.YoungestFather;
+import org.drools.core.ClassObjectFilter;
+import org.drools.core.RuleBaseConfiguration;
+import org.drools.core.common.DefaultFactHandle;
+import org.drools.core.common.EqualityKey;
+import org.drools.core.common.InternalAgenda;
+import org.drools.core.common.InternalFactHandle;
+import org.drools.core.common.NamedEntryPoint;
+import org.drools.core.common.TruthMaintenanceSystem;
+import org.drools.core.impl.StatefulKnowledgeSessionImpl;
+import org.drools.core.io.impl.ByteArrayResource;
+import org.drools.core.rule.EntryPointId;
+import org.drools.core.util.ObjectHashMap;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.kie.api.KieBase;
+import org.kie.api.KieBaseConfiguration;
+import org.kie.api.conf.EqualityBehaviorOption;
+import org.kie.api.event.rule.RuleRuntimeEventListener;
+import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.rule.ConsequenceException;
+import org.kie.api.runtime.rule.FactHandle;
+import org.kie.internal.KnowledgeBase;
+import org.kie.internal.KnowledgeBaseFactory;
+import org.kie.internal.builder.KnowledgeBuilder;
+import org.kie.internal.builder.KnowledgeBuilderFactory;
+import org.kie.internal.builder.conf.RuleEngineOption;
+import org.kie.internal.definition.KnowledgePackage;
+import org.kie.internal.io.ResourceFactory;
+import org.kie.internal.logger.KnowledgeRuntimeLogger;
+import org.kie.internal.logger.KnowledgeRuntimeLoggerFactory;
+import org.kie.internal.runtime.StatefulKnowledgeSession;
+import org.kie.internal.utils.KieHelper;
 
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.drools.compiler.Cheese;
-import org.drools.compiler.CheeseEqual;
-import org.drools.core.ClassObjectFilter;
-import org.drools.compiler.CommonTestMethodBase;
-import org.drools.compiler.Father;
-import org.drools.compiler.Person;
-import org.drools.compiler.Sensor;
-import org.drools.core.RuleBaseConfiguration;
-import org.drools.compiler.YoungestFather;
-import org.drools.core.beliefsystem.BeliefSet;
-import org.drools.core.common.DefaultFactHandle;
-import org.drools.core.common.EqualityKey;
-import org.drools.core.common.InternalAgenda;
-import org.drools.core.common.InternalFactHandle;
-import org.drools.core.common.LogicalDependency;
-import org.drools.core.common.NamedEntryPoint;
-import org.drools.core.common.TruthMaintenanceSystem;
-import org.drools.core.io.impl.ByteArrayResource;
-import org.drools.core.util.LinkedListEntry;
-import org.drools.core.util.ObjectHashMap;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.rule.EntryPointId;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.kie.api.KieBase;
-import org.kie.api.conf.EqualityBehaviorOption;
-import org.kie.api.event.rule.RuleRuntimeEventListener;
-import org.kie.api.runtime.KieSession;
-import org.kie.api.runtime.KieSessionConfiguration;
-import org.kie.internal.KnowledgeBase;
-import org.kie.api.KieBaseConfiguration;
-import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.builder.KnowledgeBuilder;
-import org.kie.internal.builder.KnowledgeBuilderFactory;
-import org.kie.internal.builder.conf.RuleEngineOption;
-import org.kie.internal.definition.KnowledgePackage;
-import org.kie.api.event.rule.ObjectDeletedEvent;
-import org.kie.api.event.rule.ObjectInsertedEvent;
-import org.kie.internal.io.ResourceFactory;
-import org.kie.internal.logger.KnowledgeRuntimeLoggerFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
-import org.kie.api.io.ResourceType;
-import org.kie.internal.logger.KnowledgeRuntimeLogger;
-import org.kie.api.runtime.rule.FactHandle;
-import org.mockito.ArgumentCaptor;
+import static org.drools.compiler.integrationtests.SerializationHelper.getSerialisedStatefulKnowledgeSession;
+import static org.mockito.Mockito.mock;
 
 public class TruthMaintenanceTest extends CommonTestMethodBase {
 
-    @Test
+    @Test() //timeout=10000)
     public void testLogicalInsertionsDynamicRule() throws Exception {
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newClassPathResource("test_LogicalInsertionsDynamicRule.drl",
                 getClass()),
                       ResourceType.DRL );
-        
+
         if ( kbuilder.hasErrors() ) {
             fail( kbuilder.getErrors().toString() );
         }
@@ -90,9 +95,9 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         FactHandle h = ksession.insert( c2 );
         ksession.insert( c3 );
         ksession.fireAllRules();
-        
+
         ksession = getSerialisedStatefulKnowledgeSession( ksession,
-                                                          true );        
+                                                          true );
 
         // Check logical Insertions where made for c2 and c3        
         list = new ArrayList( ksession.getObjects( new ClassObjectFilter( Person.class ) ) );
@@ -109,15 +114,15 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       ResourceType.DRL );
         if ( kbuilder.hasErrors() ) {
             fail( kbuilder.getErrors().toString() );
-        }        
+        }
         Collection<KnowledgePackage> kpkgs2 = kbuilder.getKnowledgePackages();
         kbase.addKnowledgePackages( kpkgs2 );
         kbase = SerializationHelper.serializeObject(kbase);
 
         ksession.fireAllRules();
-        
+
         ksession = getSerialisedStatefulKnowledgeSession( ksession,
-                                                          true );        
+                                                          true );
 
         kbase = ksession.getKieBase();
 
@@ -128,9 +133,9 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertTrue( list.contains( new Person( c1.getType() ) ) );
         assertTrue( list.contains( new Person( c2.getType() ) ) );
         assertTrue( list.contains( new Person( c3.getType() ) ) );
-        
+
         ksession = getSerialisedStatefulKnowledgeSession( ksession,
-                                                          true );        
+                                                          true );
 
         // check the packages are correctly populated
         assertEquals( 3, kbase.getKnowledgePackages().size() );
@@ -143,7 +148,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                 test2 = kpkg;
             }
         }
-        
+
         assertNotNull( test );
         assertNotNull( test2 );
         assertEquals( "rule1",
@@ -190,7 +195,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                          c2 );
         ksession.fireAllRules();
         ksession = getSerialisedStatefulKnowledgeSession( ksession,
-                                                          true );        
+                                                          true );
         list = new ArrayList( ksession.getObjects( new ClassObjectFilter( Person.class ) ) );
         assertEquals( "c2 now has a higher price, its logical assertion should  be cancelled",
                       1,
@@ -214,7 +219,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         kbase.removeRule( test2.getName(),
                           test2.getRules().iterator().next().getName() );
         kbase = SerializationHelper.serializeObject(kbase);
-        
+
         // different JVMs return the package list in different order
         for( KnowledgePackage kpkg : kbase.getKnowledgePackages() ) {
             if( kpkg.getName().equals( "org.drools.compiler.test" )) {
@@ -225,7 +230,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         }
         assertNotNull( test );
         assertNotNull( test2 );
-        
+
         assertEquals( 0,
                       test.getRules().size() );
         assertEquals( 0,
@@ -235,7 +240,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       list.size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertions() throws Exception {
         final KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newClassPathResource( "test_LogicalInsertions.drl",
@@ -263,7 +268,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         session.fireAllRules();
 
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true ); 
+                                                         true );
 
         System.out.println( list );
         assertEquals( 3,
@@ -276,7 +281,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         session.retract( brieHandle );
 
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
+                                                         true );
 
         assertEquals( 2,
                       session.getObjects().size() );
@@ -289,7 +294,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                      session.getObjects().size());
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertionsBacking() throws Exception {
         final KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newClassPathResource( "test_LogicalInsertionsBacking.drl",
@@ -309,10 +314,10 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         FactHandle h1 = session.insert( cheese1 );
         session.fireAllRules();
-        
+
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
-        
+                                                         true );
+
         Collection< ? > list = session.getObjects( new ClassObjectFilter( cheese1.getType().getClass() ) );
         assertEquals( 1,
                       list.size() );
@@ -322,10 +327,10 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         FactHandle h2 = session.insert( cheese2 );
         session.fireAllRules();
-        
+
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
-        
+                                                         true );
+
         list = session.getObjects( new ClassObjectFilter( cheese1.getType().getClass() ) );
         assertEquals( 1,
                       list.size() );
@@ -338,10 +343,10 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         h1 = getFactHandle( h1, session );
         session.retract( h1 );
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
+                                                         true );
         session.fireAllRules();
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
+                                                         true );
         list = session.getObjects( new ClassObjectFilter( cheese1.getType().getClass() ) );
         assertEquals( "cheese-type " + cheese1.getType() + " was deleted, but should not. Backed by cheese2 => type.",
                       1,
@@ -353,18 +358,18 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         h2 = getFactHandle( h2, session );
         session.retract( h2 );
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
+                                                         true );
         session.fireAllRules();
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );         
+                                                         true );
         list = session.getObjects( new ClassObjectFilter( cheese1.getType().getClass() ) );
         assertEquals( "cheese-type " + cheese1.getType() + " was not deleted, but should have. Neither  cheese1 => type nor cheese2 => type is true.",
                       0,
                       list.size() );
     }
 
-    @Test
-    @Ignore
+    @Test //(timeout=10000)
+    //@Ignore
     public void testLogicalInsertionsSelfreferencing() throws Exception {
         final KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newClassPathResource( "test_LogicalInsertionsSelfreferencing.drl",
@@ -402,14 +407,15 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       list.iterator().next() );
 
         h1 = session.getFactHandle( b );
-        session.retract( h1 );
+        assertSame( ((InternalFactHandle)h1).getEqualityKey().getLogicalFactHandle(), h1);
+        ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem().delete( h1 );
         session.fireAllRules();
         list = session.getObjects( new ClassObjectFilter( a.getClass() ) );
         assertEquals( 0,
                       list.size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertionsLoop() throws Exception {
         final KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newClassPathResource( "test_LogicalInsertionsLoop.drl",
@@ -439,7 +445,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       l.size() );
     }
 
-    @Test
+    @Test //(timeout=10000)
     public void testLogicalInsertionsNoLoop() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionsNoLoop.drl");
         KieSession ksession = kbase.newKieSession();
@@ -458,8 +464,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       l.size() );
     }
 
-    @Test
-    @Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
+    @Test(timeout=10000)
+    //@Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
     public void testLogicalInsertionsWithModify() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionsWithUpdate.drl");
         KieSession ksession = kbase.newKieSession();
@@ -498,7 +504,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       m.size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertions2() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertions2.drl");
         KieSession ksession = kbase.newKieSession();
@@ -528,7 +534,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         // problems should be detected
         sensor.setPressure( 200 );
         sensor.setTemperature( 200 );
-        
+
         handle = getFactHandle( handle, ksession );
         ksession.update( handle, sensor );
 
@@ -545,8 +551,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertTrue(tms.getEqualityKeyMap().isEmpty());
     }
 
-    @Test
-    @Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
+    @Test(timeout=10000)
+    //@Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
     public void testLogicalInsertionsNot() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionsNot.drl");
         KieSession ksession = kbase.newKieSession();
@@ -605,7 +611,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       list.iterator().next() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertionsNotPingPong() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionsNotPingPong.drl");
         KieSession ksession = kbase.newKieSession();
@@ -627,8 +633,9 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       list.size() );
     }
 
-    @Test
-    @Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
+    @Test(timeout=10000)
+    @Ignore("Currently cannot support updates")
+    //@Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
     public void testLogicalInsertionsUpdateEqual() throws Exception {
         // calling update on a justified FH, states it
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionsUpdateEqual.drl");
@@ -662,11 +669,11 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals( new CheeseEqual("person", 3), list.iterator().next());
         FactHandle fh = ksession.getFactHandle( list.iterator().next() );
         ksession.retract( fh );
-        
+
         list = ksession.getObjects();
         assertEquals( 0,
-                      list.size() );        
-        
+                      list.size() );
+
         TruthMaintenanceSystem tms =  ((NamedEntryPoint)ksession.getEntryPoint(EntryPointId.DEFAULT.getEntryPointId()) ).getTruthMaintenanceSystem();
 
         final java.lang.reflect.Field field = tms.getClass().getDeclaredField( "equalityKeyMap" );
@@ -678,8 +685,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       m.size() );
     }
 
-    @Test
-    @Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
+    @Test(timeout=10000)
+    //@Ignore("in Java 8, the byte[] generated by serialization are not the same and requires investigation")
     public void testLogicalInsertionsWithExists() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_LogicalInsertionWithExists.drl");
         KieSession ksession = kbase.newKieSession();
@@ -781,7 +788,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       cheeseList.size() );
     }
 
-    @Test
+    @Test //(timeout=10000)
     public void testLogicalInsertions3() throws Exception {
         KieBase kbase = loadKnowledgeBase("test_logicalInsertions3.drl");
         KieSession ksession = kbase.newKieSession();
@@ -795,7 +802,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         ksession.fireAllRules();
         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession( ksession, true );
-        
+
         // alarm must sound
         assertEquals( 2,
                       list.size() );
@@ -832,7 +839,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       ksession.getObjects().size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertionsAccumulatorPattern() throws Exception {
         // JBRULES-449
         KnowledgeBase kbase = loadKnowledgeBase( "test_LogicalInsertionsAccumulatorPattern.drl" );
@@ -847,7 +854,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                             new Short( (short) 3 ) );
 
         ksession.fireAllRules();
-        
+
         ksession = SerializationHelper.getSerialisedStatefulKnowledgeSession(ksession,
                 true);
 
@@ -882,7 +889,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       ksession.getObjects().size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertionsModifySameRuleGivesDifferentLogicalInsertion() throws Exception {
         // TODO JBRULES-1804
 
@@ -908,9 +915,9 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         FactHandle sensor3Handle = session.insert( sensor3 );
 
         session.fireAllRules();
-        
+
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );  
+                                                         true );
 
         List temperatureList = new ArrayList( session.getObjects( new ClassObjectFilter( Integer.class ) ) );
         assertTrue( temperatureList.contains( Integer.valueOf( 100 ) ) );
@@ -923,7 +930,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         session.update( sensor1Handle, sensor1 );
 
         session = getSerialisedStatefulKnowledgeSession( session,
-                                                         true );  
+                                                         true );
         session.fireAllRules();
 
         temperatureList = new ArrayList( session.getObjects( new ClassObjectFilter( Integer.class ) ) );
@@ -934,7 +941,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                       temperatureList.size() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testLogicalInsertOrder() throws Exception {
         // JBRULES-1602
         // "rule 1" is never logical inserted, as it's rule is unmatched prior to calling logical insert
@@ -949,7 +956,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         final StatefulKnowledgeSession session = createKnowledgeSession(kbase);
         RuleRuntimeEventListener wmel = mock( RuleRuntimeEventListener.class );
         session.addEventListener( wmel );
-        
+
         Person bob = new Person( "bob" );
         bob.setStatus( "hungry" );
         Person mark = new Person( "mark" );
@@ -957,9 +964,9 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         session.insert( bob );
         session.insert( mark );
-        
+
         int count = session.fireAllRules();
-        
+
         assertEquals( 2, count );
 
         assertEquals(2, session.getObjects().size());
@@ -967,8 +974,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         TruthMaintenanceSystem tms =  ((NamedEntryPoint)session.getEntryPoint(EntryPointId.DEFAULT.getEntryPointId()) ).getTruthMaintenanceSystem();
         assertTrue(tms.getEqualityKeyMap().isEmpty());
     }
-    
-    @Test
+
+    @Test(timeout=10000)
     public void testTMSwithQueries() {
         String str =""+
                 "package org.drools.compiler.test;\n" +
@@ -1007,25 +1014,25 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                 "then\n" +
                 "    list.add($s);\n" +
                 "end";
- 
+
         KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
         kbuilder.add( ResourceFactory.newByteArrayResource(str.getBytes()),
                 ResourceType.DRL );
         KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
         kbase.addKnowledgePackages(kbuilder.getKnowledgePackages());
         StatefulKnowledgeSession kSession = createKnowledgeSession(kbase);
- 
+
         List list = new ArrayList();
         kSession.setGlobal("list",list);
- 
- 
+
+
         kSession.fireAllRules();
         assertEquals(0,list.size());
- 
+
         //System.err.println(reportWMObjects(kSession));
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTMSWithLateUpdate() {
         //  JBRULES-3416
         if( CommonTestMethodBase.phreak == RuleEngineOption.RETEOO ) {
@@ -1057,7 +1064,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         FactHandle abrahamHandle = kSession.insert(abraham);
         FactHandle bartHandle = kSession.insert(bart);
         kSession.fireAllRules();
-        
+
         youngestFathers = kSession.getObjects( new ClassObjectFilter(YoungestFather.class) );
         assertEquals( 1, youngestFathers.size() );
         assertEquals( bart, ((YoungestFather) youngestFathers.iterator().next()).getMan() );
@@ -1082,18 +1089,18 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         //System.err.println(reportWMObjects(kSession));
     }
-    
+
     public class IntervalRequirement
     {
         private int interval;
         private int staffingRequired;
-        
+
         public IntervalRequirement(int interval, int staffingRequired) {
             super();
             this.interval = interval;
             this.staffingRequired = staffingRequired;
         }
-        
+
         public int getInterval() {
             return interval;
         }
@@ -1119,15 +1126,15 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
         public ShiftAssignment() {
         }
-        
+
         public int getShiftStartTime() {
             return this.shiftStartTime;
         }
-        
+
         public int getShiftEndTime() {
             return this.shiftEndTime;
         }
-        
+
         public void setShiftStartTime(int shiftStartTime) {
             this.shiftStartTime = shiftStartTime;
         }
@@ -1144,8 +1151,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
             return sb.toString();
         }
     }
-    
-    @Test
+
+    @Test(timeout=10000)
     public void testRepetitiveUpdatesOnSameFacts() throws Exception {
         // JBRULES-3320
         // Using the concept of shift assignments covering interval requirements (staffing required for a given interval)
@@ -1162,7 +1169,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         ksession.setGlobal("notCovered", notCovered);
 
         KnowledgeRuntimeLogger logger = KnowledgeRuntimeLoggerFactory.newFileLogger(ksession, "test");
-        
+
         // Using 4 IntervalRequirement objects that never change during the execution of the test
         // Staffing required at interval 100
         IntervalRequirement ir100 = new IntervalRequirement(100, 2);
@@ -1182,7 +1189,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         sa.setShiftStartTime(100);
 
         FactHandle saHandle = null;
-    
+
         // Intersects 1 interval
         totallyCovered.clear();
         partiallyCovered.clear();
@@ -1194,7 +1201,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals("notCovered with " + sa, 3, notCovered.size());
         assertEquals("totallyCovered with " + sa, 0, totallyCovered.size());
         assertEquals("partiallyCovered with " + sa, 1, partiallyCovered.size());
-        
+
         // Intersects 3 intervals
         totallyCovered.clear();
         partiallyCovered.clear();
@@ -1206,7 +1213,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals("notCovered with " + sa, 0, notCovered.size()); // this was fired in the previous scenario
         assertEquals("totallyCovered with " + sa, 0, totallyCovered.size());
         assertEquals("partiallyCovered with " + sa, 3, partiallyCovered.size());
-        
+
         // Intersects 2 intervals
         totallyCovered.clear();
         partiallyCovered.clear();
@@ -1218,7 +1225,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals("notCovered with " + sa, 1, notCovered.size()); // new uncovered scenario
         assertEquals("totallyCovered with " + sa, 0, totallyCovered.size());
         assertEquals("partiallyCovered with " + sa, 2, partiallyCovered.size());
-        
+
         // Intersects 4 intervals
         totallyCovered.clear();
         partiallyCovered.clear();
@@ -1230,7 +1237,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals("notCovered with " + sa, 0, notCovered.size());
         assertEquals("totallyCovered with " + sa, 0, totallyCovered.size());
         assertEquals("partiallyCovered with " + sa, 4, partiallyCovered.size());
-        
+
         // Intersects 1 interval
         totallyCovered.clear();
         partiallyCovered.clear();
@@ -1242,11 +1249,11 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals("notCovered with " + sa, 3, notCovered.size());
         assertEquals("totallyCovered with " + sa, 0, totallyCovered.size());
         assertEquals("partiallyCovered with " + sa, 1, partiallyCovered.size());
-        
+
         ksession.dispose();
         logger.close();
-    }    
-    
+    }
+
     public InternalFactHandle getFactHandle(FactHandle factHandle,
                                             StatefulKnowledgeSessionImpl session) {
         Map<Integer, FactHandle> handles = new HashMap<Integer, FactHandle>();
@@ -1255,8 +1262,8 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
                          fh );
         }
         return (InternalFactHandle) handles.get( ((InternalFactHandle) factHandle).getId() );
-    }     
-    
+    }
+
     public InternalFactHandle getFactHandle(FactHandle factHandle,
                                             KieSession ksession) {
         Map<Integer, FactHandle> handles = new HashMap<Integer, FactHandle>();
@@ -1294,7 +1301,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         }
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testTMSWithEquivalentSubclasses() {
         String droolsSource =
                 "package project_java_rules2_xxx \n" +
@@ -1341,7 +1348,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
 
 
 
-    @Test
+    @Test(timeout=10000)
     public void testRestateJustified() {
         String droolsSource =
                 "package org.drools.tms.test; \n" +
@@ -1384,7 +1391,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
     }
 
 
-    @Test
+    @Test(timeout=10000)
     public void testPrimeJustificationWithEqualityMode() {
         String droolsSource =
                 "package org.drools.tms.test; \n" +
@@ -1430,7 +1437,7 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
         assertEquals( 0, session.fireAllRules() );
     }
 
-    @Test
+    @Test(timeout=10000)
     public void testJustificationStateOverridingBySuperClass() {
         //DROOLS-352
         String droolsSource =
@@ -1471,6 +1478,568 @@ public class TruthMaintenanceTest extends CommonTestMethodBase {
             assertEquals( EqualityKey.JUSTIFIED, ifh.getEqualityKey().getStatus() );
         }
 
+    }
+
+
+    @Test(timeout=10000)
+         public void testLogicalWithDeleteException() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        TruthMaintenanceSystem tms = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem();
+        InternalFactHandle jfh1 = tms.get( "f1" ).getLogicalFactHandle();
+
+        assertSame( jfh1, session.getFactHandle( "f1" ) );
+    }
+
+    @Test(timeout=10000)
+    public void testStatedWithShadowAndDeleteException() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+        InternalFactHandle fh2 = (InternalFactHandle) session.insert( "f2" );
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        // TMS is now enabled
+        assertNotNull(fh1.getEqualityKey() );
+        assertNotNull(fh2.getEqualityKey() );
+
+        // EqualtyKey shows both are stated
+        assertEquals( EqualityKey.STATED, fh1.getEqualityKey().getStatus());
+        assertEquals(EqualityKey.STATED, fh2.getEqualityKey().getStatus() );
+
+        // Only fh1 has a logical
+        assertEquals( 1, fh1.getEqualityKey().getBeliefSet().size() );
+        assertNull( fh2.getEqualityKey().getBeliefSet() );
+
+        // Get the logical Handle too
+        TruthMaintenanceSystem tms = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem();
+        InternalFactHandle jfh1 = tms.get( "f1" ).getLogicalFactHandle();
+        EqualityKey key = jfh1.getEqualityKey();
+        assertSame( fh1.getEqualityKey(), key );
+        assertNotSame( fh1, jfh1 );
+
+        assertEquals(2, key.size());
+        assertSame(jfh1, key.getLogicalFactHandle());
+    }
+
+    @Test(timeout=10000)
+    public void testStatedShadowLogicalWithSingleOccurance() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+
+
+                "rule StillHere \n" +
+                "when \n" +
+                "    String( this == 'go2' ) " +
+                "    s : String( this == 'f1' ) " +
+                "then \n" +
+                "    list.add( s ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+        InternalFactHandle fh2 = (InternalFactHandle) session.insert( "f2" );
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        session.insert( "go2" );
+        session.fireAllRules();
+
+        // Make sure f1 only occurs once
+        assertEquals( 1, list.size() );
+        assertEquals( "f1", list.get( 0 ) );
+    }
+
+    @Test(timeout=10000)
+    public void testLogicalThenStatedShadowSingleOccurance() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+
+
+                "rule StillHere \n" +
+                "when \n" +
+                "    String( this == 'go2' ) " +
+                "    s : String( this == 'f1' ) " +
+                "then \n" +
+                "    list.add( s ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        TruthMaintenanceSystem tms = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem();
+        InternalFactHandle jfh1 = tms.get( "f1" ).getLogicalFactHandle();
+        assertEquals(EqualityKey.JUSTIFIED, jfh1.getEqualityKey().getStatus() );
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+        InternalFactHandle fh2 = (InternalFactHandle) session.insert( "f2" );
+
+        session.insert("go2");
+        session.fireAllRules();
+
+        assertEquals( EqualityKey.STATED, fh1.getEqualityKey().getStatus());
+        assertSame( fh1.getEqualityKey(), jfh1.getEqualityKey() );
+        assertNotSame( fh1, jfh1 );
+
+        EqualityKey key = jfh1.getEqualityKey();
+        assertSame( fh1.getEqualityKey(), key );
+        assertNotSame( fh1, jfh1 );
+
+        assertEquals(2, key.size());
+        assertSame( jfh1,  key.getLogicalFactHandle() );
+
+        // Make sure f1 only occurs once
+        assertEquals( 1, list.size() );
+        assertEquals( "f1", list.get( 0 ) );
+    }
+
+    @Test(timeout=10000)
+    public void testStatedShadowLogicalThenLogicalOnly() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+
+
+                "rule StillHere \n" +
+                "when \n" +
+                "    String( this == 'go2' ) " +
+                "    s : String( this == 'f1' ) " +
+                "then \n" +
+                "    list.add( s ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+        InternalFactHandle fh2 = (InternalFactHandle) session.insert( "f2" );
+
+
+        FactHandle g1 = session.insert( "go1" );
+        session.fireAllRules();
+
+        // This removes the stated position, but it should still be logical now and exist
+        session.delete( fh1, FactHandle.State.STATED );
+        session.insert( "go2" );
+        session.fireAllRules();
+
+        // fh1 is invalid and no longer in the WM. However it's now reverted to it's Justified version and will still be there
+        assertFalse(fh1.isValid());
+
+        // Make sure f1 is still there, but logical only now
+        assertEquals(1, list.size());
+        assertEquals("f1", list.get(0));
+        InternalFactHandle jfh1 = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem().get( "f1" ).getLogicalFactHandle();
+        assertEquals( EqualityKey.JUSTIFIED, jfh1.getEqualityKey().getStatus());
+
+        assertSame(jfh1, session.getFactHandle("f1") );
+    }
+
+
+    @Test(timeout=10000)
+    public void testLogicalThenUpdateAsStatedShadowSingleOccurance() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+
+
+                "rule StillHere \n" +
+                "when \n" +
+                "    String( this == 'go2' ) " +
+                "    s : String( this == 'f1' ) " +
+                "then \n" +
+                "    list.add( s ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        TruthMaintenanceSystem tms = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem();
+        InternalFactHandle jfh1 = tms.get( "f1" ).getLogicalFactHandle();
+        assertEquals(EqualityKey.JUSTIFIED, jfh1.getEqualityKey().getStatus() );
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+        InternalFactHandle fh2 = (InternalFactHandle) session.insert( "f2" );
+
+        session.insert("go2");
+        session.fireAllRules();
+
+        assertEquals( EqualityKey.STATED, fh1.getEqualityKey().getStatus());
+        assertSame( fh1.getEqualityKey(), jfh1.getEqualityKey() );
+        assertNotSame( fh1, jfh1 );
+
+        // Make sure f1 only occurs once
+        assertEquals( 1, list.size() );
+        assertEquals( "f1", list.get( 0 ) );
+    }
+
+    @Test(timeout=10000)
+    public void testLogicalWithStatedShadowThenDeleteLogicalThenDeleteStated() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+
+                "global java.util.List list; \n" +
+
+                "rule Justify \n" +
+                "when \n" +
+                "    String( this == 'go1' ) " +
+                "then \n" +
+                "    insertLogical( 'f1' ); \n" +
+                "end \n" +
+
+
+                "rule StillHere \n" +
+                "when \n" +
+                "    String( this in ('go2', 'go3', 'go4') ) " +
+                "    s : String( this == 'f1' ) " +
+                "then \n" +
+                "    list.add( s ); \n" +
+                "end \n" +
+                ""
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+        session.setGlobal("list", list);
+
+        session.insert( "go1" );
+        session.fireAllRules();
+
+        TruthMaintenanceSystem tms = ((StatefulKnowledgeSessionImpl)session).getTruthMaintenanceSystem();
+        InternalFactHandle jfh1 = tms.get( "f1" ).getLogicalFactHandle();
+        assertEquals(EqualityKey.JUSTIFIED, jfh1.getEqualityKey().getStatus() );
+
+        InternalFactHandle fh1 = (InternalFactHandle) session.insert( "f1" );
+
+        session.insert("go2");
+        session.fireAllRules();
+
+        assertEquals( EqualityKey.STATED, fh1.getEqualityKey().getStatus());
+        assertEquals( 1, fh1.getEqualityKey().getBeliefSet().size() );
+        assertSame( fh1.getEqualityKey(), jfh1.getEqualityKey() );
+        assertNotSame( fh1, jfh1 );
+
+        // Make sure f1 only occurs once
+        assertEquals( 1, list.size() );
+        assertEquals( "f1", list.get( 0 ) );
+
+        list.clear();
+        tms.delete( jfh1 );
+        session.insert("go3");
+        session.fireAllRules();
+
+        assertNull(fh1.getEqualityKey().getBeliefSet());
+
+        // Make sure f1 only occurs once
+        assertEquals( 1, list.size() );
+        assertEquals( "f1", list.get( 0 ) );
+
+        list.clear();
+        session.delete( fh1 );
+        session.insert("go4");
+        session.fireAllRules();
+
+        assertEquals( 0, list.size() );
+    }
+
+    @Test(timeout=10000)
+    public void testUpdate() {
+        String droolsSource =
+                "package org.drools.tms.test; \n" +
+                " declare Feat1\n" +
+                "   context : String @key\n" +
+                "   value : double @key\n" +
+                "   missing : boolean  = false\n" +
+                " \n" +
+                " end\n" +
+                " \n" +
+                " \n" +
+                "rule \"InitAsMissing_Test_MLP_Feat1\"\n" +
+                "when\n" +
+                "    not Feat1( context == null )\n" +
+                "then\n" +
+                "    insertLogical( new Feat1( \"Test_MLP\", 0.0, true ) );\n" +
+                "end\n" +
+                " \n" +
+                "rule \"miningFieldMissing_Test_MLP_Feat1\"\n" +
+                "when\n" +
+                "     $x : Feat1( $m : missing == true, context == \"Test_MLP\" )\n" +
+                "then\n" +
+                "    modify ( $x ) {\n" +
+                "        setValue( 3.95 ),\n" +
+                "        setMissing( false );\n" +
+                "    }\n" +
+                "end\n" +
+                " \n" +
+                "rule \"OverrideInput_Feat1\"\n" +
+                "when\n" +
+                "    $old: Feat1( value != 4.33 )\n" +
+                "then\n" +
+                "    retract( $old );\n" +
+                "end\n" +
+                " \n" +
+                " \n" +
+                "rule \"Input_Feat1\"\n" +
+                "when\n" +
+                "    not Feat1(  context == null )\n" +
+                "then\n" +
+                "    insert( new Feat1( null, 4.33 ) );\n" +
+                "end"
+                ;
+
+        KieBaseConfiguration kieConf = KnowledgeBaseFactory.newKnowledgeBaseConfiguration();
+        kieConf.setOption( EqualityBehaviorOption.IDENTITY );
+        KnowledgeBase kbase = loadKnowledgeBaseFromString( kieConf, droolsSource );
+        StatefulKnowledgeSession session = kbase.newStatefulKnowledgeSession();
+
+        List list = new ArrayList();
+
+        try {
+            session.fireAllRules();
+            fail("Currently we cannot handle updates for a belief set that is mixed stated and justified" );
+        } catch ( ConsequenceException e) {
+            assertEquals(IllegalStateException.class, e.getCause().getClass() );
+        }
+
+    }
+
+    @Test
+    public void testDeleteLogicalAssertion() {
+        // BZ-1317026
+        String drl =
+                "rule R1 when\n" +
+                "then\n" +
+                "    insertLogical( \"test\" ); \n" +
+                "end\n";
+
+        KieSession ksession = new KieHelper().addContent( drl, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        ksession.fireAllRules();
+        Collection<FactHandle> fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 1, fhs.size() );
+
+        for (FactHandle fh : fhs) {
+            ksession.delete( fh );
+        }
+
+        fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 0, fhs.size() );
+    }
+
+    @Test
+    public void testStatedDeleteLogicalAssertion() {
+        // BZ-1317026
+        String drl =
+                "rule R1 when\n" +
+                "then\n" +
+                "    insertLogical( \"test\" ); \n" +
+                "end\n";
+
+        KieSession ksession = new KieHelper().addContent( drl, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        ksession.fireAllRules();
+        Collection<FactHandle> fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 1, fhs.size() );
+
+        for (FactHandle fh : fhs) {
+            ksession.delete( fh, FactHandle.State.STATED );
+        }
+
+        fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 1, fhs.size() );
+
+        for (FactHandle fh : fhs) {
+            ksession.delete( fh, FactHandle.State.LOGICAL );
+        }
+
+        fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 0, fhs.size() );
+    }
+
+    @Test
+    public void testDeleteLogicalAssertionFromRule() {
+        // BZ-1317026
+        String drl =
+                "global java.util.List list;\n" +
+                "rule R1 when\n" +
+                "then\n" +
+                "    insertLogical( \"test\" ); \n" +
+                "end\n" +
+                "rule R2 when\n" +
+                "    $s : String()\n" +
+                "then\n" +
+                "    list.add( $s ); \n" +
+                "    delete( $s ); \n" +
+                "end\n";
+
+        KieSession ksession = new KieHelper().addContent( drl, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        List<String> list = new ArrayList<String>();
+        ksession.setGlobal( "list", list );
+
+        ksession.fireAllRules();
+        assertEquals( 1, list.size() );
+        assertEquals( "test", list.get(0) );
+
+        Collection<FactHandle> fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 0, fhs.size() );
+    }
+
+    @Test
+    public void testStatedDeleteLogicalAssertionFromRule() {
+        // BZ-1317026
+        String drl =
+                "global java.util.List list;\n" +
+                "rule R1 when\n" +
+                "then\n" +
+                "    insertLogical( \"test\" ); \n" +
+                "end\n" +
+                "rule R2 when\n" +
+                "    $s : String()\n" +
+                "then\n" +
+                "    list.add( $s ); \n" +
+                "    delete( $s, org.kie.api.runtime.rule.FactHandle.State.STATED ); \n" +
+                "end\n";
+
+        KieSession ksession = new KieHelper().addContent( drl, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        List<String> list = new ArrayList<String>();
+        ksession.setGlobal( "list", list );
+
+        ksession.fireAllRules();
+        assertEquals( 1, list.size() );
+        assertEquals( "test", list.get(0) );
+
+        Collection<FactHandle> fhs = ksession.getFactHandles( new ClassObjectFilter( String.class ) );
+        assertEquals( 1, fhs.size() );
     }
 }
 

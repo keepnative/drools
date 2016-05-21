@@ -2593,7 +2593,7 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      * @return
      * @throws org.antlr.runtime.RecognitionException
      */
-    private BaseDescr lhsExists(CEDescrBuilder<?, ?> ce,
+    protected BaseDescr lhsExists(CEDescrBuilder<?, ?> ce,
             boolean allowOr) throws RecognitionException {
         CEDescrBuilder<?, ExistsDescr> exists = null;
 
@@ -2672,7 +2672,7 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      * @return
      * @throws org.antlr.runtime.RecognitionException
      */
-    private BaseDescr lhsNot(CEDescrBuilder<?, ?> ce,
+    protected BaseDescr lhsNot(CEDescrBuilder<?, ?> ce,
             boolean allowOr) throws RecognitionException {
         CEDescrBuilder<?, NotDescr> not = null;
 
@@ -2751,7 +2751,7 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      * @return
      * @throws org.antlr.runtime.RecognitionException
      */
-    private BaseDescr lhsForall(CEDescrBuilder<?, ?> ce) throws RecognitionException {
+    protected BaseDescr lhsForall(CEDescrBuilder<?, ?> ce) throws RecognitionException {
         ForallDescrBuilder<?> forall = helper.start(ce,
                 ForallDescrBuilder.class,
                 null);
@@ -3258,9 +3258,10 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
     }
 
     /**
-     * lhsPattern := QUESTION? qualifiedIdentifier
-     * LEFT_PAREN positionalConstraints? constraints? RIGHT_PAREN
-     *     (OVER patternFilter)? (FROM patternSource)?
+     * lhsPattern := xpathPrimary |
+     *               ( QUESTION? qualifiedIdentifier
+     *                 LEFT_PAREN positionalConstraints? constraints? RIGHT_PAREN
+     *                 (OVER patternFilter)? (FROM patternSource)? )
      *
      * @param pattern
      * @param label
@@ -3269,7 +3270,18 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      */
      void lhsPattern(PatternDescrBuilder<?> pattern,
                      String label,
-            boolean isUnification) throws RecognitionException {
+                     boolean isUnification) throws RecognitionException {
+
+         if (label != null && input.LA(1) == DRL6Lexer.DIV) {
+             int first = input.index();
+             exprParser.xpathPrimary();
+             if (state.failed) return;
+             int last = input.LT(-1).getTokenIndex();
+             String expr = toExpression("", first, last);
+             pattern.id( label, isUnification ).constraint( expr );
+             return;
+         }
+
         boolean query = false;
         if (input.LA(1) == DRL6Lexer.QUESTION) {
             match(input,
@@ -3608,11 +3620,12 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
             int nextToken = input.LA(++cursor);
             switch (lastToken) {
                 case DRL6Lexer.ID:
-                    if (nextToken != DRL6Lexer.DOT && nextToken != DRL6Lexer.HASH) {
+                    if (nextToken != DRL6Lexer.DOT && nextToken != DRL6Lexer.NULL_SAFE_DOT && nextToken != DRL6Lexer.HASH) {
                         return -1;
                     }
                     break;
                 case DRL6Lexer.DOT:
+                case DRL6Lexer.NULL_SAFE_DOT:
                     if (nextToken == DRL6Lexer.LEFT_PAREN) {
                         return cursor;
                     }
@@ -4140,7 +4153,8 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
             } else {
                 // accumulate functions
                 accumulateFunction(accumulate,
-                        null);
+                                   false,
+                                   null);
                 if (state.failed)
                     return;
             }
@@ -4167,9 +4181,17 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      * @throws org.antlr.runtime.RecognitionException
      */
     private void accumulateFunctionBinding(AccumulateDescrBuilder<?> accumulate) throws RecognitionException {
-        String label = label(DroolsEditorType.IDENTIFIER_VARIABLE);
-        accumulateFunction(accumulate,
-                label);
+        String label = null;
+        boolean unif = false;
+        if (input.LA(2) == DRL6Lexer.COLON) {
+            label = label(DroolsEditorType.IDENTIFIER_VARIABLE);
+        } else if (input.LA(2) == DRL6Lexer.UNIFY) {
+            label = unif(DroolsEditorType.IDENTIFIER_VARIABLE);
+            unif = true;
+        }
+        accumulateFunction( accumulate,
+                            unif,
+                            label );
     }
 
     /**
@@ -4178,7 +4200,8 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
      * @throws org.antlr.runtime.RecognitionException
      */
     private void accumulateFunction(AccumulateDescrBuilder<?> accumulate,
-            String label) throws RecognitionException {
+                                    boolean unif,
+                                    String label) throws RecognitionException {
         Token function = match(input,
                 DRL6Lexer.ID,
                 null,
@@ -4194,6 +4217,7 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
         if (state.backtracking == 0) {
             accumulate.function(function.getText(),
                     label,
+                    unif,
                     parameters.toArray(new String[parameters.size()]));
         }
     }
@@ -4336,13 +4360,21 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
     }
 
     protected String getConsequenceCode( int first ) {
-        while (input.LA(1) != DRL6Lexer.EOF &&
-                !helper.validateIdentifierKey(DroolsSoftKeywords.END) &&
-                !helper.validateIdentifierKey(DroolsSoftKeywords.THEN)) {
-            helper.emit(input.LT(1), DroolsEditorType.CODE_CHUNK);
+        while (input.LA(1) != DRL6Lexer.EOF) {
+            if (helper.validateIdentifierKey(DroolsSoftKeywords.END)) {
+                int next = input.LA(2) == DRL6Lexer.SEMICOLON ? 3 : 2;
+                if (input.LA(next) == DRL6Lexer.EOF || input.LA(next) == DRL6Lexer.AT || helper.validateStatement(next)) {
+                    break;
+                }
+            } else if (helper.validateIdentifierKey(DroolsSoftKeywords.THEN)) {
+                if (isNextTokenThenCompatible( input.LA( 2 ) ) ) {
+                    break;
+                }
+            }
+
+            helper.emit( input.LT( 1 ), DroolsEditorType.CODE_CHUNK );
             input.consume();
         }
-
         int last = input.LT(1).getTokenIndex();
         if (last <= first) {
             return "";
@@ -4358,6 +4390,14 @@ public class DRL6StrictParser extends AbstractDRLParser implements DRLParser {
                     chunk.length() - DroolsSoftKeywords.THEN.length());
         }
         return chunk;
+    }
+
+    private boolean isNextTokenThenCompatible(int next) {
+        return next != DRL6Lexer.LEFT_PAREN &&
+               next != DRL6Lexer.RIGHT_PAREN &&
+               next != DRL6Lexer.RIGHT_SQUARE &&
+               next != DRL6Lexer.COMMA &&
+               next != DRL6Lexer.SEMICOLON;
     }
 
     /* ------------------------------------------------------------------------------------------------

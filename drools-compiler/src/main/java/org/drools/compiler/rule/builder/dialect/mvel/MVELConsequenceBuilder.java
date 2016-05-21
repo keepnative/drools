@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.mvel;
 
 import org.drools.compiler.compiler.AnalysisResult;
@@ -40,6 +55,13 @@ public class MVELConsequenceBuilder
                     new Macro() {
                         public String doMacro() {
                             return "drools.insertLogical";
+                        }
+                    } );
+
+        macros.put( "bolster",
+                    new Macro() {
+                        public String doMacro() {
+                            return "drools.bolster";
                         }
                     } );
 
@@ -89,20 +111,6 @@ public class MVELConsequenceBuilder
                             return "drools.shed";
                         }
                     } );
-
-        macros.put( "ward",
-                    new Macro() {
-                        public String doMacro() {
-                            return "drools.ward";
-                        }
-                    } );
-
-        macros.put( "grant",
-                    new Macro() {
-                        public String doMacro() {
-                            return "drools.grant";
-                        }
-                    } );
     }
 
     public MVELConsequenceBuilder() {
@@ -112,7 +120,7 @@ public class MVELConsequenceBuilder
     public void build(final RuleBuildContext context, String consequenceName) {
 
         // pushing consequence LHS into the stack for variable resolution
-        context.getBuildStack().push( context.getRule().getLhs() );
+        context.getDeclarationResolver().pushOnBuildStack( context.getRule().getLhs() );
 
         try {
             MVELDialect dialect = (MVELDialect) context.getDialect( context.getDialect().getId() );
@@ -128,8 +136,6 @@ public class MVELConsequenceBuilder
             Map<String, Declaration> decls = context.getDeclarationResolver().getDeclarations(context.getRule());
             
             AnalysisResult analysis = dialect.analyzeBlock( context,
-                                                            context.getRuleDescr(),
-                                                            dialect.getInterceptors(),
                                                             text,
                                                             new BoundIdentifiers(DeclarationScopeResolver.getDeclarationClasses(decls),
                                                                                  context.getKnowledgeBuilder().getGlobals(),
@@ -166,7 +172,8 @@ public class MVELConsequenceBuilder
                                                                        context,
                                                                        "drools",
                                                                        KnowledgeHelper.class,
-                                                                       false );
+                                                                       false,
+                                                                       MVELCompilationUnit.Scope.CONSEQUENCE );
 
             MVELConsequence expr = new MVELConsequence( unit,
                                                         dialect.getId(),

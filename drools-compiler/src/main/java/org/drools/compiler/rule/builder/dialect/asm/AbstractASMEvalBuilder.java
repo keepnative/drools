@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.asm;
 
 import org.drools.compiler.compiler.AnalysisResult;
@@ -12,6 +27,7 @@ import org.drools.core.rule.Pattern;
 import org.drools.core.rule.RuleConditionElement;
 import org.drools.compiler.rule.builder.RuleBuildContext;
 import org.drools.compiler.rule.builder.RuleConditionBuilder;
+import org.drools.core.spi.DeclarationScopeResolver;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +50,7 @@ public abstract class AbstractASMEvalBuilder implements RuleConditionBuilder {
         AnalysisResult analysis = context.getDialect().analyzeExpression( context,
                                                                           evalDescr,
                                                                           evalDescr.getContent(),
-                                                                          new BoundIdentifiers( context.getDeclarationResolver().getDeclarationClasses(decls),
+                                                                          new BoundIdentifiers( DeclarationScopeResolver.getDeclarationClasses( decls ),
                                                                                                 context.getKnowledgeBuilder().getGlobals() ) );
 
         List<Declaration> requiredDeclarations = new ArrayList<Declaration>();

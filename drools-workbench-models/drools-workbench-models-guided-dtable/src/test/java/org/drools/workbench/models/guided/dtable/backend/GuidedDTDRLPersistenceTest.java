@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -30,6 +30,7 @@ import org.drools.workbench.models.datamodel.rule.ActionSetField;
 import org.drools.workbench.models.datamodel.rule.ActionWorkItemFieldValue;
 import org.drools.workbench.models.datamodel.rule.BaseSingleFieldConstraint;
 import org.drools.workbench.models.datamodel.rule.FactPattern;
+import org.drools.workbench.models.datamodel.rule.FreeFormLine;
 import org.drools.workbench.models.datamodel.rule.IAction;
 import org.drools.workbench.models.datamodel.rule.IPattern;
 import org.drools.workbench.models.datamodel.rule.RuleAttribute;
@@ -51,7 +52,6 @@ import org.drools.workbench.models.guided.dtable.shared.model.ActionSetFieldCol5
 import org.drools.workbench.models.guided.dtable.shared.model.ActionWorkItemCol52;
 import org.drools.workbench.models.guided.dtable.shared.model.ActionWorkItemInsertFactCol52;
 import org.drools.workbench.models.guided.dtable.shared.model.ActionWorkItemSetFieldCol52;
-import org.drools.workbench.models.guided.dtable.shared.model.AnalysisCol52;
 import org.drools.workbench.models.guided.dtable.shared.model.AttributeCol52;
 import org.drools.workbench.models.guided.dtable.shared.model.BRLActionColumn;
 import org.drools.workbench.models.guided.dtable.shared.model.BRLActionVariableColumn;
@@ -74,6 +74,80 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class GuidedDTDRLPersistenceTest {
+
+    @Test
+    public void testInWithSimpleSingleLiteralValue() {
+        GuidedDecisionTable52 dt = new GuidedDecisionTable52();
+        dt.setTableName( "in_operator" );
+
+        Pattern52 p1 = new Pattern52();
+        p1.setFactType( "Person" );
+
+        ConditionCol52 con = new ConditionCol52();
+        con.setConstraintValueType( BaseSingleFieldConstraint.TYPE_LITERAL );
+        con.setFieldType( DataType.TYPE_STRING );
+        con.setFactField( "field1" );
+        con.setHeader( "Person field1" );
+        con.setOperator( "in" );
+        p1.getChildColumns().add( con );
+
+        dt.getConditions().add( p1 );
+
+        dt.setData( DataUtilities.makeDataLists( new String[][]{
+                new String[]{ "1", "desc1", "ak1,mk1" },
+                new String[]{ "2", "desc2", "(ak2,mk2)" },
+                new String[]{ "3", "desc3", "( ak3, mk3 )" },
+                new String[]{ "4", "desc4", "( \"ak4\", \"mk4\" )" },
+                new String[]{ "5", "desc5", "( \"ak5 \", \" mk5\" )" },
+        } ) );
+
+        GuidedDTDRLPersistence p = GuidedDTDRLPersistence.getInstance();
+        String drl = p.marshal( dt );
+
+        String expected = "//from row number: 1\n" +
+                "//desc1\n" +
+                "rule \"Row 1 in_operator\"\n" +
+                "dialect \"mvel\"\n" +
+                "when\n" +
+                "  Person( field1 in ( \"ak1\", \"mk1\" ) )\n" +
+                "then\n" +
+                "end\n" +
+                "//from row number: 2\n" +
+                "//desc2\n" +
+                "rule \"Row 2 in_operator\"\n" +
+                "dialect \"mvel\"\n" +
+                "when\n" +
+                "  Person( field1 in ( \"ak2\", \"mk2\" ) )\n" +
+                "then\n" +
+                "end\n" +
+                "//from row number: 3\n" +
+                "//desc3\n" +
+                "rule \"Row 3 in_operator\"\n" +
+                "dialect \"mvel\"\n" +
+                "when\n" +
+                "  Person( field1 in ( \"ak3\", \"mk3\" ) )\n" +
+                "then\n" +
+                "end\n" +
+                "//from row number: 4\n" +
+                "//desc4\n" +
+                "rule \"Row 4 in_operator\"\n" +
+                "dialect \"mvel\"\n" +
+                "when\n" +
+                "  Person( field1 in ( \"ak4\", \"mk4\" ) )\n" +
+                "then\n" +
+                "end\n" +
+                "//from row number: 5\n" +
+                "//desc5\n" +
+                "rule \"Row 5 in_operator\"\n" +
+                "dialect \"mvel\"\n" +
+                "when\n" +
+                "  Person( field1 in ( \"ak5 \", \" mk5\" ) )\n" +
+                "then\n" +
+                "end";
+
+        assertEqualsIgnoreWhitespace( expected,
+                                      drl );
+    }
 
     @Test
     public void test2Rules() throws Exception {
@@ -488,10 +562,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
                                                                                  rowData );
@@ -599,10 +669,6 @@ public class GuidedDTDRLPersistenceTest {
         p1.getChildColumns().add( col3 );
         allColumns.add( col3 );
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
                                                                                  rowData );
@@ -709,10 +775,6 @@ public class GuidedDTDRLPersistenceTest {
         col4.setConstraintValueType( BaseSingleFieldConstraint.TYPE_LITERAL );
         p2.getChildColumns().add( col4 );
         allColumns.add( col4 );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -846,10 +908,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         TemplateDataProvider rowDataProvider0 = new GuidedDTTemplateDataProvider( allColumns,
                                                                                   rowDTModel0 );
 
@@ -953,10 +1011,6 @@ public class GuidedDTDRLPersistenceTest {
         allColumns.add( col2 );
 
         RuleModel rm = new RuleModel();
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         TemplateDataProvider rowDataProvider0 = new GuidedDTTemplateDataProvider( allColumns,
                                                                                   rowDTModel0 );
@@ -1087,10 +1141,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         TemplateDataProvider rowDataProvider0 = new GuidedDTTemplateDataProvider( allColumns,
                                                                                   rowDTModel0 );
 
@@ -1219,10 +1269,6 @@ public class GuidedDTDRLPersistenceTest {
         allColumns.add( col2 );
 
         RuleModel rm = new RuleModel();
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         TemplateDataProvider rowDataProvider0 = new GuidedDTTemplateDataProvider( allColumns,
                                                                                   rowDTModel0 );
@@ -1460,10 +1506,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
                                                                                  rowData );
@@ -1525,10 +1567,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -2760,10 +2798,6 @@ public class GuidedDTDRLPersistenceTest {
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
                                                                                  rowData );
@@ -2851,10 +2885,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -2980,10 +3010,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -3138,10 +3164,6 @@ public class GuidedDTDRLPersistenceTest {
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
 
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
-
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
                                                                                  rowData );
@@ -3269,10 +3291,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -3426,10 +3444,6 @@ public class GuidedDTDRLPersistenceTest {
 
         RuleModel rm = new RuleModel();
         allColumns.addAll( cols );
-
-        //When using a TemplateDataProvider the assumption is that we 
-        //have a "complete" decision table including AnalysisCol52
-        allColumns.add( new AnalysisCol52() );
 
         List<DTCellValue52> rowData = DataUtilities.makeDataRowList( row );
         TemplateDataProvider rowDataProvider = new GuidedDTTemplateDataProvider( allColumns,
@@ -3656,9 +3670,9 @@ public class GuidedDTDRLPersistenceTest {
         // examine the second pattern
         FactPattern result1Fp2 = (FactPattern) rm.lhs[ 1 ];
         assertEquals( 2,
-                      result0Fp2.getConstraintList().getConstraints().length );
+                      result1Fp2.getConstraintList().getConstraints().length );
 
-        SingleFieldConstraint result1Fp2Con1 = (SingleFieldConstraint) result0Fp2.getConstraint( 0 );
+        SingleFieldConstraint result1Fp2Con1 = (SingleFieldConstraint) result1Fp2.getConstraint( 0 );
         assertEquals( BaseSingleFieldConstraint.TYPE_TEMPLATE,
                       result1Fp2Con1.getConstraintValueType() );
         assertEquals( "name",
@@ -3668,7 +3682,7 @@ public class GuidedDTDRLPersistenceTest {
         assertEquals( "$name",
                       result1Fp2Con1.getValue() );
 
-        SingleFieldConstraint result1Fp2Con2 = (SingleFieldConstraint) result0Fp2.getConstraint( 1 );
+        SingleFieldConstraint result1Fp2Con2 = (SingleFieldConstraint) result1Fp2.getConstraint( 1 );
         assertEquals( BaseSingleFieldConstraint.TYPE_TEMPLATE,
                       result1Fp2Con2.getConstraintValueType() );
         assertEquals( "age",
@@ -3712,9 +3726,9 @@ public class GuidedDTDRLPersistenceTest {
         // examine the second pattern
         FactPattern result2Fp2 = (FactPattern) rm.lhs[ 1 ];
         assertEquals( 2,
-                      result0Fp2.getConstraintList().getConstraints().length );
+                      result2Fp2.getConstraintList().getConstraints().length );
 
-        SingleFieldConstraint result2Fp2Con1 = (SingleFieldConstraint) result0Fp2.getConstraint( 0 );
+        SingleFieldConstraint result2Fp2Con1 = (SingleFieldConstraint) result2Fp2.getConstraint( 0 );
         assertEquals( BaseSingleFieldConstraint.TYPE_TEMPLATE,
                       result2Fp2Con1.getConstraintValueType() );
         assertEquals( "name",
@@ -3724,7 +3738,7 @@ public class GuidedDTDRLPersistenceTest {
         assertEquals( "$name",
                       result2Fp2Con1.getValue() );
 
-        SingleFieldConstraint result2Fp2Con2 = (SingleFieldConstraint) result0Fp2.getConstraint( 1 );
+        SingleFieldConstraint result2Fp2Con2 = (SingleFieldConstraint) result2Fp2.getConstraint( 1 );
         assertEquals( BaseSingleFieldConstraint.TYPE_TEMPLATE,
                       result2Fp2Con2.getConstraintValueType() );
         assertEquals( "age",
@@ -3968,7 +3982,6 @@ public class GuidedDTDRLPersistenceTest {
 
         //Row 0 should become an IPattern in the resulting RuleModel as it contains getValue()s for all Template fields in the BRL Column
         //Row 1 should *NOT* become an IPattern in the resulting RuleModel as it does *NOT* contain getValue()s for all Template fields in the BRL Column
-        //Row 2 should *NOT* become an IPattern in the resulting RuleModel as it does *NOT* contain getValue()s for all Template fields in the BRL Column
         Object[][] data = new Object[][]{
                 new Object[]{ "1", "desc", Boolean.TRUE },
                 new Object[]{ "2", "desc", Boolean.FALSE }
@@ -4025,6 +4038,85 @@ public class GuidedDTDRLPersistenceTest {
                                           ruleStartIndex );
         assertTrue( pattern1StartIndex == -1 );
 
+    }
+
+    @Test
+    //This test checks a Decision Table involving BRL columns is correctly converted into DRL
+    public void testLHSWithBRLColumn_ParseToDRL_FreeFormLine() {
+
+        GuidedDecisionTable52 dtable = new GuidedDecisionTable52();
+
+        //Row 0 should become an IPattern in the resulting RuleModel as it contains values for all Template fields in the BRL Column
+        //Row 1 should *NOT* become an IPattern in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        //Row 2 should *NOT* become an IPattern in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        //Row 3 should *NOT* become an IPattern in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        String[][] data = new String[][]{
+                new String[]{ "1", "desc", "Pupa", "50" },
+                new String[]{ "2", "desc", "", "50" },
+                new String[]{ "3", "desc", "Pupa", "" },
+                new String[]{ "4", "desc", "", "" }
+        };
+
+        //Simple (mandatory) columns
+        dtable.setRowNumberCol( new RowNumberCol52() );
+        dtable.setDescriptionCol( new DescriptionCol52() );
+
+        //BRL Column
+        BRLConditionColumn brl1 = new BRLConditionColumn();
+
+        //BRL Column definition
+        List<IPattern> brl1Definition = new ArrayList<IPattern>();
+        FreeFormLine brl1DefinitionFreeFormLine = new FreeFormLine();
+        brl1DefinitionFreeFormLine.setText( "Smurf( name == \"@{name}\", age == @{age} )" );
+
+        brl1Definition.add( brl1DefinitionFreeFormLine );
+
+        brl1.setDefinition( brl1Definition );
+
+        //Setup BRL column bindings
+        BRLConditionVariableColumn brl1Variable1 = new BRLConditionVariableColumn( "name",
+                                                                                   DataType.TYPE_STRING );
+        BRLConditionVariableColumn brl1Variable2 = new BRLConditionVariableColumn( "age",
+                                                                                   DataType.TYPE_NUMERIC_INTEGER );
+        brl1.getChildColumns().add( brl1Variable1 );
+        brl1.getChildColumns().add( brl1Variable2 );
+
+        dtable.getConditions().add( brl1 );
+        dtable.setData( DataUtilities.makeDataLists( data ) );
+
+        //Now to test conversion
+        int ruleStartIndex;
+        int pattern1StartIndex;
+        GuidedDTDRLPersistence p = GuidedDTDRLPersistence.getInstance();
+        String drl = p.marshal( dtable );
+
+        //Row 0
+        ruleStartIndex = drl.indexOf( "//from row number: 1" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "Smurf( name == \"Pupa\", age == 50 )",
+                                          ruleStartIndex );
+        assertFalse( pattern1StartIndex == -1 );
+
+        //Row 1
+        ruleStartIndex = drl.indexOf( "//from row number: 2" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "Smurf(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
+
+        //Row 2
+        ruleStartIndex = drl.indexOf( "//from row number: 3" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "Smurf(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
+
+        //Row 3
+        ruleStartIndex = drl.indexOf( "//from row number: 4" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "Smurf(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
     }
 
     @Test
@@ -4245,7 +4337,6 @@ public class GuidedDTDRLPersistenceTest {
                       result3Action2FieldValue2.getField() );
         assertEquals( "$age",
                       result3Action2FieldValue2.getValue() );
-
     }
 
     @Test
@@ -4611,6 +4702,85 @@ public class GuidedDTDRLPersistenceTest {
         action1StartIndex = drl.indexOf( "insert( fact0 );",
                                          ruleStartIndex );
         assertTrue( action1StartIndex == -1 );
+    }
+
+    @Test
+    //This test checks a Decision Table involving BRL columns is correctly converted into DRL
+    public void testRHSWithBRLColumn_ParseToDRL_FreeFormLine() {
+
+        GuidedDecisionTable52 dtable = new GuidedDecisionTable52();
+
+        //Row 0 should become an IAction in the resulting RuleModel as it contains values for all Template fields in the BRL Column
+        //Row 1 should *NOT* become an IAction in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        //Row 2 should *NOT* become an IAction in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        //Row 3 should *NOT* become an IAction in the resulting RuleModel as it does *NOT* contain values for all Template fields in the BRL Column
+        String[][] data = new String[][]{
+                new String[]{ "1", "desc", "Pupa", "50" },
+                new String[]{ "2", "desc", "", "50" },
+                new String[]{ "3", "desc", "Pupa", "" },
+                new String[]{ "4", "desc", "", "" }
+        };
+
+        //Simple (mandatory) columns
+        dtable.setRowNumberCol( new RowNumberCol52() );
+        dtable.setDescriptionCol( new DescriptionCol52() );
+
+        //BRL Action
+        BRLActionColumn brl1 = new BRLActionColumn();
+
+        //BRL Action definition
+        List<IAction> brl1Definition = new ArrayList<IAction>();
+        FreeFormLine brl1DefinitionFreeFormLine = new FreeFormLine();
+        brl1DefinitionFreeFormLine.setText( "System.out.println( \"name == @{name}, age == @{age}\" );" );
+
+        brl1Definition.add( brl1DefinitionFreeFormLine );
+
+        brl1.setDefinition( brl1Definition );
+
+        //Setup BRL column bindings
+        BRLActionVariableColumn brl1Variable1 = new BRLActionVariableColumn( "name",
+                                                                             DataType.TYPE_STRING );
+        BRLActionVariableColumn brl1Variable2 = new BRLActionVariableColumn( "age",
+                                                                             DataType.TYPE_NUMERIC_INTEGER );
+        brl1.getChildColumns().add( brl1Variable1 );
+        brl1.getChildColumns().add( brl1Variable2 );
+
+        dtable.getActionCols().add( brl1 );
+        dtable.setData( DataUtilities.makeDataLists( data ) );
+
+        //Now to test conversion
+        int ruleStartIndex;
+        int pattern1StartIndex;
+        GuidedDTDRLPersistence p = GuidedDTDRLPersistence.getInstance();
+        String drl = p.marshal( dtable );
+
+        //Row 0
+        ruleStartIndex = drl.indexOf( "//from row number: 1" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "System.out.println( \"name == Pupa, age == 50\" );",
+                                          ruleStartIndex );
+        assertFalse( pattern1StartIndex == -1 );
+
+        //Row 1
+        ruleStartIndex = drl.indexOf( "//from row number: 2" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "System.out.println(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
+
+        //Row 2
+        ruleStartIndex = drl.indexOf( "//from row number: 3" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "System.out.println(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
+
+        //Row 3
+        ruleStartIndex = drl.indexOf( "//from row number: 4" );
+        assertFalse( ruleStartIndex == -1 );
+        pattern1StartIndex = drl.indexOf( "System.out.println(",
+                                          ruleStartIndex );
+        assertTrue( pattern1StartIndex == -1 );
     }
 
     @Test

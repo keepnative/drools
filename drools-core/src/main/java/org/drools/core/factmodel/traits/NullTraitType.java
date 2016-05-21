@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,19 +36,24 @@ public class NullTraitType implements TraitType, Thing, Externalizable {
         typeCode = code;
     }
 
-    public BitSet getTypeCode() {
+    public BitSet _getTypeCode() {
         return typeCode;
     }
 
-    public boolean isVirtual() {
+    public boolean _isVirtual() {
         return true;
     }
 
-    public String getTraitName() {
+    public String _getTraitName() {
         return "";
     }
 
-    public void setTypeCode(BitSet typeCode) {
+    @Override
+    public boolean _hasTypeCode( BitSet typeCode ) {
+        return false;
+    }
+
+    public void _setTypeCode(BitSet typeCode) {
         this.typeCode = typeCode;
     }
 

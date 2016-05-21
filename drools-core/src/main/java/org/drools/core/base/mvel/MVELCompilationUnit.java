@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.drools.core.rule.Declaration;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.spi.GlobalResolver;
 import org.drools.core.spi.KnowledgeHelper;
+import org.drools.core.spi.Tuple;
 import org.kie.api.definition.rule.Rule;
 import org.kie.api.runtime.rule.FactHandle;
 import org.mvel2.DataConversion;
@@ -46,13 +47,13 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -88,6 +89,14 @@ public class MVELCompilationUnit
 
     public static final Map<String, Interceptor> INTERCEPTORS = new InterceptorMap();
 
+    public enum Scope {
+        CONSTRAINT, CONSEQUENCE, EXPRESSION;
+
+        public boolean hasRule() {
+            return this != CONSTRAINT;
+        }
+    }
+
     static {
         //for handling dates as string literals
         DataConversion.addConversionHandler( Date.class,
@@ -118,8 +127,6 @@ public class MVELCompilationUnit
         primitivesMap.put( "char",
                            char.class );
     }
-
-    public static final Object                   COMPILER_LOCK    = new Object();
 
     public MVELCompilationUnit() {
     }
@@ -157,6 +164,29 @@ public class MVELCompilationUnit
 
     public String getExpression() {
         return expression;
+    }
+
+    @Override
+    public boolean equals( Object obj ) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || !(obj instanceof MVELCompilationUnit)) {
+            return false;
+        }
+
+        MVELCompilationUnit other = (MVELCompilationUnit) obj;
+
+        return expression.equals( other.expression ) &&
+               Arrays.equals(previousDeclarations, other.previousDeclarations) &&
+               Arrays.equals(localDeclarations, other.localDeclarations);
+    }
+
+    @Override
+    public int hashCode() {
+        return 23 * expression.hashCode() +
+               29 * Arrays.hashCode( previousDeclarations ) +
+               31 * Arrays.hashCode( localDeclarations );
     }
 
     public void writeExternal( ObjectOutput out ) throws IOException {
@@ -241,10 +271,7 @@ public class MVELCompilationUnit
 
         String[] varNames = parserContext.getIndexedVarNames();
         
-        ExecutableStatement stmt = (ExecutableStatement) compile( expression,
-                                                                  runtimeData.getPackageClassLoader(),
-                                                                  parserContext,
-                                                                  languageLevel );
+        ExecutableStatement stmt = (ExecutableStatement) compile( expression, parserContext );
         
         Set<String> localNames = parserContext.getVariables().keySet();
 
@@ -274,7 +301,7 @@ public class MVELCompilationUnit
     public VariableResolverFactory getFactory(final Object knowledgeHelper,
                                               final Declaration[] prevDecl,
                                               final Rule rule,
-                                              final LeftTuple tuples,
+                                              final Tuple tuples,
                                               final Object[] otherVars,
                                               final InternalWorkingMemory workingMemory,
                                               final GlobalResolver globals) {
@@ -287,24 +314,24 @@ public class MVELCompilationUnit
                                               final Declaration[] prevDecl,
                                               final Rule rule,
                                               final InternalFactHandle rightHandle,
-                                              final LeftTuple tuples,
+                                              final Tuple tuple,
                                               final Object[] otherVars,
                                               final InternalWorkingMemory workingMemory,
                                               final GlobalResolver globals) {
         VariableResolverFactory factory = createFactory();
-        updateFactory(knowledgeHelper, prevDecl, rule, rightHandle, rightHandle != null ? rightHandle.getObject() : null, tuples, otherVars, workingMemory, globals, factory);
+        updateFactory(knowledgeHelper, prevDecl, rule, rightHandle, rightHandle != null ? rightHandle.getObject() : null, tuple, otherVars, workingMemory, globals, factory);
         return factory;
     }
     
     public void updateFactory(Object knowledgeHelper,
                               Rule rule,
                               InternalFactHandle rightHandle,
-                              LeftTuple leftTuple,
+                              Tuple tuple,
                               Object[] localVars,
                               InternalWorkingMemory workingMemory,
                               GlobalResolver globalResolver,
                               VariableResolverFactory factory) {
-        updateFactory(knowledgeHelper, null, rule, rightHandle, rightHandle != null ? rightHandle.getObject() : null, leftTuple, localVars, workingMemory, globalResolver, factory);
+        updateFactory(knowledgeHelper, null, rule, rightHandle, rightHandle != null ? rightHandle.getObject() : null, tuple, localVars, workingMemory, globalResolver, factory);
     }    
     
     public void updateFactory(Object knowledgeHelper,
@@ -312,7 +339,7 @@ public class MVELCompilationUnit
                               Rule rule,
                               InternalFactHandle rightHandle,
                               Object rightObject,
-                              LeftTuple tuples,
+                              Tuple tuple,
                               Object[] otherVars,
                               InternalWorkingMemory workingMemory,
                               GlobalResolver globals,
@@ -325,8 +352,9 @@ public class MVELCompilationUnit
         }
         factory.getIndexedVariableResolver( i++ ).setValue( knowledgeHelper );
         factory.getIndexedVariableResolver( i++ ).setValue( knowledgeHelper );
-        factory.getIndexedVariableResolver( i++ ).setValue( rule );
-
+        if (inputIdentifiers.length > i && "rule".equals( inputIdentifiers[i] )) {
+            factory.getIndexedVariableResolver( i++ ).setValue( rule );
+        }
 
         if ( globalIdentifiers != null ) {
             for (String globalIdentifier : globalIdentifiers) {
@@ -334,8 +362,8 @@ public class MVELCompilationUnit
             }
         }
 
-        InternalFactHandle[] handles = tuples != null ? tuples.toFactHandles() : new InternalFactHandle[0];
-        if ( operators != null ) {
+        InternalFactHandle[] handles = tuple instanceof LeftTuple ? ( (LeftTuple) tuple ).toFactHandles() : null;
+        if ( operators.length > 0 ) {
             for (EvaluatorWrapper operator : operators) {
                 // TODO: need to have one operator per working memory
                 factory.getIndexedVariableResolver(i++).setValue(operator);
@@ -343,12 +371,12 @@ public class MVELCompilationUnit
             }
         }
 
-        IdentityHashMap<Object, FactHandle> identityMap = null;
-        if ( knowledgeHelper != null ) {
-            identityMap = new IdentityHashMap<Object, FactHandle>();
-        }
+        Object[] objs = null;
 
-        if ( tuples != null ) {
+        if ( tuple != null ) {
+            if (handles == null) {
+                objs = tuple.toObjects();
+            }
             if ( this.previousDeclarations != null && this.previousDeclarations.length > 0 ) {
                 // Consequences with 'or's will have different declaration offsets, so use the one's from the RTN's subrule.
                 if ( prevDecl == null ) {
@@ -358,12 +386,8 @@ public class MVELCompilationUnit
                 }
 
                 for (Declaration decl : prevDecl) {
-                    InternalFactHandle handle = getFactHandle(decl, handles);
-
-                    Object o = decl.getValue(workingMemory, handle.getObject());
-                    if (knowledgeHelper != null && decl.isPatternDeclaration()) {
-                        identityMap.put(o, handle);
-                    }
+                    int offset = decl.getPattern().getOffset();
+                    Object o = decl.getValue(workingMemory, objs != null ? objs[offset] : handles[offset].getObject());
                     factory.getIndexedVariableResolver(i++).setValue(o);
                 }
             }
@@ -372,12 +396,10 @@ public class MVELCompilationUnit
         if ( this.localDeclarations != null && this.localDeclarations.length > 0 ) {
             for ( Declaration decl : this.localDeclarations ) {
                 Object value;
-                if( readLocalsFromTuple && tuples != null ) {
-                    InternalFactHandle handle = getFactHandle( decl,
-                                                               handles );
-
+                if( readLocalsFromTuple && tuple != null ) {
+                    int offset = decl.getPattern().getOffset();
                     value = decl.getValue( workingMemory,
-                                           handle.getObject() );
+                                           objs != null ? objs[offset] : handles[offset].getObject() );
                 } else {
                     value = decl.getValue( workingMemory,
                                           rightObject ); 
@@ -407,20 +429,17 @@ public class MVELCompilationUnit
         
         if ( knowledgeHelper instanceof KnowledgeHelper ) {
             KnowledgeHelper kh = ( KnowledgeHelper ) knowledgeHelper;
-            kh.setIdentityMap( identityMap );
             df.setKnowledgeHelper( kh );
         }        
     }
 
     public static InternalFactHandle getFactHandle( Declaration declaration,
                                                     InternalFactHandle[] handles ) {
-        return handles.length > declaration.getPattern().getOffset() ? handles[declaration.getPattern().getOffset()] : null;
+        return handles != null && handles.length > declaration.getPattern().getOffset() ? handles[declaration.getPattern().getOffset()] : null;
     }
 
-    public static Serializable compile( final String text,
-                                        final ClassLoader classLoader,
-                                        final ParserContext parserContext,
-                                        final int languageLevel ) {
+    private static Serializable compile( final String text,
+                                         final ParserContext parserContext ) {
         MVEL.COMPILER_OPT_ALLOW_NAKED_METH_CALL = true;
         MVEL.COMPILER_OPT_ALLOW_OVERRIDE_ALL_PROPHANDLING = true;
         MVEL.COMPILER_OPT_ALLOW_RESOLVE_INNERCLASSES_WITH_DOTNOTATION = true;
@@ -543,10 +562,6 @@ public class MVELCompilationUnit
         return primitivesMap;
     }
 
-    public static Object getCompilerLock() {
-        return COMPILER_LOCK;
-    }
-
     public static class DroolsVarFactory implements VariableResolverFactory {
     
         private KnowledgeHelper knowledgeHelper;
@@ -554,34 +569,6 @@ public class MVELCompilationUnit
         private int             otherVarsPos;
         private int             otherVarsLength;
         
-//        private Object[]        values;
-    
-//        public DroolsMVELIndexedFactory(String[] varNames,
-//                                         Object[] values) {
-//            this.indexedVariableNames = varNames;
-//            this.values = values;
-//            this.indexedVariableResolvers = createResolvers( values );
-//        }
-//    
-//        public DroolsMVELIndexedFactory(String[] varNames,
-//                                        Object[] values,
-//                                        VariableResolverFactory factory) {
-//            this.indexedVariableNames = varNames;
-//            this.values = values;
-//            this.nextFactory = new MapVariableResolverFactory();
-//            this.nextFactory.setNextFactory( factory );
-//            this.indexedVariableResolvers = createResolvers( values );
-//        }
-//    
-//        private static VariableResolver[] createResolvers( Object[] values ) {
-//            VariableResolver[] vr = new VariableResolver[values.length];
-//            for ( int i = 0; i < values.length; i++ ) {
-//                vr[i] = new IndexVariableResolver( i,
-//                                                   values );
-//            }
-//            return vr;
-//        }
-    
         public KnowledgeHelper getKnowledgeHelper() {
             return this.knowledgeHelper ;
         }
@@ -610,47 +597,21 @@ public class MVELCompilationUnit
                                                        String name,
                                                        Object value ) {
             throw new UnsupportedOperationException(); 
-//            indexedVariableResolvers[index].setValue( value );
-//            return indexedVariableResolvers[index];
         }
     
         public VariableResolver getIndexedVariableResolver( int index ) {
             throw new UnsupportedOperationException(); 
-            //return indexedVariableResolvers[index];
         }
     
         public VariableResolver createVariable( String name,
                                                 Object value ) {
             throw new UnsupportedOperationException();            
-//            VariableResolver vr = getResolver( name );
-//            if ( vr != null ) {
-//                vr.setValue( value );
-//                return vr;
-//            } else {
-//                if ( nextFactory == null ) nextFactory = new MapVariableResolverFactory( new HashMap() );
-//                return nextFactory.createVariable( name,
-//                                                   value );
-//            }
         }
     
         public VariableResolver createVariable( String name,
                                                 Object value,
                                                 Class< ? > type ) {
             throw new UnsupportedOperationException();            
-//            VariableResolver vr = getResolver( name );
-//            if ( vr != null ) {
-//                if ( vr.getType() != null ) {
-//                    throw new RuntimeException( "variable already defined within scope: " + vr.getType() + " " + name );
-//                } else {
-//                    vr.setValue( value );
-//                    return vr;
-//                }
-//            } else {
-//                if ( nextFactory == null ) nextFactory = new MapVariableResolverFactory( new HashMap() );
-//                return nextFactory.createVariable( name,
-//                                                   value,
-//                                                   type );
-//            }
         }
     
         public VariableResolver getVariableResolver( String name ) {
@@ -658,48 +619,18 @@ public class MVELCompilationUnit
         }
     
         public boolean isResolveable( String name ) {
-            //return isTarget( name ) || (nextFactory != null && nextFactory.isResolveable( name ));
             return false;
         }
     
-        protected VariableResolver addResolver( String name,
-                                                VariableResolver vr ) {
-            throw new UnsupportedOperationException();
-//            variableResolvers.put( name,
-//                                   vr );
-//            return vr;
-        }
-    
-        private VariableResolver getResolver( String name ) {
-//            for ( int i = 0; i < indexedVariableNames.length; i++ ) {
-//                if ( indexedVariableNames[i].equals( name ) ) {
-//                    return indexedVariableResolvers[i];
-//                }
-//            }
-            return null;
-        }
-    
         public boolean isTarget( String name ) {
-//            for ( String indexedVariableName : indexedVariableNames ) {
-//                if ( indexedVariableName.equals( name ) ) {
-//                    return true;
-//                }
-//            }
             return false;
         }
     
         public Set<String> getKnownVariables() {
-//            Set<String> vars = new HashSet<String>();
-//            for ( int i = 0; i < indexedVariableNames.length; i++ ) {
-//                vars.add( indexedVariableNames[i] );
-//            }
             return Collections.emptySet();
         }
     
-        public void clear() {
-            // variableResolvers.clear();
-    
-        }
+        public void clear() { }
     
         public boolean isIndexedFactory() {
             return false;
@@ -741,7 +672,6 @@ public class MVELCompilationUnit
 
         public void setTiltFlag(boolean tilt) {
             // TODO Auto-generated method stub
-            
         }
     }
     
@@ -817,4 +747,8 @@ public class MVELCompilationUnit
         }
     }
 
+    @Override
+    public String toString() {
+        return expression;
+    }
 }

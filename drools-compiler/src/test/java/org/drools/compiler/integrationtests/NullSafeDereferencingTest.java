@@ -1,11 +1,30 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
 import org.drools.compiler.Address;
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.compiler.Person;
 import org.junit.Test;
-import org.kie.internal.KnowledgeBase;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class NullSafeDereferencingTest extends CommonTestMethodBase {
 
@@ -17,8 +36,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         ksession.insert(new Person("Mario", 38));
 
@@ -42,8 +61,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         ksession.insert(new Person("Mario", 38));
 
@@ -68,8 +87,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                      "then\n" +
                      "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         ksession.insert(new Person("Mario", 38));
 
@@ -96,8 +115,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
         ksession.insert(new Person("Mario", 38));
 
         Person mark = new Person("Mark", 37);
@@ -122,8 +141,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
         ksession.insert(new Person("Mario", 38));
 
         Person mark = new Person("Mark", 37);
@@ -146,8 +165,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         ksession.insert(new Person("Mario", 38));
 
@@ -179,8 +198,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                      " System.out.println( $p ); \n" +
                      "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         ksession.insert(new Person("Mario", 38));
 
@@ -223,8 +242,8 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 "then\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         assertEquals(2, ksession.fireAllRules());
         ksession.dispose();
@@ -264,10 +283,40 @@ public class NullSafeDereferencingTest extends CommonTestMethodBase {
                 " insert( ctx2 );\n" +
                 "end";
 
-        KnowledgeBase kbase = loadKnowledgeBaseFromString(str);
-        StatefulKnowledgeSession ksession = kbase.newStatefulKnowledgeSession();
+        KieBase kbase = loadKnowledgeBaseFromString(str);
+        KieSession ksession = kbase.newKieSession();
 
         assertEquals( 3, ksession.fireAllRules() );
         ksession.dispose();
     }
+
+   @Test
+   public void testNullSafeNestedAccessors() {
+      String str = "package org.drools.test; " +
+                   "import " + Person.class.getName() + "; " +
+                   "global java.util.List list; " +
+                   "rule R1 when " +
+                   " $street : String() "+
+                   " Person( address!.( street == $street, $zip : zipCode ) ) " +
+                   "then " +
+                   " list.add( $zip ); " +
+                   "end";
+
+      KieBase kbase = loadKnowledgeBaseFromString( str );
+      KieSession ksession = kbase.newKieSession();
+      List list = new ArrayList();
+      ksession.setGlobal( "list", list );
+      
+      ksession.insert(new Person("Mario", 38));
+      Person mark = new Person("Mark", 37);
+      mark.setAddress(new Address("Main Street", "", "123456"));
+      ksession.insert(mark);
+
+      ksession.insert("Main Street");
+
+      assertEquals( 1, ksession.fireAllRules() );
+      ksession.dispose();
+      assertEquals( Arrays.asList( "123456" ), list );
+   }
+
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@ public class TupleIterator {
             // we know we are at a leaf here
             onLeaf.execute( leftTuple );
 
-            if ( leftTuple.getLeftParentNext() != null ) {
+            if ( leftTuple.getHandleNext() != null ) {
                 // iterate to next peer
-                leftTuple = leftTuple.getLeftParentNext();
+                leftTuple = leftTuple.getHandleNext();
                 // attempt to traverse that peer's children
                 if ( leftTuple.getFirstChild() != null ) {
                     down = true;
@@ -45,11 +45,11 @@ public class TupleIterator {
             } else {
                 // iterate to parent's next peer and set down to find next leaf
                 // never go beyond the specified root node
-                while (leftTuple != rootLeftTuple && leftTuple.getLeftParentNext() == null) {
+                while (leftTuple != rootLeftTuple && leftTuple.getHandleNext() == null) {
                     leftTuple = leftTuple.getLeftParent();
                     // onNode
                 }
-                leftTuple = leftTuple.getLeftParentNext();
+                leftTuple = leftTuple.getHandleNext();
                 
                 down = true;
             }

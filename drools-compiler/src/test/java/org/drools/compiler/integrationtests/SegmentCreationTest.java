@@ -1,28 +1,49 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.List;
-
 import org.drools.core.base.ClassObjectType;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.impl.KnowledgeBaseImpl;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.reteoo.*;
+import org.drools.core.reteoo.BetaMemory;
+import org.drools.core.reteoo.ConditionalBranchNode;
+import org.drools.core.reteoo.InitialFactImpl;
+import org.drools.core.reteoo.JoinNode;
+import org.drools.core.reteoo.LeftInputAdapterNode;
 import org.drools.core.reteoo.LeftInputAdapterNode.LiaNodeMemory;
+import org.drools.core.reteoo.NotNode;
+import org.drools.core.reteoo.ObjectTypeNode;
+import org.drools.core.reteoo.PathMemory;
+import org.drools.core.reteoo.RightInputAdapterNode;
+import org.drools.core.reteoo.RuleTerminalNode;
+import org.drools.core.reteoo.SegmentMemory;
 import org.junit.Test;
-import org.kie.internal.KnowledgeBase;
 import org.kie.api.KieBaseConfiguration;
+import org.kie.api.io.ResourceType;
+import org.kie.api.runtime.rule.FactHandle;
+import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
 import org.kie.internal.builder.KnowledgeBuilder;
 import org.kie.internal.builder.KnowledgeBuilderFactory;
 import org.kie.internal.builder.conf.RuleEngineOption;
 import org.kie.internal.io.ResourceFactory;
-import org.kie.api.io.ResourceType;
 
-import org.kie.api.runtime.rule.FactHandle;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 public class SegmentCreationTest {
     
@@ -30,16 +51,17 @@ public class SegmentCreationTest {
     public void testSingleEmptyLhs() throws Exception {
         KnowledgeBase kbase = buildKnowledgeBase(" ");
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, InitialFactImpl.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];                        
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];  
         
 
         wm.insert( new LinkingTest.A() );
-        
+        wm.flushPropagations();
+
         // LiaNode and Rule are in same segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -53,16 +75,17 @@ public class SegmentCreationTest {
     public void testSingleSharedEmptyLhs() throws Exception {
         KnowledgeBase kbase = buildKnowledgeBase( " ", " ");
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, InitialFactImpl.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];                        
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn1 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn2 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[1];
         
         wm.insert( new LinkingTest.A() );
-        
+        wm.flushPropagations();
+
         // LiaNode  is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -83,16 +106,17 @@ public class SegmentCreationTest {
     public void testSinglePattern() throws Exception {
         KnowledgeBase kbase = buildKnowledgeBase("   A() \n");
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];                        
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];  
         
 
-        wm.insert( new LinkingTest.A() );
-        
+        wm.insert(new LinkingTest.A());
+        wm.flushPropagations();
+
         // LiaNode and Rule are in same segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -107,16 +131,17 @@ public class SegmentCreationTest {
         KnowledgeBase kbase = buildKnowledgeBase( "   A() \n",
                                                   "   A() \n");
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];                        
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn1 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn2 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[1];
         
-        wm.insert( new LinkingTest.A() );
-        
+        wm.insert(new LinkingTest.A());
+        wm.flushPropagations();
+
         // LiaNode  is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -139,11 +164,11 @@ public class SegmentCreationTest {
                                                   "   A() B() \n",
                                                   "   A() B() C() \n");
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn1 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];        
         JoinNode bNode = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[1];
         RuleTerminalNode rtn2 = ( RuleTerminalNode) bNode.getSinkPropagator().getSinks()[0];
@@ -153,8 +178,9 @@ public class SegmentCreationTest {
                 
         wm.insert( new LinkingTest.A() );
         wm.insert( new LinkingTest.B() );
-        wm.insert( new LinkingTest.C() );
-        
+        wm.insert(new LinkingTest.C());
+        wm.flushPropagations();
+
         // LiaNode  is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -176,7 +202,8 @@ public class SegmentCreationTest {
         assertNull( bSmem.getNext() );
         
         wm.fireAllRules(); // child segments should now be initialised
-  
+        wm.flushPropagations();
+
         SegmentMemory rtnSmem2 = bSmem.getFirst();
         assertEquals( rtn2, rtnSmem2.getRootNode() );
         assertEquals( rtn2, rtnSmem2.getTipNode() ); 
@@ -190,11 +217,11 @@ public class SegmentCreationTest {
     public void testSubnetworkNoSharing() throws Exception {
         KnowledgeBase kbase = buildKnowledgeBase( " A()  not ( B() and C() ) \n" );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         
         JoinNode bNode = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[0];
         JoinNode cNode = ( JoinNode ) bNode.getSinkPropagator().getSinks()[0];
@@ -206,7 +233,8 @@ public class SegmentCreationTest {
         wm.insert( new LinkingTest.A() );
         wm.insert( new LinkingTest.B() );
         wm.insert( new LinkingTest.C() );
-        
+        wm.flushPropagations();
+
         // LiaNode is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -231,11 +259,11 @@ public class SegmentCreationTest {
         KnowledgeBase kbase = buildKnowledgeBase( "   A() \n", 
                                                   "   A()  not ( B() and C() ) \n" );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn1 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];
         
         JoinNode bNode = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[1];
@@ -248,7 +276,8 @@ public class SegmentCreationTest {
         wm.insert( new LinkingTest.A() );
         wm.insert( new LinkingTest.B() );
         wm.insert( new LinkingTest.C() );
-        
+        wm.flushPropagations();
+
         // LiaNode  is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -277,11 +306,11 @@ public class SegmentCreationTest {
                                                   "   A() B() C() \n",
                                                   "   A()  not ( B() and C() ) \n" );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
         
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
         RuleTerminalNode rtn1 = ( RuleTerminalNode) liaNode.getSinkPropagator().getSinks()[0];
         
         JoinNode bNode = ( JoinNode ) liaNode.getSinkPropagator().getSinks()[1];
@@ -295,7 +324,8 @@ public class SegmentCreationTest {
         wm.insert( new LinkingTest.A() );
         wm.insert( new LinkingTest.B() );
         wm.insert( new LinkingTest.C() );
-        
+        wm.flushPropagations();
+
         // LiaNode  is in it's own segment
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode ); 
         SegmentMemory smem = liaMem.getSegmentMemory();
@@ -333,11 +363,11 @@ public class SegmentCreationTest {
                                                   "   if ( $a != null ) do[t1] \n" +
                                                   "   B() \n" );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
 
         ConditionalBranchNode cen1Node = ( ConditionalBranchNode ) liaNode.getSinkPropagator().getSinks()[0];
         JoinNode bNode = ( JoinNode ) cen1Node.getSinkPropagator().getSinks()[0];
@@ -345,6 +375,8 @@ public class SegmentCreationTest {
         RuleTerminalNode rtn1 = ( RuleTerminalNode ) bNode.getSinkPropagator().getSinks()[0];
 
         FactHandle bFh = wm.insert( new LinkingTest.B() );
+        wm.flushPropagations();
+
         LiaNodeMemory liaMem = ( LiaNodeMemory ) wm.getNodeMemory( liaNode );
         SegmentMemory smem = liaMem.getSegmentMemory();
         assertEquals( 1, smem.getAllLinkedMaskTest() );
@@ -356,7 +388,9 @@ public class SegmentCreationTest {
         assertEquals( 0, pmem.getLinkedSegmentMask() );
         assertFalse( pmem.isRuleLinked() );
 
-        wm.insert( new LinkingTest.A() );
+        wm.insert(new LinkingTest.A());
+        wm.flushPropagations();
+
         assertEquals( 5, smem.getLinkedNodeMask() ); // A links in segment
         assertTrue( smem.isSegmentLinked() );
 
@@ -364,6 +398,8 @@ public class SegmentCreationTest {
         assertTrue( pmem.isRuleLinked() );
 
         wm.delete(bFh); // retract B does not unlink the rule
+        wm.flushPropagations();
+
         assertEquals( 1, pmem.getLinkedSegmentMask() );
         assertTrue( pmem.isRuleLinked() );
     }
@@ -380,11 +416,11 @@ public class SegmentCreationTest {
                                                   "   C() \n" // r3
                                                 );
 
-        ReteooWorkingMemoryInterface wm = ((StatefulKnowledgeSessionImpl)kbase.newStatefulKnowledgeSession());
+        InternalWorkingMemory wm = ((InternalWorkingMemory)kbase.newStatefulKnowledgeSession());
 
         ObjectTypeNode aotn = getObjectTypeNode(kbase, LinkingTest.A.class );
 
-        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getSinkPropagator().getSinks()[0];
+        LeftInputAdapterNode liaNode = (LeftInputAdapterNode) aotn.getObjectSinkPropagator().getSinks()[0];
 
         ConditionalBranchNode cen1Node = ( ConditionalBranchNode ) liaNode.getSinkPropagator().getSinks()[1];
         JoinNode bNode = ( JoinNode ) cen1Node.getSinkPropagator().getSinks()[0];
@@ -395,6 +431,7 @@ public class SegmentCreationTest {
 
         FactHandle bFh = wm.insert( new LinkingTest.B() );
         FactHandle cFh = wm.insert( new LinkingTest.C() );
+        wm.flushPropagations();
 
         BetaMemory bNodeBm = ( BetaMemory ) wm.getNodeMemory( bNode );
         SegmentMemory bNodeSmem = bNodeBm.getSegmentMemory();
@@ -418,13 +455,15 @@ public class SegmentCreationTest {
         assertEquals( 1, cNodeSmem.getAllLinkedMaskTest() );
         assertEquals( 1, cNodeSmem.getLinkedNodeMask() );
 
-        wm.insert( new LinkingTest.A() );
+        wm.insert(new LinkingTest.A());
+        wm.flushPropagations();
 
         assertTrue( pmemr2.isRuleLinked() );
         assertTrue( pmemr3.isRuleLinked() );
 
         wm.delete(bFh); // retract B does not unlink the rule
         wm.delete(cFh); // retract C does not unlink the rule
+        wm.flushPropagations();
 
         assertEquals( 3, pmemr2.getLinkedSegmentMask() ); // b segment never unlinks, as it has no impact on path unlinking anyway
         assertTrue( pmemr2.isRuleLinked() );

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,14 @@ public class KnowledgeRuntimeLoggerProviderImpl
 
     public KnowledgeRuntimeLogger newFileLogger(KieRuntimeEventManager session,
                                                 String fileName) {
+        return newFileLogger(session, fileName, WorkingMemoryFileLogger.DEFAULT_MAX_EVENTS_IN_MEMORY);
+    }
+
+    public KnowledgeRuntimeLogger newFileLogger(KieRuntimeEventManager session,
+                                                String fileName,
+                                                int maxEventsInMemory) {
         WorkingMemoryFileLogger logger = new WorkingMemoryFileLogger( (KnowledgeRuntimeEventManager) session );
+        logger.setMaxEventsInMemory( maxEventsInMemory );
         if ( fileName != null ) {
             logger.setFileName(fileName);
         }

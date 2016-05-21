@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.drools.reteoo.common;
 
 import org.drools.core.RuleBaseConfiguration;
-import org.drools.core.WorkingMemory;
 import org.drools.core.base.DefaultKnowledgeHelper;
 import org.drools.core.beliefsystem.ModedAssertion;
 import org.drools.core.common.ActivationGroupImpl;
@@ -27,7 +26,6 @@ import org.drools.core.common.AgendaGroupFactory;
 import org.drools.core.common.AgendaItem;
 import org.drools.core.common.EventFactHandle;
 import org.drools.core.common.EventSupport;
-import org.drools.core.common.GarbageCollector;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalAgendaGroup;
 import org.drools.core.common.InternalFactHandle;
@@ -39,7 +37,7 @@ import org.drools.core.common.Scheduler;
 import org.drools.core.common.TruthMaintenanceSystemHelper;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
+import org.drools.core.phreak.ExecutableEntry;
 import org.drools.core.phreak.RuleAgendaItem;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.ObjectTypeConf;
@@ -49,13 +47,16 @@ import org.drools.core.reteoo.TerminalNode;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.EntryPointId;
 import org.drools.core.spi.Activation;
-import org.drools.core.spi.InternalActivationGroup;
 import org.drools.core.spi.AgendaGroup;
 import org.drools.core.spi.ConsequenceException;
 import org.drools.core.spi.ConsequenceExceptionHandler;
+import org.drools.core.spi.InternalActivationGroup;
 import org.drools.core.spi.KnowledgeHelper;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.spi.RuleFlowGroup;
+import org.drools.core.spi.Tuple;
+import org.drools.core.time.JobHandle;
+import org.drools.core.time.Trigger;
 import org.drools.core.time.impl.ExpressionIntervalTimer;
 import org.drools.core.time.impl.Timer;
 import org.drools.core.util.ClassUtils;
@@ -64,7 +65,6 @@ import org.kie.api.event.rule.MatchCancelledCause;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.api.runtime.rule.AgendaFilter;
 import org.kie.api.runtime.rule.Match;
-import org.kie.internal.runtime.beliefs.Mode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +78,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -120,7 +121,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
     private InternalAgendaGroup main;
 
-    private LinkedList<RuleAgendaItem> eager;
+    private org.drools.core.util.LinkedList<RuleAgendaItem> eager;
 
     private AgendaGroupFactory agendaGroupFactory;
 
@@ -143,8 +144,6 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     private volatile boolean isFiringActivation = false;
 
     private volatile boolean mustNotifyHalt = false;
-
-    private volatile boolean fireUntilHalt = false;
 
     // @TODO make serialisation work
     private InternalActivationGroup stagedActivations;
@@ -194,7 +193,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
             this.focusStack.add(this.main);
         }
-        eager = new LinkedList<RuleAgendaItem>();
+        eager = new org.drools.core.util.LinkedList<RuleAgendaItem>();
 
         Object object = ClassUtils.instantiateObject(kBase.getConfiguration().getConsequenceExceptionHandler(),
                                                      kBase.getConfiguration().getClassLoader());
@@ -223,34 +222,27 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         return lazyAgendaItem;
     }
 
-    @Override
-    public long getNextActivationCounter() {
-        return activationCounter++;
-    }
-
-    public AgendaItem createAgendaItem(final LeftTuple tuple,
+    public AgendaItem createAgendaItem(RuleTerminalNodeLeftTuple rtnLeftTuple,
                                        final int salience,
                                        final PropagationContext context,
-                                       final TerminalNode rtn,
                                        RuleAgendaItem ruleAgendaItem,
                                        InternalAgendaGroup agendaGroup) {
-        RuleTerminalNodeLeftTuple rtnLeftTuple = (RuleTerminalNodeLeftTuple) tuple;
         rtnLeftTuple.init(activationCounter++,
                           salience,
                           context,
                           ruleAgendaItem, agendaGroup);
-        rtnLeftTuple.setObject( rtnLeftTuple );
+        rtnLeftTuple.setContextObject( rtnLeftTuple );
         return rtnLeftTuple;
     }
 
-    public ScheduledAgendaItem createScheduledAgendaItem(final LeftTuple tuple,
+    public ScheduledAgendaItem createScheduledAgendaItem(final Tuple tuple,
                                                          final PropagationContext context,
                                                          final TerminalNode rtn,
                                                          InternalAgendaGroup agendaGroup) {
         RuleTerminalNodeLeftTuple rtnLeftTuple = ( RuleTerminalNodeLeftTuple ) tuple;
         rtnLeftTuple.init(activationCounter++, 0, context, null, agendaGroup );
         ScheduledAgendaItem item =  new ScheduledAgendaItem( rtnLeftTuple, this );
-        tuple.setObject( item );
+        tuple.setContextObject( item );
         return item;
     }
 
@@ -298,32 +290,32 @@ public class ReteAgenda<M extends ModedAssertion<M>>
      *
      * @see org.kie.common.AgendaI#getWorkingMemory()
      */
-    public WorkingMemory getWorkingMemory() {
+    public InternalWorkingMemory getWorkingMemory() {
         return this.workingMemory;
     }
 
     @Override
     public void addEagerRuleAgendaItem(RuleAgendaItem item) {
-        if ( item.isInList() ) {
+        if ( item.isInList(eager) ) {
             return;
         }
 
         if ( log.isTraceEnabled() ) {
             log.trace("Added {} to eager evaluation list.", item.getRule().getName() );
         }
-        eager.add(item);
+        eager.add( item );
     }
 
     @Override
     public void removeEagerRuleAgendaItem(RuleAgendaItem item) {
-        if ( !item.isInList() ) {
+        if ( !item.isInList(eager) ) {
             return;
         }
 
         if ( log.isTraceEnabled() ) {
             log.trace("Removed {} from eager evaluation list.", item.getRule().getName() );
         }
-        eager.remove(item);
+        eager.remove( item );
     }
 
     @Override
@@ -350,9 +342,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             // this is not a serialization propagation, so schedule it
             // otherwise the timer will be correlated with this activation later during the
             // deserialization of timers
-            Scheduler.scheduleAgendaItem(item,
-                                         this,
-                                         wm);
+            scheduleAgendaItem( item, wm );
         }
     }
 
@@ -366,7 +356,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         if ( group != null && group.length() > 0 ) {
             InternalActivationGroup actgroup = getActivationGroup( group );
 
-            actgroup.addActivation(item);
+            actgroup.addActivation( item );
         }
     }
 
@@ -387,7 +377,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
         InternalFactHandle factHandle = workingMemory.getFactHandleFactory().newFactHandle( activation, activationObjectTypeConf, workingMemory, workingMemory );
         workingMemory.getEntryPointNode().assertActivation( factHandle, activation.getPropagationContext(), workingMemory );
-        activation.setFactHandle( factHandle );
+        activation.setActivationFactHandle( factHandle );
 
         if ( !activation.isCanceled() && (activation.getBlockers() == null || activation.getBlockers().isEmpty()) ) {
             // All activations started off staged, they are unstaged if they are blocked or
@@ -412,7 +402,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
     public void removeActivation(final AgendaItem activation) {
         if ( declarativeAgenda ) {
-            workingMemory.getEntryPointNode().retractActivation( activation.getFactHandle(), activation.getPropagationContext(), workingMemory );
+            workingMemory.getEntryPointNode().retractActivation( activation.getActivationFactHandle(), activation.getPropagationContext(), workingMemory );
 
             if ( activation.getActivationGroupNode() != null ) {
                 activation.getActivationGroupNode().getActivationGroup().removeActivation( activation );
@@ -426,7 +416,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     public void modifyActivation(final AgendaItem activation,
                                  boolean previouslyActive) {
         if ( declarativeAgenda ) {
-            InternalFactHandle factHandle = activation.getFactHandle();
+            InternalFactHandle factHandle = activation.getActivationFactHandle();
             workingMemory.getEntryPointNode().modifyActivation( factHandle, activation.getPropagationContext(), workingMemory );
 
             if ( previouslyActive ) {
@@ -474,7 +464,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         for ( ActivationGroupNode node = list.removeFirst(); node != null; node = list.removeFirst() ) {
             AgendaItem item = (AgendaItem) node.getActivation();
             // This must be set to false otherwise modify won't work properly
-            item.setQueued(false);
+            item.setQueued( false );
             eventsupport.getAgendaEventSupport().fireActivationCancelled( item,
                                                                           this.workingMemory,
                                                                           MatchCancelledCause.CLEAR );
@@ -492,11 +482,11 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             AgendaItem item = (AgendaItem) node.getActivation();
             item.setActivationGroupNode( null );
 
-            addActivation(item, false);
+            addActivation( item, false );
             i++;
         }
 
-        notifyHalt();
+        workingMemory.notifyWaitOnRest();
 
         return i;
     }
@@ -504,7 +494,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     public void addActivation(AgendaItem item,
                               boolean notify) {
         RuleImpl rule = item.getRule();
-        item.setQueued(true);
+        item.setQueued( true );
 
         // set the focus if rule autoFocus is true
         if ( rule.getAutoFocus() ) {
@@ -532,7 +522,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             if ( isFiringActivation ) {
                 mustNotifyHalt = true;
             } else {
-                notifyHalt();
+                workingMemory.notifyWaitOnRest();
             }
         }
     }
@@ -540,15 +530,14 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     @Override
     public void addAgendaItemToGroup(AgendaItem item) {
         InternalAgendaGroup agendaGroup = (InternalAgendaGroup) this.getAgendaGroup(item.getRule().getAgendaGroup());
-        agendaGroup.add(item);
+        agendaGroup.add( item );
     }
 
     public void removeScheduleItem(final ScheduledAgendaItem item) {
         if ( item.isEnqueued() ) {
             this.scheduledActivations.remove( item );
             item.setEnqueued( false );
-            Scheduler.removeAgendaItem( item,
-                                        this );
+            removeAgendaItem( item );
         }
     }
 
@@ -557,7 +546,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
                                (InternalAgendaGroup) agendaGroup );
     }
 
-    public boolean createActivation(final LeftTuple tuple,
+    public boolean createActivation(final Tuple tuple,
                                     final PropagationContext context,
                                     final InternalWorkingMemory workingMemory,
                                     final TerminalNode rtn) {
@@ -566,9 +555,8 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         // ControlRules for now re-use the same PropagationContext
         if ( rtn.isFireDirect() ) {
             // Fire RunLevel == 0 straight away. agenda-groups, rule-flow groups, salience are ignored
-            AgendaItem item = createAgendaItem( tuple, 0, context,
-                                                rtn, null, null);
-            tuple.setObject( item );
+            AgendaItem item = createAgendaItem( (RuleTerminalNodeLeftTuple)tuple, 0, context, null, null );
+            tuple.setContextObject( item );
             if ( activationsFilter != null && !activationsFilter.accept( item,
                                                                          workingMemory,
                                                                          rtn ) ) {
@@ -604,16 +592,15 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
             if ( rule.isLockOnActive() && agendaGroup.isActive()  && agendaGroup.getAutoFocusActivator() != context ) {
                 // do not add the activation if the rule is "lock-on-active" and the AgendaGroup is active
-                if ( tuple.getObject() == null ) {
-                    tuple.setObject( Boolean.TRUE ); // this is so we can do a check with a bit more intent than a null check on modify
+                if ( tuple.getContextObject() == null ) {
+                    tuple.setContextObject( Boolean.TRUE ); // this is so we can do a check with a bit more intent than a null check on modify
                 }
                 return false;
             }
 
-            item = createAgendaItem( tuple,
+            item = createAgendaItem( (RuleTerminalNodeLeftTuple)tuple,
                                      0,
                                      context,
-                                     rtn,
                                      null,
                                      agendaGroup
                                    );
@@ -658,10 +645,9 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             return false;
         }
 
-        item = createAgendaItem( tuple,
+        item = createAgendaItem( (RuleTerminalNodeLeftTuple)tuple,
                                  0,
                                  context,
-                                 rtn,
                                  null,
                                  agendaGroup
                                );
@@ -686,7 +672,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         return isRuleInstanceAgendaItem(ruleflowGroupName, ruleName, processInstanceId);
     }
 
-    public void cancelActivation(final LeftTuple leftTuple,
+    public void cancelActivation(final Tuple leftTuple,
                                  final PropagationContext context,
                                  final InternalWorkingMemory workingMemory,
                                  final Activation activation,
@@ -694,7 +680,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         AgendaItem item = (AgendaItem) activation;
         item.removeAllBlockersAndBlocked( this );
 
-        if ( isDeclarativeAgenda() && activation.getFactHandle() == null ) {
+        if ( isDeclarativeAgenda() && activation.getActivationFactHandle() == null ) {
             // This a control rule activation, nothing to do except update counters. As control rules are not in agenda-groups etc.
             return;
         } else {
@@ -704,8 +690,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
         if ( activation.isQueued() ) {
             // on fact expiration, we don't remove the activation, but let it fire
-            if ( context.getType() == PropagationContext.EXPIRATION && context.getFactHandleOrigin() != null ) {
-            } else {
+            if ( context.getType() != PropagationContext.EXPIRATION || context.getFactHandle() == null ) {
                 activation.remove();
 
                 if ( activation.getActivationGroupNode() != null ) {
@@ -863,7 +848,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             addAgendaGroup( agendaGroup );
         }
 
-        agendaGroup.setWorkingMemory( (InternalWorkingMemory) getWorkingMemory() );
+        agendaGroup.setWorkingMemory( getWorkingMemory() );
 
         return agendaGroup;
     }
@@ -874,7 +859,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
      * @see org.kie.common.AgendaI#getAgendaGroups()
      */
     public AgendaGroup[] getAgendaGroups() {
-        return (AgendaGroup[]) this.agendaGroups.values().toArray( new AgendaGroup[this.agendaGroups.size()] );
+        return this.agendaGroups.values().toArray( new AgendaGroup[this.agendaGroups.size()] );
     }
 
     public Map<String, InternalAgendaGroup> getAgendaGroupsMap() {
@@ -940,7 +925,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
                                       long processInstanceId,
                                       String nodeInstanceId) {
         InternalRuleFlowGroup ruleFlowGroup = (InternalRuleFlowGroup) getRuleFlowGroup( name );
-        activateRuleFlowGroup(ruleFlowGroup, processInstanceId, nodeInstanceId);
+        activateRuleFlowGroup( ruleFlowGroup, processInstanceId, nodeInstanceId );
     }
 
     public void activateRuleFlowGroup(final InternalRuleFlowGroup group, long processInstanceId, String nodeInstanceId) {
@@ -951,13 +936,13 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             group.addNodeInstance( processInstanceId, nodeInstanceId );
             group.setActive( true );
         }
-        setFocus( (InternalAgendaGroup)  group);
+        setFocus(group);
         ((EventSupport) this.workingMemory).getAgendaEventSupport().fireAfterRuleFlowGroupActivated( group,
                                                                                                      this.workingMemory );
     }
 
     public void deactivateRuleFlowGroup(final String name) {
-        deactivateRuleFlowGroup((InternalRuleFlowGroup ) getRuleFlowGroup(name));
+        deactivateRuleFlowGroup( (InternalRuleFlowGroup) getRuleFlowGroup( name ) );
     }
 
     public void deactivateRuleFlowGroup(final InternalRuleFlowGroup group) {
@@ -967,12 +952,12 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         ((EventSupport) this.workingMemory).getAgendaEventSupport().fireBeforeRuleFlowGroupDeactivated( group,
                                                                                                         this.workingMemory );
         while ( this.focusStack.remove( group ) ); // keep removing while group is on the stack
-        group.setActive(false);
-        innerDeactiveRuleFlowGroup(group);
+        group.setActive( false );
+        innerDeactiveRuleFlowGroup( group );
     }
 
     private void innerDeactiveRuleFlowGroup(InternalRuleFlowGroup group) {
-        group.hasRuleFlowListener(false);
+        group.hasRuleFlowListener( false );
         group.getNodeInstances().clear();
         ((EventSupport) this.workingMemory).getAgendaEventSupport().fireAfterRuleFlowGroupDeactivated( group, this.workingMemory );
     }
@@ -1010,8 +995,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
      */
     public Activation[] getActivations() {
         final List<Activation> list = new ArrayList<Activation>();
-        for ( final Iterator<InternalAgendaGroup> it = this.agendaGroups.values().iterator(); it.hasNext(); ) {
-            final AgendaGroup group = it.next();
+        for ( final InternalAgendaGroup group : this.agendaGroups.values() ) {
             for ( Match activation : group.getActivations() ) {
                 list.add( (Activation) activation );
             }
@@ -1046,8 +1030,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         if ( !this.scheduledActivations.isEmpty() ) {
             for ( ScheduledAgendaItem item = this.scheduledActivations.removeFirst(); item != null; item = this.scheduledActivations.removeFirst() ) {
                 item.setEnqueued( false );
-                Scheduler.removeAgendaItem( item,
-                                            this );
+                removeAgendaItem( item );
             }
         }
 
@@ -1077,8 +1060,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         if ( !this.scheduledActivations.isEmpty() ) {
             for ( ScheduledAgendaItem item = this.scheduledActivations.removeFirst(); item != null; item = this.scheduledActivations.removeFirst() ) {
                 item.setEnqueued( false );
-                Scheduler.removeAgendaItem( item,
-                                            this );
+                removeAgendaItem( item );
                 eventsupport.getAgendaEventSupport().fireActivationCancelled( item,
                                                                               this.workingMemory,
                                                                               MatchCancelledCause.CLEAR );
@@ -1090,9 +1072,23 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
         // cancel all activation groups.
         for ( InternalActivationGroup group : this.activationGroups.values() ) {
-            clearAndCancelActivationGroup( group);
+            clearAndCancelActivationGroup( group );
         }
 
+    }
+
+    private void scheduleAgendaItem(final ScheduledAgendaItem item, InternalWorkingMemory wm) {
+        Trigger trigger = item.getRule().getTimer().createTrigger( item, wm );
+
+        Scheduler.ActivationTimerJob job = new Scheduler.ActivationTimerJob();
+        Scheduler.ActivationTimerJobContext ctx = new Scheduler.ActivationTimerJobContext( trigger, item, this );
+
+        JobHandle jobHandle = getWorkingMemory().getTimerService().scheduleJob( job, ctx, trigger );
+        item.setJobHandle( jobHandle );
+    }
+
+    private void removeAgendaItem(final ScheduledAgendaItem item) {
+        getWorkingMemory().getTimerService().removeJob( item.getJobHandle() );
     }
 
     /*
@@ -1101,7 +1097,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
      * @see org.kie.common.AgendaI#clearAgendaGroup(java.lang.String)
      */
     public void clearAndCancelAgendaGroup(final String name) {
-        final AgendaGroup agendaGroup = this.agendaGroups.get( name );
+        InternalAgendaGroup agendaGroup = this.agendaGroups.get( name );
         if ( agendaGroup != null ) {
             clearAndCancelAgendaGroup( agendaGroup );
         }
@@ -1112,7 +1108,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
      *
      * @see org.kie.common.AgendaI#clearAgendaGroup(org.kie.common.AgendaGroupImpl)
      */
-    public void clearAndCancelAgendaGroup(final AgendaGroup agendaGroup) {
+    public void clearAndCancelAgendaGroup(InternalAgendaGroup agendaGroup) {
         final EventSupport eventsupport = (EventSupport) this.workingMemory;
 
         ((InternalAgendaGroup) agendaGroup).setClearedForRecency( this.workingMemory.getFactHandleFactory().getRecency() );
@@ -1180,7 +1176,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     }
 
     public void clearAndCancelRuleFlowGroup(final String name) {
-        clearAndCancelAgendaGroup( (InternalAgendaGroup) agendaGroups.get(name) );
+        clearAndCancelAgendaGroup( (InternalAgendaGroup) agendaGroups.get( name ) );
     }
 
     public void clearAndCancelAndCancel(final RuleFlowGroup ruleFlowGroup) {
@@ -1222,7 +1218,7 @@ public class ReteAgenda<M extends ModedAssertion<M>>
                             // otherwise cancel it and try the next
 
                             //necessary to perfom queued actions like signal to a next node in a ruleflow/jbpm process
-                            this.workingMemory.executeQueuedActions();
+                            this.workingMemory.executeQueuedActionsForRete();
 
                             final EventSupport eventsupport = (EventSupport) this.workingMemory;
                             eventsupport.getAgendaEventSupport().fireActivationCancelled( item,
@@ -1316,20 +1312,20 @@ public class ReteAgenda<M extends ModedAssertion<M>>
                     throw new RuntimeException( e );
                 }
             } finally {
-                if ( activation.getFactHandle() != null ) {
+                if ( activation.getActivationFactHandle() != null ) {
                     // update the Activation in the WM
-                    InternalFactHandle factHandle = activation.getFactHandle();
+                    InternalFactHandle factHandle = activation.getActivationFactHandle();
                     workingMemory.getEntryPointNode().modifyActivation( factHandle, activation.getPropagationContext(), workingMemory );
                     activation.getPropagationContext().evaluateActionQueue( workingMemory );
                 }
                 // if the tuple contains expired events
-                for ( LeftTuple tuple = activation.getTuple(); tuple != null; tuple = tuple.getParent() ) {
-                    if ( tuple.getLastHandle() == null ) {
+                for ( Tuple tuple = activation.getTuple(); tuple != null; tuple = tuple.getParent() ) {
+                    if ( tuple.getFactHandle() == null ) {
                         // can be null for eval, not and exists that have no right input
                         continue;
                     }
-                    if ( tuple.getLastHandle().isEvent() ) {
-                        EventFactHandle handle = (EventFactHandle) tuple.getLastHandle();
+                    if ( tuple.getFactHandle().isEvent() ) {
+                        EventFactHandle handle = (EventFactHandle) tuple.getFactHandle();
                         // decrease the activation count for the event
                         handle.decreaseActivationsCount();
                         // handles "expire" only in stream mode.
@@ -1351,14 +1347,17 @@ public class ReteAgenda<M extends ModedAssertion<M>>
             isFiringActivation = false;
             if ( mustNotifyHalt ) {
                 mustNotifyHalt = false;
-                notifyHalt();
+                workingMemory.notifyWaitOnRest();
             }
             this.workingMemory.endOperation();
         }
     }
 
-    public synchronized boolean fireTimedActivation(final Activation activation,
-                                                    boolean saveForLater) throws ConsequenceException {
+    public synchronized void fireConsequenceEvent(Activation activation, String consequenceName) throws ConsequenceException {
+        throw new UnsupportedOperationException("Cannot invoke fireActivationEvent on ReteAgenda");
+    }
+
+    public synchronized boolean fireTimedActivation(final Activation activation) throws ConsequenceException {
         //TODO : "save for later" : put activation in queue if halted, then dispatch again on next fire
         if ( !this.halt.get() ) {
             fireActivation( activation);
@@ -1409,17 +1408,11 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     }
 
     @Override
-    public boolean isFireUntilHalt() {
-        return fireUntilHalt;
-    }
-
-    @Override
     public void stageLeftTuple(RuleAgendaItem ruleAgendaItem, AgendaItem justified) {
         getStageActivationsGroup().addActivation(justified);
     }
 
     public void fireUntilHalt() {
-        fireUntilHalt = true;
         fireUntilHalt( null );
     }
 
@@ -1429,10 +1422,10 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         if ( log.isTraceEnabled() ) {
             log.trace("Starting fireUntilHalt");
         }
-        while ( continueFiring( -1 ) ) {
+        while ( isFiring() ) {
             boolean fired = fireNextItem( agendaFilter, 0, -1 ) >= 0 ||
-                            !((StatefulKnowledgeSessionImpl) this.workingMemory).getActionQueue().isEmpty();
-            this.workingMemory.executeQueuedActions();
+                            !((ReteWorkingMemory) this.workingMemory).getActionQueue().isEmpty();
+            this.workingMemory.executeQueuedActionsForRete();
             if ( !fired ) {
                 try {
                     synchronized ( this.halt ) {
@@ -1444,13 +1437,12 @@ public class ReteAgenda<M extends ModedAssertion<M>>
                     this.halt.set( true );
                 }
             } else {
-                this.workingMemory.executeQueuedActions();
+                this.workingMemory.executeQueuedActionsForRete();
             }
         }
         if ( log.isTraceEnabled() ) {
-            log.trace("Ending fireUntilHalt");
+            log.trace( "Ending fireUntilHalt");
         }
-        fireUntilHalt = false;
     }
 
     public int fireAllRules(AgendaFilter agendaFilter,
@@ -1462,8 +1454,8 @@ public class ReteAgenda<M extends ModedAssertion<M>>
         do {
             returnedFireCount = fireNextItem( agendaFilter, fireCount, fireLimit );
             fireCount += returnedFireCount;
-            this.workingMemory.executeQueuedActions();
-        } while ( continueFiring( 0 ) && returnedFireCount != 0 && (fireLimit == -1 || (fireCount < fireLimit)) );
+            this.workingMemory.executeQueuedActionsForRete();
+        } while ( isFiring() && returnedFireCount != 0 && (fireLimit == -1 || (fireCount < fireLimit)) );
         if ( this.focusStack.size() == 1 && getMainAgendaGroup().isEmpty() ) {
             // the root MAIN agenda group is empty, reset active to false, so it can receive more activations.
             getMainAgendaGroup().setActive( false );
@@ -1472,19 +1464,44 @@ public class ReteAgenda<M extends ModedAssertion<M>>
     }
 
     @Override
-    public boolean continueFiring(final int fireLimit) {
+    public boolean isFiring() {
         return !halt.get();
     }
 
-    public void notifyHalt() {
-        synchronized ( this.halt ) {
-            this.halt.notifyAll();
+    @Override
+    public void executeTask( ExecutableEntry executable ) {
+        if( this.halt.compareAndSet( true, false ) ) {
+            try {
+                executable.execute();
+            } finally {
+                this.halt.set( true );
+            }
         }
+    }
+
+    @Override
+    public <T> T executeCallable( Callable<T> callable ) {
+        throw new UnsupportedOperationException( "Cannot invoke executeCallable on ReteAgenda" );
+    }
+
+    @Override
+    public void activate( ) {
+        throw new UnsupportedOperationException( "Cannot invoke activate on ReteAgenda" );
+    }
+
+    @Override
+    public void deactivate( ) {
+        throw new UnsupportedOperationException( "Cannot invoke deactivate on ReteAgenda" );
+    }
+
+    @Override
+    public boolean tryDeactivate( ) {
+        throw new UnsupportedOperationException( "Cannot invoke tryDeactivate on ReteAgenda" );
     }
 
     public void halt() {
         this.halt.set( true );
-        notifyHalt();
+        workingMemory.notifyWaitOnRest();
     }
 
     public ConsequenceExceptionHandler getConsequenceExceptionHandler() {
@@ -1497,31 +1514,5 @@ public class ReteAgenda<M extends ModedAssertion<M>>
 
     public ActivationsFilter getActivationsFilter() {
         return this.activationsFilter;
-    }
-
-    public GarbageCollector getGarbageCollector() {
-        return DUMMY_GARBAGE_COLLECTOR;
-    }
-
-    private static final GarbageCollector DUMMY_GARBAGE_COLLECTOR = new DummyGarbageCollector();
-
-    public static class DummyGarbageCollector implements GarbageCollector {
-        @Override
-        public void increaseDeleteCounter() { }
-
-        @Override
-        public void gcUnlinkedRules() { }
-
-        @Override
-        public void forceGcUnlinkedRules() { }
-
-        @Override
-        public void remove(RuleAgendaItem item) { }
-
-        @Override
-        public void add(RuleAgendaItem item) { }
-
-        @Override
-        public int getDeleteCounter() { return 0; }
     }
 }

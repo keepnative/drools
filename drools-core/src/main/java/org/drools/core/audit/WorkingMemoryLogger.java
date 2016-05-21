@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.impl.StatelessKnowledgeSessionImpl;
-import org.drools.core.reteoo.ReteooWorkingMemoryInterface;
 import org.drools.core.runtime.process.InternalProcessRuntime;
 import org.drools.core.spi.Activation;
 import org.kie.api.definition.process.Node;
@@ -123,13 +122,21 @@ public abstract class WorkingMemoryLogger
     public WorkingMemoryLogger(final WorkingMemory workingMemory) {
         workingMemory.addEventListener( (RuleRuntimeEventListener) this );
         workingMemory.addEventListener( (AgendaEventListener) this );
-        InternalProcessRuntime processRuntime = ((InternalWorkingMemory) workingMemory).getProcessRuntime();
-        if (processRuntime != null) {
-            processRuntime.addEventListener( this );
-        }
+        setProcessRuntimeEventListener( (InternalWorkingMemory) workingMemory );
         workingMemory.addEventListener( (KieBaseEventListener) this );
     }
-    
+
+    private void setProcessRuntimeEventListener( InternalWorkingMemory workingMemory ) {
+        try {
+            InternalProcessRuntime processRuntime = workingMemory.getProcessRuntime();
+            if ( processRuntime != null ) {
+                processRuntime.addEventListener( this );
+            }
+        } catch (Exception e) {
+            /* ignore */
+        }
+    }
+
     public WorkingMemoryLogger(final KnowledgeRuntimeEventManager session) {
         if (session instanceof StatefulKnowledgeSessionImpl) {
             StatefulKnowledgeSessionImpl statefulSession = ((StatefulKnowledgeSessionImpl) session);
@@ -138,10 +145,7 @@ public abstract class WorkingMemoryLogger
             eventManager.addEventListener( (RuleRuntimeEventListener) this );
             eventManager.addEventListener( (AgendaEventListener) this );
             eventManager.addEventListener( (KieBaseEventListener) this );
-            InternalProcessRuntime processRuntime = ((StatefulKnowledgeSessionImpl) session).getProcessRuntime();
-            if (processRuntime != null) {
-                processRuntime.addEventListener( this );
-            }
+            setProcessRuntimeEventListener( (InternalWorkingMemory) session );
         } else if (session instanceof StatelessKnowledgeSessionImpl) {
             StatelessKnowledgeSessionImpl statelessSession = ((StatelessKnowledgeSessionImpl) session);
             isPhreak = statelessSession.getKnowledgeBase().getConfiguration().isPhreakEnabled();
@@ -152,7 +156,7 @@ public abstract class WorkingMemoryLogger
             StatefulKnowledgeSessionImpl statefulSession =
                     ((StatefulKnowledgeSessionImpl)((KnowledgeCommandContext)((CommandBasedStatefulKnowledgeSession) session).getCommandService().getContext()).getKieSession());
             isPhreak = statefulSession.getKnowledgeBase().getConfiguration().isPhreakEnabled();
-            ReteooWorkingMemoryInterface eventManager = statefulSession;
+            InternalWorkingMemory eventManager = statefulSession;
             eventManager.addEventListener( (RuleRuntimeEventListener) this );
             eventManager.addEventListener( (AgendaEventListener) this );
             InternalProcessRuntime processRuntime = eventManager.getProcessRuntime();
@@ -343,7 +347,7 @@ public abstract class WorkingMemoryLogger
     }
 
     private String extractFactHandleIds(Activation activation) {
-        InternalFactHandle activatingFact = (InternalFactHandle)activation.getPropagationContext().getFactHandleOrigin();
+        InternalFactHandle activatingFact = (InternalFactHandle)activation.getPropagationContext().getFactHandle();
         StringBuilder sb = new StringBuilder();
         if (activatingFact != null) {
             sb.append(activatingFact.getId());

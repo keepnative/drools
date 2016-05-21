@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,11 +90,15 @@ public class InterpolationVariable {
 
     @Override
     public int hashCode() {
-        int hashCode = ( varName == null ? 1 : varName.hashCode() );
-        hashCode = hashCode + 31 * ( dataType == null ? 7 : dataType.hashCode() );
-        hashCode = hashCode + 31 * ( factType == null ? 7 : factType.hashCode() );
-        hashCode = hashCode + 31 * ( factField == null ? 7 : factField.hashCode() );
-        return hashCode;
+        int result = ( varName == null ? 1 : varName.hashCode() );
+        result = ~~result;
+        result = result + 31 * ( dataType == null ? 7 : dataType.hashCode() );
+        result = ~~result;
+        result = result + 31 * ( factType == null ? 7 : factType.hashCode() );
+        result = ~~result;
+        result = result + 31 * ( factField == null ? 7 : factField.hashCode() );
+        result = ~~result;
+        return result;
     }
 
     public void setFactField( String factField ) {

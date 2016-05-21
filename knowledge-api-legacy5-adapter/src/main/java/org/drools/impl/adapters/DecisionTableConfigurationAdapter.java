@@ -1,21 +1,40 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.impl.adapters;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 
 import org.drools.core.builder.conf.impl.DecisionTableConfigurationImpl;
 import org.drools.core.builder.conf.impl.ResourceConfigurationImpl;
+import org.kie.api.io.Resource;
 import org.kie.api.io.ResourceConfiguration;
 import org.kie.api.io.ResourceType;
 import org.kie.internal.builder.DecisionTableConfiguration;
 import org.kie.internal.builder.DecisionTableInputType;
+import org.kie.internal.builder.RuleTemplateConfiguration;
 
 
 public class DecisionTableConfigurationAdapter extends ResourceConfigurationImpl implements DecisionTableConfiguration {
-    
+
     private static final long serialVersionUID = -2052308765193190359L;
-    
+
     private final org.drools.builder.DecisionTableConfiguration delegate;
-    
+
     public DecisionTableConfigurationAdapter( org.drools.builder.DecisionTableConfiguration delegate ) {
         super.setResourceType(ResourceType.DTABLE);
         this.delegate = delegate;
@@ -56,6 +75,17 @@ public class DecisionTableConfigurationAdapter extends ResourceConfigurationImpl
     @Override
     public void setInputType(DecisionTableInputType inputType) {
         delegate.setInputType( inputType == DecisionTableInputType.CSV ? org.drools.builder.DecisionTableInputType.CSV : org.drools.builder.DecisionTableInputType.XLS);
+    }
+
+    @Override
+    public void addRuleTemplateConfiguration(Resource template, int row, int col) {
+        // no-op, the delegate does not have this method/feature
+    }
+
+    @Override
+    public List<RuleTemplateConfiguration> getRuleTemplateConfigurations() {
+        // no-op, the delegate does not have this method/feature
+        return Collections.emptyList();
     }
 
     @Override

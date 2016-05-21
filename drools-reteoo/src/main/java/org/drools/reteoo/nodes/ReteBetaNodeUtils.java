@@ -1,9 +1,23 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.nodes;
 
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.PropagationContextFactory;
-import org.drools.core.reteoo.AccumulateNode;
 import org.drools.core.reteoo.AccumulateNode.AccumulateMemory;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.BetaNode;
@@ -14,6 +28,7 @@ import org.drools.core.reteoo.RightTuple;
 import org.drools.core.reteoo.RuleRemovalContext;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.FastIterator;
 
 public class ReteBetaNodeUtils {
@@ -68,10 +83,10 @@ public class ReteBetaNodeUtils {
         }
     }
 
-    public static void doRemove(BetaNode betaNode,
-                                final RuleRemovalContext context,
-                                final ReteooBuilder builder,
-                                final InternalWorkingMemory[] workingMemories) {
+    public static boolean doRemove(BetaNode betaNode,
+                                   final RuleRemovalContext context,
+                                   final ReteooBuilder builder,
+                                   final InternalWorkingMemory[] workingMemories) {
 
 
         if (!betaNode.isInUse() || context.getCleanupAdapter() != null) {
@@ -82,7 +97,7 @@ public class ReteBetaNodeUtils {
                 // handle special cases for Accumulate to make sure they tidy up their specific data
                 // like destroying the local FactHandles
                 if (object instanceof AccumulateMemory) {
-                    memory = ((AccumulateMemory) object).betaMemory;
+                    memory = ((AccumulateMemory) object).getBetaMemory();
                 } else {
                     memory = (BetaMemory) object;
                 }
@@ -91,18 +106,18 @@ public class ReteBetaNodeUtils {
                     // right input is RIAN, because RIAN needs sink memory, we must clear it's memory first
                     // but only if the sink size is 1, i.e. once this is removed, the rian is not in use
                     ReteRightInputAdapterNode rian = (ReteRightInputAdapterNode) betaNode.getRightInput();
-                    if ( rian.getSinkPropagator().size() == 1 ) {
+                    if ( rian.getObjectSinkPropagator().size() == 1 ) {
                         rian.removeMemory( workingMemory );
                     }
                 }
 
                 FastIterator it = memory.getLeftTupleMemory().fullFastIterator();
-                for (LeftTuple leftTuple = betaNode.getFirstLeftTuple(memory.getLeftTupleMemory(), it); leftTuple != null; ) {
-                    LeftTuple tmp = (LeftTuple) it.next(leftTuple);
+                for (Tuple leftTuple = BetaNode.getFirstTuple( memory.getLeftTupleMemory(), it ); leftTuple != null; ) {
+                    Tuple tmp = (LeftTuple) it.next(leftTuple);
                     if (context.getCleanupAdapter() != null) {
                         LeftTuple child;
                         while ((child = leftTuple.getFirstChild()) != null) {
-                            if (child.getLeftTupleSink() == betaNode) {
+                            if (child.getTupleSink() == betaNode) {
                                 // this is a match tuple on collect and accumulate nodes, so just unlink it
                                 child.unlinkFromLeftParent();
                                 child.unlinkFromRightParent();
@@ -121,12 +136,12 @@ public class ReteBetaNodeUtils {
                 // handle special cases for Accumulate to make sure they tidy up their specific data
                 // like destroying the local FactHandles
                 if (object instanceof AccumulateMemory) {
-                    ((AccumulateNode) betaNode).doRemove(workingMemory, (AccumulateMemory) object);
+                    ((ReteAccumulateNode) betaNode).doRemove(workingMemory, (AccumulateMemory) object);
                 }
 
                 if (!betaNode.isInUse()) {
                     it = memory.getRightTupleMemory().fullFastIterator();
-                    for (RightTuple rightTuple = betaNode.getFirstRightTuple(memory.getRightTupleMemory(), it); rightTuple != null; ) {
+                    for (RightTuple rightTuple = (RightTuple) BetaNode.getFirstTuple(memory.getRightTupleMemory(), it); rightTuple != null; ) {
                         RightTuple tmp = (RightTuple) it.next(rightTuple);
                         if (rightTuple.getBlocked() != null) {
                             // special case for a not, so unlink left tuple from here, as they aren't in the left memory
@@ -153,7 +168,9 @@ public class ReteBetaNodeUtils {
         if (!betaNode.isInUse()) {
             betaNode.getLeftTupleSource().removeTupleSink(betaNode);
             betaNode.getRightInput().removeObjectSink(betaNode);
+            return true;
         }
+        return false;
     }
 
     public static void modifyObject(BetaNode betaNode,
@@ -165,18 +182,16 @@ public class ReteBetaNodeUtils {
 
         // if the peek is for a different OTN we assume that it is after the current one and then this is an assert
         while (rightTuple != null &&
-               ((BetaNode) rightTuple.getRightTupleSink()).getRightInputOtnId().before(betaNode.getRightInputOtnId())) {
+               ((BetaNode) rightTuple.getTupleSink()).getRightInputOtnId().before(betaNode.getRightInputOtnId())) {
             modifyPreviousTuples.removeRightTuple();
 
             // we skipped this node, due to alpha hashing, so retract now
             rightTuple.setPropagationContext(context);
-            rightTuple.getRightTupleSink().retractRightTuple(rightTuple,
-                                                             context,
-                                                             wm);
+            rightTuple.retractTuple(context, wm);
             rightTuple = modifyPreviousTuples.peekRightTuple();
         }
 
-        if (rightTuple != null && ((BetaNode) rightTuple.getRightTupleSink()).getRightInputOtnId().equals(betaNode.getRightInputOtnId())) {
+        if (rightTuple != null && ((BetaNode) rightTuple.getTupleSink()).getRightInputOtnId().equals(betaNode.getRightInputOtnId())) {
             modifyPreviousTuples.removeRightTuple();
             rightTuple.reAdd();
             if (rightTuple.getStagedType() != LeftTuple.INSERT) {

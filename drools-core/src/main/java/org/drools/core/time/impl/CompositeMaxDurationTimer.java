@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 package org.drools.core.time.impl;
 
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.rule.ConditionalElement;
 import org.drools.core.rule.Declaration;
 import org.drools.core.spi.Activation;
+import org.drools.core.spi.Tuple;
 import org.drools.core.time.Trigger;
 import org.kie.api.runtime.Calendars;
 
@@ -68,14 +68,14 @@ public class CompositeMaxDurationTimer extends BaseTimer
 
 
     public Trigger createTrigger( Activation item, InternalWorkingMemory wm ) {
-        long timestamp = ((InternalWorkingMemory) wm).getTimerService().getCurrentTime();
+        long timestamp = wm.getTimerService().getCurrentTime();
         String[] calendarNames = item.getRule().getCalendars();
-        Calendars calendars = ((InternalWorkingMemory) wm).getCalendars();
+        Calendars calendars = wm.getCalendars();
         return createTrigger( getMaxTimestamp(item.getTuple(), timestamp), calendarNames, calendars );
     }
 
     public Trigger createTrigger(long timestamp,
-                                 LeftTuple leftTuple,
+                                 Tuple leftTuple,
                                  DefaultJobHandle jh,
                                  String[] calendarNames,
                                  Calendars calendars,
@@ -96,12 +96,10 @@ public class CompositeMaxDurationTimer extends BaseTimer
         return new CompositeMaxDurationTrigger( maxDurationDate,
                                                 timer != null ? timer.createTrigger( timestamp,
                                                                                      calendarNames,
-                                                                                     calendars ) : null,
-                                                calendarNames,
-                                                calendars );
+                                                                                     calendars ) : null );
     }
 
-    private long getMaxTimestamp(LeftTuple leftTuple, long timestamp) {
+    private long getMaxTimestamp(Tuple leftTuple, long timestamp) {
         if (timer != null) {
             return timestamp;
         }

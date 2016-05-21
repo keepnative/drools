@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package org.drools.core.time.impl;
 
 import org.drools.core.time.Trigger;
-import org.kie.api.runtime.Calendars;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -35,9 +34,7 @@ public class CompositeMaxDurationTrigger
     public CompositeMaxDurationTrigger() { }
 
     public CompositeMaxDurationTrigger(Date maxDurationTimestamp, // this max duration of when rules are allowed to fire (cep rules like 'not')
-                                       Trigger timerTrigger, // trigger of when a rule should try to fire, should not execute before maxDurationTimestamp
-                                       String[] calendarNames,
-                                       Calendars calendars) {
+                                       Trigger timerTrigger) { // trigger of when a rule should try to fire, should not execute before maxDurationTimestamp
         this.maxDurationTimestamp = maxDurationTimestamp;
         this.timerTrigger = timerTrigger;
         

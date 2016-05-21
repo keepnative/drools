@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,8 +43,9 @@ public class ConcurrentNodeMemories implements NodeMemories {
     }
 
     public void clearNodeMemory( MemoryFactory node ) {
-        this.memories.set( node.getId(),
-                           null );
+        if ( peekNodeMemory(node.getId()) != null ) {
+            this.memories.set(node.getId(), null);
+        }
     }
     
     public void clear() {
@@ -145,7 +146,11 @@ public class ConcurrentNodeMemories implements NodeMemories {
     }
 
     public Memory peekNodeMemory(int nodeId) {
-        return this.memories.get( nodeId );
+        if ( nodeId < this.memories.length() ) {
+            return this.memories.get(nodeId);
+        } else {
+            return null;
+        }
     }
 
     public int length() {

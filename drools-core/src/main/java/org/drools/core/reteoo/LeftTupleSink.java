@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,10 @@ import java.io.Externalizable;
  */
 public interface LeftTupleSink
     extends
+    LeftTupleNode,
     Externalizable,
     Sink {
 
-    short getType();
-    
     /**
      * Assert a new <code>ReteTuple</code>.
      *
@@ -63,8 +62,6 @@ public interface LeftTupleSink
                          PropagationContext context,
                          InternalWorkingMemory workingMemory);
     
-    LeftTupleSource getLeftTupleSource();
-
     void modifyLeftTuple(LeftTuple leftTuple,
                          PropagationContext context,
                          InternalWorkingMemory workingMemory);
@@ -72,27 +69,27 @@ public interface LeftTupleSink
     LeftTuple createPeer(LeftTuple original);
     
     LeftTuple createLeftTuple(final InternalFactHandle factHandle,
-                              LeftTupleSink sink,
+                              Sink sink,
                               boolean leftTupleMemoryEnabled);
 
     LeftTuple createLeftTuple(final InternalFactHandle factHandle,
                               final LeftTuple leftTuple,
-                              final LeftTupleSink sink);
+                              final Sink sink);
 
     LeftTuple createLeftTuple(LeftTuple leftTuple,
-                              LeftTupleSink sink,
+                              Sink sink,
                               PropagationContext pctx,
                               boolean leftTupleMemoryEnabled);
     
     LeftTuple createLeftTuple(LeftTuple leftTuple,
                               RightTuple rightTuple,
-                              LeftTupleSink sink);
+                              Sink sink);
     
     LeftTuple createLeftTuple(LeftTuple leftTuple,
                               RightTuple rightTuple,
                               LeftTuple currentLeftChild,
                               LeftTuple currentRightChild,
-                              LeftTupleSink sink,
+                              Sink sink,
                               boolean leftTupleMemoryEnabled);
 
     ObjectTypeNode.Id getLeftInputOtnId();

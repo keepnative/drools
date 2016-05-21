@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,21 @@
 package org.drools.core.reteoo;
 
 import org.drools.core.base.ValueType;
-import org.drools.core.base.extractors.MVELObjectClassFieldReader;
 import org.drools.core.common.BaseNode;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.RuleBasePartitionId;
-import org.drools.core.util.Iterator;
-import org.drools.core.util.LinkedList;
-import org.drools.core.util.LinkedListNode;
-import org.drools.core.util.ObjectHashMap;
-import org.drools.core.util.ObjectHashMap.ObjectEntry;
 import org.drools.core.rule.IndexableConstraint;
 import org.drools.core.spi.AlphaNodeFieldConstraint;
 import org.drools.core.spi.FieldValue;
 import org.drools.core.spi.InternalReadAccessor;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.spi.ReadAccessor;
+import org.drools.core.util.Iterator;
+import org.drools.core.util.LinkedList;
+import org.drools.core.util.LinkedListNode;
+import org.drools.core.util.ObjectHashMap;
+import org.drools.core.util.ObjectHashMap.ObjectEntry;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -113,10 +112,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
             if ( fieldConstraint instanceof IndexableConstraint) {
                 final IndexableConstraint indexableConstraint = (IndexableConstraint) fieldConstraint;
 
-                if ( indexableConstraint.isIndexable(NodeTypeEnums.AlphaNode) && indexableConstraint.getField() != null &&
-                        indexableConstraint.getFieldExtractor().getValueType() != ValueType.OBJECT_TYPE &&
-                        // our current implementation does not support hashing of deeply nested properties
-                        !( indexableConstraint.getFieldExtractor() instanceof MVELObjectClassFieldReader )) {
+                if ( isHashable( indexableConstraint ) ) {
                     final InternalReadAccessor readAccessor = indexableConstraint.getFieldExtractor();
                     final int index = readAccessor.getIndex();
                     final FieldIndex fieldIndex = registerFieldIndex( index,
@@ -152,8 +148,14 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
 
         this.otherSinks.add( (ObjectSinkNode) sink );
     }
-    
-    
+
+    private boolean isHashable( IndexableConstraint indexableConstraint ) {
+        return indexableConstraint.isIndexable( NodeTypeEnums.AlphaNode) && indexableConstraint.getField() != null &&
+                indexableConstraint.getFieldExtractor().getValueType() != ValueType.OBJECT_TYPE &&
+                // our current implementation does not support hashing of deeply nested properties
+                indexableConstraint.getFieldExtractor().getIndex() >= 0;
+    }
+
 
     public void removeObjectSink(final ObjectSink sink) {
         this.sinks = null; // dirty it, so it'll rebuild on next get
@@ -165,10 +167,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                 final IndexableConstraint indexableConstraint = (IndexableConstraint) fieldConstraint;
                 final FieldValue value = indexableConstraint.getField();
 
-                if ( indexableConstraint.isIndexable(NodeTypeEnums.AlphaNode) && indexableConstraint.getField() != null &&
-                        indexableConstraint.getFieldExtractor().getValueType() != ValueType.OBJECT_TYPE &&
-                        // our current implementation does not support hashing of deeply nested properties
-                        !( indexableConstraint.getFieldExtractor() instanceof MVELObjectClassFieldReader )) {
+                if ( isHashable( indexableConstraint ) ) {
                     final InternalReadAccessor fieldAccessor = indexableConstraint.getFieldExtractor();
                     final int index = fieldAccessor.getIndex();
                     final FieldIndex fieldIndex = unregisterFieldIndex( index );
@@ -285,10 +284,6 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
     /**
      * Returns a FieldIndex which Keeps a count on how many times a particular field is used with an equality check
      * in the sinks.
-     *
-     * @param index
-     * @param fieldExtractor
-     * @return
      */
     private FieldIndex registerFieldIndex(final int index,
                                           final InternalReadAccessor fieldExtractor) {
@@ -368,7 +363,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                 final AlphaNode sink = (AlphaNode) this.hashedSinkMap.get( hashKey );
                 if ( sink != null ) {
                     // go straight to the AlphaNode's propagator, as we know it's true and no need to retest
-                    sink.getSinkPropagator().propagateAssertObject( factHandle, context, workingMemory );
+                    sink.getObjectSinkPropagator().propagateAssertObject( factHandle, context, workingMemory );
                 }
             }
         }
@@ -417,7 +412,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                 final AlphaNode sink = (AlphaNode) this.hashedSinkMap.get( hashKey );
                 if ( sink != null ) {
                     // go straight to the AlphaNode's propagator, as we know it's true and no need to retest
-                    sink.getSinkPropagator().propagateModifyObject( factHandle, modifyPreviousTuples, context, workingMemory );
+                    sink.getObjectSinkPropagator().propagateModifyObject( factHandle, modifyPreviousTuples, context, workingMemory );
                 }
             }
         }
@@ -454,7 +449,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
         // We need to iterate in the same order as the assert
         if ( this.hashedFieldIndexes != null ) {
             // Iterate the FieldIndexes to see if any are hashed
-            for ( FieldIndex fieldIndex = (FieldIndex) this.hashedFieldIndexes.getFirst(); fieldIndex != null; fieldIndex = fieldIndex.getNext() ) {
+            for ( FieldIndex fieldIndex = this.hashedFieldIndexes.getFirst(); fieldIndex != null; fieldIndex = fieldIndex.getNext() ) {
                 if ( !fieldIndex.isHashed() ) {
                     continue;
                 }
@@ -466,7 +461,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                 final AlphaNode sink = (AlphaNode) this.hashedSinkMap.get( hashKey );
                 if ( sink != null ) {
                     // only alpha nodes are hashable
-                    sink.getSinkPropagator().byPassModifyToBetaNode( factHandle, modifyPreviousTuples, context, workingMemory );
+                    sink.getObjectSinkPropagator().byPassModifyToBetaNode( factHandle, modifyPreviousTuples, context, workingMemory );
                 }
             }
         }
@@ -475,7 +470,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
         if ( this.hashableSinks != null ) {
             for ( ObjectSinkNode sink = this.hashableSinks.getFirst(); sink != null; sink = sink.getNextObjectSinkNode() ) {
                 // only alpha nodes are hashable
-                ((AlphaNode)sink).getSinkPropagator().byPassModifyToBetaNode( factHandle, modifyPreviousTuples, context, workingMemory );
+                ((AlphaNode)sink).getObjectSinkPropagator().byPassModifyToBetaNode( factHandle, modifyPreviousTuples, context, workingMemory );
             }
         }
 
@@ -491,11 +486,6 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
     /**
      * This is a Hook method for subclasses to override. Please keep it protected unless you know
      * what you are doing.
-     *
-     * @param factHandle
-     * @param context
-     * @param workingMemory
-     * @param sink
      */
     protected void doPropagateAssertObject(InternalFactHandle factHandle,
                                            PropagationContext context,
@@ -520,7 +510,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
     public BaseNode getMatchingNode(BaseNode candidate) {
         if ( this.otherSinks != null ) {
             for ( ObjectSinkNode sink = this.otherSinks.getFirst(); sink != null; sink = sink.getNextObjectSinkNode() ) {
-                if ( candidate.equals( sink ) ) {
+                if ( sink.thisNodeEquals( candidate ) ) {
                     return (BaseNode) sink;
                 }
             }
@@ -528,7 +518,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
 
         if ( this.hashableSinks != null ) {
             for ( ObjectSinkNode sink = this.hashableSinks.getFirst(); sink != null; sink = sink.getNextObjectSinkNode() ) {
-                if ( candidate.equals( sink ) ) {
+                if ( sink.thisNodeEquals( candidate ) ) {
                     return (BaseNode) sink;
                 }
             }
@@ -538,7 +528,7 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
             final Iterator it = this.hashedSinkMap.newIterator();
             for ( ObjectEntry entry = (ObjectEntry) it.next(); entry != null; entry = (ObjectEntry) it.next() ) {
                 final ObjectSink sink = (ObjectSink) entry.getValue();
-                if ( candidate.equals( sink ) ) {
+                if ( sink.thisNodeEquals( candidate ) ) {
                     return (BaseNode) sink;
                 }
             }
@@ -785,9 +775,9 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                     if ( this.ovalue == null ) {
                         return false;
                     } else if ( this.ovalue instanceof Boolean ) {
-                        return ((Boolean) this.ovalue).booleanValue();
+                        return (Boolean) this.ovalue;
                     } else if ( this.ovalue instanceof String ) {
-                        return Boolean.valueOf((String) this.ovalue).booleanValue();
+                        return Boolean.valueOf( (String) this.ovalue );
                     } else {
                         throw new ClassCastException( "Can't convert " + this.ovalue.getClass() + " to a boolean value." );
                     }
@@ -852,9 +842,9 @@ public class CompositeObjectSinkAdapter extends AbstractObjectSinkAdapter {
                 case OBJECT :
                     return this.ovalue;
                 case LONG :
-                    return new Long( this.lvalue );
+                    return this.lvalue;
                 case DOUBLE :
-                    return new Double( this.dvalue );
+                    return this.dvalue;
             }
             return null;
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -174,7 +174,12 @@ public class LinkedList<T extends LinkedListNode<T>>
     }
 
     public boolean contains(T node) {
-        return this.firstNode == node || node.getPrevious() != null;
+        for (T currentNode = firstNode; currentNode != null; currentNode = currentNode.getNext()) {
+            if (currentNode == node) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -261,12 +266,12 @@ public class LinkedList<T extends LinkedListNode<T>>
             return null;
         }
         final T node = this.lastNode;
-        this.lastNode = (T) node.getPrevious();
+        this.lastNode = node.getPrevious();
         node.setPrevious( null );
         if ( this.lastNode != null ) {
             this.lastNode.setNext( null );
         } else {
-            this.firstNode = this.lastNode;
+            this.firstNode = null;
         }
         this.size--;
         return node;

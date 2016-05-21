@@ -1,9 +1,25 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.common;
 
 import org.drools.compiler.CommonTestMethodBase;
 import org.drools.core.common.ActivationIterator;
 import org.drools.core.common.AgendaItem;
 import org.drools.core.common.InternalAgenda;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.util.Iterator;
 import org.junit.Test;
 import org.kie.api.definition.rule.Rule;
@@ -14,12 +30,9 @@ import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.KieSessionConfiguration;
 import org.kie.internal.KnowledgeBase;
 import org.kie.internal.KnowledgeBaseFactory;
-import org.kie.internal.builder.KnowledgeBuilder;
-import org.kie.internal.builder.KnowledgeBuilderFactory;
-import org.kie.internal.io.ResourceFactory;
-import org.kie.internal.runtime.StatefulKnowledgeSession;
 import org.kie.internal.runtime.conf.ForceEagerActivationFilter;
 import org.kie.internal.runtime.conf.ForceEagerActivationOption;
+import org.kie.internal.utils.KieHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,18 +53,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 5; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -77,7 +82,8 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                         list );
     }
 
-    private void evaluateEagerList(StatefulKnowledgeSession ksession) {
+    private void evaluateEagerList(KieSession ksession) {
+        ((InternalWorkingMemory) ksession).flushPropagations();
         ((InternalAgenda) ksession.getAgenda()).evaluateEagerList();
     }
 
@@ -96,18 +102,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 5; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -178,18 +176,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 5; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -263,18 +253,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 5; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -303,18 +285,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "then\n" +
                      "end\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 2; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -351,18 +325,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 2; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -410,18 +376,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 2; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -487,18 +445,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         for ( int i = 0; i < 2; i++ ) {
             ksession.insert( new String( "" + i ) );
         }
@@ -547,18 +497,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         ksession.insert( "0" );
         ksession.insert( "2" );
 
@@ -604,18 +546,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource(str.getBytes()),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         ksession.insert( "0" );
         ksession.insert( "1" );
         ksession.insert( "2" );
@@ -661,18 +595,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         List list = new ArrayList();
         list.add( "0" );
         list.add( "1" );
@@ -715,18 +641,10 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
                      "end\n" +
                      "\n";
 
-        KnowledgeBuilder kbuilder = KnowledgeBuilderFactory.newKnowledgeBuilder();
-        kbuilder.add( ResourceFactory.newByteArrayResource( str.getBytes() ),
-                      ResourceType.DRL );
+        KieSession ksession = new KieHelper().addContent(str, ResourceType.DRL)
+                                             .build()
+                                             .newKieSession();
 
-        if ( kbuilder.hasErrors() ) {
-            fail( kbuilder.getErrors().toString() );
-        }
-
-        KnowledgeBase kbase = KnowledgeBaseFactory.newKnowledgeBase();
-        kbase.addKnowledgePackages( kbuilder.getKnowledgePackages() );
-
-        StatefulKnowledgeSession ksession = createKnowledgeSession(kbase);
         ksession.insert( new Integer( 1 ) );
         ksession.insert( new Integer( 2 ) );
         ksession.insert( new Integer( 3 ) );
@@ -784,6 +702,7 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
         ksession.addEventListener(agendaEventListener);
 
         ksession.insert("test");
+
         assertEquals(2, list.size());
     }
 
@@ -823,6 +742,8 @@ public class ActivationIteratorTest extends CommonTestMethodBase {
         ksession.addEventListener(agendaEventListener);
 
         ksession.insert("test");
+        ((InternalWorkingMemory) ksession).flushPropagations();
+
         assertEquals(1, list.size());
     }
 }

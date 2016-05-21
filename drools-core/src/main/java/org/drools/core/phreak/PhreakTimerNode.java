@@ -1,10 +1,24 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.phreak;
 
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.LeftTupleSets;
-import org.drools.core.common.LeftTupleSetsImpl;
 import org.drools.core.common.NetworkNode;
-import org.drools.core.common.TimedRuleExecution;
+import org.drools.core.common.TupleSets;
+import org.drools.core.common.WorkingMemoryAction;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
 import org.drools.core.marshalling.impl.MarshallerWriteContext;
 import org.drools.core.marshalling.impl.PersisterHelper;
@@ -24,6 +38,7 @@ import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.reteoo.SegmentMemory;
 import org.drools.core.reteoo.TimerNode;
 import org.drools.core.reteoo.TimerNode.TimerNodeMemory;
+import org.drools.core.spi.Tuple;
 import org.drools.core.time.Job;
 import org.drools.core.time.JobContext;
 import org.drools.core.time.JobHandle;
@@ -32,18 +47,16 @@ import org.drools.core.time.Trigger;
 import org.drools.core.time.impl.DefaultJobHandle;
 import org.drools.core.time.impl.Timer;
 import org.drools.core.util.LinkedList;
-import org.drools.core.util.index.LeftTupleList;
+import org.drools.core.util.index.TupleList;
 import org.kie.api.definition.rule.Rule;
 import org.kie.api.runtime.Calendars;
 import org.kie.api.runtime.conf.TimedRuleExecutionFilter;
 import org.kie.api.runtime.rule.PropagationContext;
-import org.kie.internal.concurrent.ExecutorProviderFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 
 public class PhreakTimerNode {
@@ -55,12 +68,12 @@ public class PhreakTimerNode {
                        SegmentMemory smem,
                        LeftTupleSink sink,
                        InternalWorkingMemory wm,
-                       LeftTupleSets srcLeftTuples,
-                       LeftTupleSets trgLeftTuples,
-                       LeftTupleSets stagedLeftTuples) {
+                       TupleSets<LeftTuple> srcLeftTuples,
+                       TupleSets<LeftTuple> trgLeftTuples,
+                       TupleSets<LeftTuple> stagedLeftTuples) {
 
         if ( srcLeftTuples.getDeleteFirst() != null ) {
-            doLeftDeletes( timerNode, tm, pmem, sink, wm, srcLeftTuples, trgLeftTuples, stagedLeftTuples );
+            doLeftDeletes( tm, pmem, sink, wm, srcLeftTuples, trgLeftTuples, stagedLeftTuples );
         }
 
         if ( srcLeftTuples.getUpdateFirst() != null ) {
@@ -71,7 +84,7 @@ public class PhreakTimerNode {
             doLeftInserts( timerNode, tm, pmem, smem, sink, wm, srcLeftTuples, trgLeftTuples );
         }
 
-        doPropagateChildLeftTuples( timerNode, tm, sink, wm, srcLeftTuples, trgLeftTuples, stagedLeftTuples );
+        doPropagateChildLeftTuples( tm, sink, trgLeftTuples, stagedLeftTuples );
 
         srcLeftTuples.resetAll();
     }
@@ -82,8 +95,8 @@ public class PhreakTimerNode {
                               SegmentMemory smem,
                               LeftTupleSink sink,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples) {
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples) {
         Timer timer = timerNode.getTimer();
         TimerService timerService = wm.getTimerService();
         long timestamp = timerService.getCurrentTime();
@@ -106,9 +119,9 @@ public class PhreakTimerNode {
                               SegmentMemory smem,
                               LeftTupleSink sink,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples,
-                              LeftTupleSets stagedLeftTuples) {
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples,
+                              TupleSets<LeftTuple> stagedLeftTuples) {
         Timer timer = timerNode.getTimer();
 
         // Variables may have changed for ExpressionIntervalTimer, so it must be rescheduled
@@ -120,15 +133,10 @@ public class PhreakTimerNode {
         for ( LeftTuple leftTuple = srcLeftTuples.getUpdateFirst(); leftTuple != null; ) {
             LeftTuple next = leftTuple.getStagedNext();
 
-            LeftTupleList leftTuples = tm.getInsertOrUpdateLeftTuples();
-            DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getObject();
+            DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getContextObject();
             if ( jobHandle != null ) {
                 // jobHandle can be null, if the time fired straight away, and never ended up scheduling a job
-                synchronized ( leftTuples ) {
-                    // the job removal and memory check is done within a sync block, incase it is executing a trigger at the
-                    // same time we are procesing an update
-                    timerService.removeJob(jobHandle);
-                }
+                timerService.removeJob(jobHandle);
             }
             scheduleLeftTuple( timerNode, tm, pmem, smem, sink, wm, timer, timerService, timestamp, calendarNames, calendars, leftTuple, trgLeftTuples, stagedLeftTuples );
 
@@ -137,81 +145,68 @@ public class PhreakTimerNode {
         }
     }
 
-    public void doLeftDeletes(TimerNode timerNode,
-                              TimerNodeMemory tm,
+    public void doLeftDeletes(TimerNodeMemory tm,
                               PathMemory pmem,
                               LeftTupleSink sink,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
-                              LeftTupleSets trgLeftTuples,
-                              LeftTupleSets stagedLeftTuples) {
+                              TupleSets<LeftTuple> srcLeftTuples,
+                              TupleSets<LeftTuple> trgLeftTuples,
+                              TupleSets<LeftTuple> stagedLeftTuples) {
         TimerService timerService = wm.getTimerService();
 
-        LeftTupleList leftTuples = tm.getInsertOrUpdateLeftTuples();
-        synchronized ( leftTuples ) {
-            LeftTupleList deletes = tm.getDeleteLeftTuples();
-            if ( !deletes.isEmpty() ) {
-                for ( LeftTuple leftTuple = deletes.getFirst(); leftTuple != null; ) {
-                    LeftTuple next = (LeftTuple) leftTuple.getNext();
-                    srcLeftTuples.addDelete( leftTuple );
-                    if ( log.isTraceEnabled() ) {
-                        log.trace( "Timer Add Postponed Delete {}", leftTuple );
-                    }
-                    leftTuple.clear();
-                    leftTuple = next;
+        TupleList leftTuples = tm.getInsertOrUpdateLeftTuples();
+        TupleList deletes = tm.getDeleteLeftTuples();
+        if ( !deletes.isEmpty() ) {
+            for ( LeftTuple leftTuple = (LeftTuple) deletes.getFirst(); leftTuple != null; ) {
+                LeftTuple next = (LeftTuple) leftTuple.getNext();
+                srcLeftTuples.addDelete( leftTuple );
+                if ( log.isTraceEnabled() ) {
+                    log.trace( "Timer Add Postponed Delete {}", leftTuple );
                 }
-                deletes.clear();
-            }
-            for ( LeftTuple leftTuple = srcLeftTuples.getDeleteFirst(); leftTuple != null; ) {
-                LeftTuple next = leftTuple.getStagedNext();
-
-                DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getObject();
-                if ( jobHandle != null ) {
-                    // jobHandle can be null, if the time fired straight away, and never ended up scheduling a job
-                    timerService.removeJob( jobHandle );
-                }
-
-                org.drools.core.spi.PropagationContext pctx = leftTuple.getPropagationContext();
-                pctx = RuleTerminalNode.findMostRecentPropagationContext( leftTuple, pctx );
-
-                if ( leftTuple.getMemory() != null ) {
-                    leftTuples.remove( leftTuple ); // it gets removed either way.
-                    if ( pctx.getType() == PropagationContext.EXPIRATION ) {
-                        // a expire clashes with insert or update, allow it to propagate once, will handle the expire the second time around
-                        doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple, tm );
-                        tm.getDeleteLeftTuples().add( leftTuple );
-                        pmem.doLinkRule( wm ); // make sure it's dirty, so it'll evaluate again
-                        if ( log.isTraceEnabled() ) {
-                            log.trace( "Timer Postponed Delete {}", leftTuple );
-                        }
-                    }
-                }
-
-                if ( leftTuple.getMemory() == null ) {
-                    // if it's != null, then it's already been postponed, and the existing child propagated
-                    LeftTuple childLeftTuple = leftTuple.getFirstChild(); // only has one child
-                    if ( childLeftTuple != null ) {
-                        switch ( childLeftTuple.getStagedType() ) {
-                            // handle clash with already staged entries
-                            case LeftTuple.INSERT :
-                                stagedLeftTuples.removeInsert( childLeftTuple );
-                                break;
-                            case LeftTuple.UPDATE :
-                                stagedLeftTuples.removeUpdate( childLeftTuple );
-                                break;
-                        }
-
-                        childLeftTuple.setPropagationContext( leftTuple.getPropagationContext() );
-                        trgLeftTuples.addDelete( childLeftTuple );
-                        if ( log.isTraceEnabled() ) {
-                            log.trace( "Timer Delete {}", leftTuple );
-                        }
-                    }
-                }
-
-                leftTuple.clearStaged();
+                leftTuple.clear();
                 leftTuple = next;
             }
+            deletes.clear();
+        }
+        for ( LeftTuple leftTuple = srcLeftTuples.getDeleteFirst(); leftTuple != null; ) {
+            LeftTuple next = leftTuple.getStagedNext();
+
+            DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getContextObject();
+            if ( jobHandle != null ) {
+                // jobHandle can be null, if the time fired straight away, and never ended up scheduling a job
+                timerService.removeJob( jobHandle );
+            }
+
+            org.drools.core.spi.PropagationContext pctx = leftTuple.getPropagationContext();
+            pctx = RuleTerminalNode.findMostRecentPropagationContext( leftTuple, pctx );
+
+            if ( leftTuple.getMemory() != null ) {
+                leftTuples.remove( leftTuple ); // it gets removed either way.
+                if ( pctx.getType() == PropagationContext.EXPIRATION ) {
+                    // a expire clashes with insert or update, allow it to propagate once, will handle the expire the second time around
+                    doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple );
+                    tm.getDeleteLeftTuples().add( leftTuple );
+                    pmem.doLinkRule( wm ); // make sure it's dirty, so it'll evaluate again
+                    if ( log.isTraceEnabled() ) {
+                        log.trace( "Timer Postponed Delete {}", leftTuple );
+                    }
+                }
+            }
+
+            if ( leftTuple.getMemory() == null ) {
+                // if it's != null, then it's already been postponed, and the existing child propagated
+                LeftTuple childLeftTuple = leftTuple.getFirstChild(); // only has one child
+                if ( childLeftTuple != null ) {
+                    childLeftTuple.setPropagationContext( leftTuple.getPropagationContext() );
+                    RuleNetworkEvaluator.deleteChildLeftTuple( childLeftTuple, trgLeftTuples, stagedLeftTuples );
+                    if ( log.isTraceEnabled() ) {
+                        log.trace( "Timer Delete {}", leftTuple );
+                    }
+                }
+            }
+
+            leftTuple.clearStaged();
+            leftTuple = next;
         }
     }
 
@@ -227,19 +222,20 @@ public class PhreakTimerNode {
                                    final String[] calendarNames,
                                    final Calendars calendars,
                                    final LeftTuple leftTuple,
-                                   final LeftTupleSets trgLeftTuples,
-                                   final LeftTupleSets stagedLeftTuples) {
+                                   final TupleSets<LeftTuple> trgLeftTuples,
+                                   final TupleSets<LeftTuple> stagedLeftTuples) {
         if( leftTuple.getPropagationContext().getReaderContext() == null ) {
             final Trigger trigger = createTrigger( timerNode, wm, timer, timestamp, calendarNames, calendars, leftTuple );
 
             // regular propagation
-            scheduleTimer( timerNode, tm, pmem, smem, sink, wm, timerService, timestamp, leftTuple, trgLeftTuples, stagedLeftTuples, trigger );
+            scheduleTimer( timerNode, tm, smem, sink, wm, timerService, timestamp, leftTuple, trgLeftTuples, stagedLeftTuples, trigger );
         } else {
             // de-serializing, so we need to correlate timers before scheduling them
             Scheduler scheduler = new Scheduler() {
                 @Override
                 public void schedule( Trigger t ) {
-                    scheduleTimer( timerNode, tm, pmem, smem, sink, wm, timerService, timestamp, leftTuple, trgLeftTuples, stagedLeftTuples, t );
+                    scheduleTimer( timerNode, tm, smem, sink, wm, timerService, timestamp, leftTuple, trgLeftTuples, stagedLeftTuples, t );
+                    evaluate( pmem, wm, sink, tm, trgLeftTuples );
                 }
                 @Override
                 public Trigger getTrigger() {
@@ -259,27 +255,25 @@ public class PhreakTimerNode {
                                   final String[] calendarNames,
                                   final Calendars calendars,
                                   final LeftTuple leftTuple) {
-        final DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getObject();
-        final Trigger trigger = timer.createTrigger( timestamp, leftTuple, jobHandle, calendarNames, calendars, timerNode.getDeclarations(), wm );
-        return trigger;
+        final DefaultJobHandle jobHandle = (DefaultJobHandle) leftTuple.getContextObject();
+        return timer.createTrigger( timestamp, leftTuple, jobHandle, calendarNames, calendars, timerNode.getDeclarations(), wm );
     }
 
-    public static interface Scheduler {
-        public void schedule( Trigger t );
-        public Trigger getTrigger();
+    public interface Scheduler {
+        void schedule( Trigger t );
+        Trigger getTrigger();
     }
 
     private void scheduleTimer(TimerNode timerNode,
                                TimerNodeMemory tm,
-                               PathMemory pmem,
                                SegmentMemory smem,
                                LeftTupleSink sink,
                                InternalWorkingMemory wm,
                                TimerService timerService,
                                long timestamp,
                                LeftTuple leftTuple,
-                               LeftTupleSets trgLeftTuples,
-                               LeftTupleSets stagedLeftTuples,
+                               TupleSets<LeftTuple> trgLeftTuples,
+                               TupleSets<LeftTuple> stagedLeftTuples,
                                Trigger trigger) {
         if ( trigger.hasNextFireTime() == null ) {
             return;
@@ -291,11 +285,11 @@ public class PhreakTimerNode {
                 log.trace( "Timer Fire Now {}", leftTuple );
             }
 
-            LeftTuple childLeftTuple = doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple, tm );
+            LeftTuple childLeftTuple = doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple );
             if (childLeftTuple.getStagedType() != LeftTuple.NONE) {
                 // Flag the newly created childLeftTuple to avoid a reevaluation in case it gets
                 // rescheduled before the end of this doNode loop
-                childLeftTuple.setObject(Boolean.TRUE);
+                childLeftTuple.setContextObject( Boolean.TRUE );
             }
 
             trigger.nextFireTime();
@@ -312,7 +306,7 @@ public class PhreakTimerNode {
             TimerNodeJobContext jobCtx = new TimerNodeJobContext( timerNode.getId(), trigger, leftTuple, tm, sink, smem.getPathMemories(), wm );
 
             DefaultJobHandle jobHandle = (DefaultJobHandle) timerService.scheduleJob( job, jobCtx, trigger );
-            leftTuple.setObject( jobHandle );
+            leftTuple.setContextObject( jobHandle );
 
             if ( log.isTraceEnabled() ) {
                 log.trace( "Timer Scheduled {}", leftTuple );
@@ -320,37 +314,31 @@ public class PhreakTimerNode {
         }
     }
 
-    public static void doPropagateChildLeftTuples(TimerNode timerNode,
-                                                  TimerNodeMemory tm,
+    public static void doPropagateChildLeftTuples(TimerNodeMemory tm,
                                                   LeftTupleSink sink,
-                                                  InternalWorkingMemory wm,
-                                                  LeftTupleSets srcLeftTuples,
-                                                  LeftTupleSets trgLeftTuples,
-                                                  LeftTupleSets stagedLeftTuples) {
-        LeftTupleList leftTuples = tm.getInsertOrUpdateLeftTuples();
-        synchronized ( leftTuples ) {
-            for ( LeftTuple leftTuple = leftTuples.getFirst(); leftTuple != null; ) {
-                LeftTuple next = (LeftTuple) leftTuple.getNext();
+                                                  TupleSets<LeftTuple> trgLeftTuples,
+                                                  TupleSets<LeftTuple> stagedLeftTuples) {
+        TupleList leftTuples = tm.getInsertOrUpdateLeftTuples();
+        for ( LeftTuple leftTuple = (LeftTuple) leftTuples.getFirst(); leftTuple != null; ) {
+            LeftTuple next = (LeftTuple) leftTuple.getNext();
 
-                doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple, tm );
+            doPropagateChildLeftTuple( sink, trgLeftTuples, stagedLeftTuples, leftTuple );
 
-                leftTuple.clear();
-                leftTuple = next;
-            }
-            // doLeftDeletes handles deletes, directly into the trgLeftTuples
-            if ( tm.getDeleteLeftTuples().isEmpty() ) {
-                // dirty bit can only be reset when there are no InsertOUdate LeftTuples and no Delete staged LeftTuples.
-                tm.setNodeCleanWithoutNotify();
-            }
-            leftTuples.clear();
+            leftTuple.clear();
+            leftTuple = next;
         }
+        // doLeftDeletes handles deletes, directly into the trgLeftTuples
+        if ( tm.getDeleteLeftTuples().isEmpty() ) {
+            // dirty bit can only be reset when there are no InsertOUdate LeftTuples and no Delete staged LeftTuples.
+            tm.setNodeCleanWithoutNotify();
+        }
+        leftTuples.clear();
     }
 
     private static LeftTuple doPropagateChildLeftTuple(LeftTupleSink sink,
-                                                       LeftTupleSets trgLeftTuples,
-                                                       LeftTupleSets stagedLeftTuples,
-                                                       LeftTuple leftTuple,
-                                                       TimerNodeMemory tm) {
+                                                       TupleSets<LeftTuple> trgLeftTuples,
+                                                       TupleSets<LeftTuple> stagedLeftTuples,
+                                                       LeftTuple leftTuple) {
         LeftTuple childLeftTuple = leftTuple.getFirstChild();
         if ( childLeftTuple == null ) {
             childLeftTuple = sink.createLeftTuple( leftTuple, sink, leftTuple.getPropagationContext(), true );
@@ -358,9 +346,9 @@ public class PhreakTimerNode {
             if ( log.isTraceEnabled() ) {
                 log.trace( "Timer Insert {}", childLeftTuple );
             }
-        } else if (childLeftTuple.getObject() == Boolean.TRUE) {
+        } else if (childLeftTuple.getContextObject() == Boolean.TRUE) {
             // This childLeftTuple has been created in this doNode loop, just skip it
-            childLeftTuple.setObject(null);
+            childLeftTuple.setContextObject( null );
         } else {
             switch ( childLeftTuple.getStagedType() ) {
                 // handle clash with already staged entries
@@ -383,107 +371,111 @@ public class PhreakTimerNode {
             implements
             Job {
         public void execute(JobContext ctx) {
-            final TimerNodeJobContext timerJobCtx = (TimerNodeJobContext) ctx;
-            Trigger trigger = timerJobCtx.getTrigger();
+            TimerNodeJobContext timerJobCtx = (TimerNodeJobContext) ctx;
+            InternalWorkingMemory wm = timerJobCtx.getWorkingMemory();
+            wm.addPropagation( new TimerAction( timerJobCtx ) );
+        }
+    }
 
-            LeftTupleList leftTuples = timerJobCtx.getTimerNodeMemory().getInsertOrUpdateLeftTuples();
-            LeftTuple lt = timerJobCtx.getLeftTuple();
+    public static class TimerAction
+            extends PropagationEntry.AbstractPropagationEntry
+            implements WorkingMemoryAction {
+
+        private final TimerNodeJobContext timerJobCtx;
+
+        private TimerAction( TimerNodeJobContext timerJobCtx ) {
+            this.timerJobCtx = timerJobCtx;
+        }
+
+        @Override
+        public ProtobufMessages.ActionQueue.Action serialize( MarshallerWriteContext context ) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean requiresImmediateFlushing() {
+            return timerJobCtx.getWorkingMemory().getSessionConfiguration().getTimedRuleExecutionFilter() != null;
+        }
+
+        @Override
+        public void execute( final InternalWorkingMemory wm ) {
+            execute( wm, false );
+        }
+
+        public void execute( final InternalWorkingMemory wm, boolean needEvaluation ) {
+            TupleList leftTuples = timerJobCtx.getTimerNodeMemory().getInsertOrUpdateLeftTuples();
+            Tuple lt = timerJobCtx.getTuple();
 
             if ( log.isTraceEnabled() ) {
                 log.trace( "Timer Executor {} {}", timerJobCtx.getTrigger(), lt );
             }
 
-            synchronized ( leftTuples ) {
-                if ( timerJobCtx.getJobHandle().isCancel() ) {
-                    // this is to force a sync point, as during update propagate it can cancel the FH
-                    // we cannot have an update processed at the same timer is firing
-                    return;
-                }
-                if ( lt.getMemory() == null ) {
-                    // don't add it, if it's already added, which could happen with interval or cron timers
-                    leftTuples.add( lt );
-                }
+            if ( timerJobCtx.getJobHandle().isCancel() ) {
+                // this is to force a sync point, as during update propagate it can cancel the FH
+                // we cannot have an update processed at the same timer is firing
+                return;
+            }
+            if ( lt.getMemory() == null ) {
+                // don't add it, if it's already added, which could happen with interval or cron timers
+                leftTuples.add( lt );
             }
 
             timerJobCtx.getTimerNodeMemory().setNodeDirtyWithoutNotify();
 
+            TimedRuleExecutionFilter filter = wm.getSessionConfiguration().getTimedRuleExecutionFilter();
+            needEvaluation &= filter != null;
+
             for (final PathMemory pmem : timerJobCtx.getPathMemories()) {
-                pmem.doLinkRule( timerJobCtx.getWorkingMemory() );
+                if (pmem.getPathEndNode().getAssociatedRuleSize() == 0) {
+                    // if the corresponding rule has been removed avoid to link and notify this pmem
+                    continue;
+                }
+                pmem.doLinkRule( wm );
 
-                pmem.queueRuleAgendaItem(timerJobCtx.getWorkingMemory());
-                final TimedRuleExecutionFilter filter = timerJobCtx.getWorkingMemory().getSessionConfiguration().getTimedRuleExecutionFilter();
-                if (filter != null) {
-                    ExecutorHolder.executor.execute( new Runnable() {
-                        @Override
-                        public void run() {
-                            if (filter.accept(  new Rule[] { pmem.getRule() } )) {
-                                new Executor(pmem,
-                                             timerJobCtx.getWorkingMemory(),
-                                             timerJobCtx.getSink(),
-                                             timerJobCtx.getTimerNodeMemory()).evauateAndFireRule();
-                            }
-                        }
-                    });
+                if (needEvaluation && filter.accept(new Rule[]{pmem.getRule()})) {
+                    evaluateAndFireRule( pmem, wm );
                 }
             }
         }
-    }
 
-    private static class ExecutorHolder {
-        private static final java.util.concurrent.Executor executor = ExecutorProviderFactory.getExecutorProvider().newSingleThreadExecutor();
-    }
-
-    public static class Executor implements TimedRuleExecution {
-
-        private final PathMemory pmem;
-        private final InternalWorkingMemory wm;
-        private final LeftTupleSink sink;
-        private final TimerNodeMemory tm;
-
-        public Executor(PathMemory pmem, InternalWorkingMemory wm, LeftTupleSink sink, TimerNodeMemory tm) {
-            this.pmem = pmem;
-            this.wm = wm;
-            this.sink = sink;
-            this.tm = tm;
-        }
-
-        @Override
-        public void evauateAndFireRule() {
-            SegmentMemory[] smems = pmem.getSegmentMemories();
-            LeftInputAdapterNode lian = ( LeftInputAdapterNode ) smems[0].getRootNode();
-
-            SegmentMemory sm = tm.getSegmentMemory();
-            int smemIndex = 0;
-            for (SegmentMemory smem : smems) {
-                if (smem == sm) {
-                    break;
-                }
-                smemIndex++;
-            }
-
-            long bit = 1;
-            for (NetworkNode node = sm.getRootNode(); node != sink; node = ((LeftTupleSource)node).getSinkPropagator().getFirstLeftTupleSink() ) {
-                //update the bit to the correct node position.
-                bit = bit << 1;
-            }
-
-            LeftTupleSets trgLeftTuples = new LeftTupleSetsImpl();
-            doPropagateChildLeftTuples(null, tm, sink, wm,
-                                       null, trgLeftTuples, sm.getStagedLeftTuples());
-
-            RuleNetworkEvaluator rne = new RuleNetworkEvaluator();
-            LinkedList<StackEntry> outerStack = new LinkedList<StackEntry>();
-
-            rne.outerEval(lian, pmem, sink, bit, tm,
-                          smems, smemIndex, trgLeftTuples,
-                          wm, new LinkedList<StackEntry>(), outerStack,
-                          new HashSet<String>(), true,
-                          pmem.getRuleAgendaItem().getRuleExecutor());
-
+        private void evaluateAndFireRule(PathMemory pmem, InternalWorkingMemory wm) {
             RuleExecutor ruleExecutor = pmem.getRuleAgendaItem().getRuleExecutor();
-            ruleExecutor.reEvaluateNetwork(wm, outerStack);
-            ruleExecutor.fire(wm, outerStack);
+            ruleExecutor.reEvaluateNetwork( wm );
+            ruleExecutor.fire(wm);
         }
+    }
+
+    private static LinkedList<StackEntry> evaluate(PathMemory pmem,
+                                                   InternalWorkingMemory wm,
+                                                   LeftTupleSink sink,
+                                                   TimerNodeMemory tm,
+                                                   TupleSets<LeftTuple> trgLeftTuples) {
+        SegmentMemory[] smems = pmem.getSegmentMemories();
+        LeftInputAdapterNode lian = ( LeftInputAdapterNode ) smems[0].getRootNode();
+
+        SegmentMemory sm = tm.getSegmentMemory();
+        int smemIndex = 0;
+        for (SegmentMemory smem : smems) {
+            if (smem == sm) {
+                break;
+            }
+            smemIndex++;
+        }
+
+        long bit = 1;
+        for (NetworkNode node = sm.getRootNode(); node != sink; node = ((LeftTupleSource)node).getSinkPropagator().getFirstLeftTupleSink() ) {
+            //update the bit to the correct node position.
+            bit = bit << 1;
+        }
+
+        RuleNetworkEvaluator rne = new RuleNetworkEvaluator();
+        LinkedList<StackEntry> outerStack = new LinkedList<StackEntry>();
+
+        rne.outerEval(pmem, sink, bit, tm,
+                      smems, smemIndex, trgLeftTuples,
+                      wm, new LinkedList<StackEntry>(), true,
+                      pmem.getRuleAgendaItem().getRuleExecutor());
+        return outerStack;
     }
 
     public static class TimerNodeJobContext
@@ -492,7 +484,7 @@ public class PhreakTimerNode {
         private       JobHandle             jobHandle;
         private final Trigger               trigger;
 
-        private final LeftTuple             leftTuple;
+        private final Tuple                 tuple;
         private final int                   timerNodeId;
         private final TimerNodeMemory       tm;
 
@@ -502,14 +494,14 @@ public class PhreakTimerNode {
 
         public TimerNodeJobContext(int timerNodeId,
                                    Trigger trigger,
-                                   LeftTuple leftTuple,
+                                   Tuple tuple,
                                    TimerNodeMemory tm,
                                    LeftTupleSink sink,
                                    List<PathMemory> pmems,
                                    InternalWorkingMemory wm) {
             this.timerNodeId = timerNodeId;
             this.trigger = trigger;
-            this.leftTuple = leftTuple;
+            this.tuple = tuple;
             this.sink = sink;
             this.pmems = pmems;
             this.tm = tm;
@@ -528,8 +520,8 @@ public class PhreakTimerNode {
             return sink;
         }
 
-        public LeftTuple getLeftTuple() {
-            return leftTuple;
+        public Tuple getTuple() {
+            return tuple;
         }
 
         public TimerNodeMemory getTimerNodeMemory() {
@@ -557,11 +549,6 @@ public class PhreakTimerNode {
             implements
             TimersOutputMarshaller {
 
-        public void write(JobContext jobCtx,
-                          MarshallerWriteContext outputCtx) throws IOException {
-            throw new UnsupportedOperationException( "This method should no longer be used and is due to removal." );
-        }
-
         public ProtobufMessages.Timers.Timer serialize(JobContext jobCtx,
                                                        MarshallerWriteContext outputCtx) {
             // TimerNodeJobContext   
@@ -571,7 +558,7 @@ public class PhreakTimerNode {
                                           .setType( ProtobufMessages.Timers.TimerType.TIMER_NODE )
                                           .setTimerNode( ProtobufMessages.Timers.TimerNodeTimer.newBuilder()
                                                                                 .setNodeId( tnJobCtx.getTimerNodeId() )
-                                                                                .setTuple( PersisterHelper.createTuple( tnJobCtx.getLeftTuple() ) )
+                                                                                .setTuple( PersisterHelper.createTuple( tnJobCtx.getTuple() ) )
                                                                                 .setTrigger( ProtobufOutputMarshaller.writeTrigger( tnJobCtx.getTrigger(),
                                                                                                                                     outputCtx ) )
                                                                                 .build() )
@@ -582,10 +569,6 @@ public class PhreakTimerNode {
     public static class TimerNodeTimerInputMarshaller
             implements
             TimersInputMarshaller {
-        public void read(MarshallerReaderContext inCtx) throws IOException,
-                                                               ClassNotFoundException {
-            throw new UnsupportedOperationException( "This method should no longer be used and is due to removal." );
-        }
 
         public void deserialize(MarshallerReaderContext inCtx,
                                 ProtobufMessages.Timers.Timer _timer) throws ClassNotFoundException {

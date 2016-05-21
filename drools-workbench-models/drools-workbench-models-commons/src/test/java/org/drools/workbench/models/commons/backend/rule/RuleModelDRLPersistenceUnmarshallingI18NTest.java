@@ -1,6 +1,5 @@
-package org.drools.workbench.models.commons.backend.rule;
 /*
- * Copyright 2013 JBoss Inc
+ * Copyright 2013 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +13,9 @@ package org.drools.workbench.models.commons.backend.rule;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package org.drools.workbench.models.commons.backend.rule;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;

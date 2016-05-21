@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.drools.core.rule.ContextEntry;
 import org.drools.core.rule.MutableTypeConstraint;
 import org.drools.core.rule.constraint.MvelConstraint;
 import org.drools.core.spi.BetaNodeFieldConstraint;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.bitmask.BitMask;
 
 import java.io.IOException;
@@ -88,10 +89,8 @@ public class TripleNonIndexSkipBetaConstraints
 
     public void updateFromTuple(ContextEntry[] context,
                                 InternalWorkingMemory workingMemory,
-                                LeftTuple tuple) {
-        constraints.updateFromTuple(context,
-                workingMemory,
-                tuple);
+                                Tuple tuple) {
+        constraints.updateFromTuple(context, workingMemory, tuple);
     }
 
     public void updateFromFactHandle(ContextEntry[] context,
@@ -153,7 +152,7 @@ public class TripleNonIndexSkipBetaConstraints
     }
 
     public boolean isAllowedCachedRight(ContextEntry[] context,
-                                        LeftTuple tuple) {
+                                        Tuple tuple) {
         return this.constraints.isAllowedCachedRight( context, tuple );
     }
 

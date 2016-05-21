@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.kie.scanner.management;
 
 import org.drools.compiler.kie.builder.impl.InternalKieModule;
@@ -6,7 +21,6 @@ import org.drools.core.util.FileManager;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.api.KieServices;
 import org.kie.api.builder.ReleaseId;
@@ -17,7 +31,6 @@ import org.kie.scanner.KieRepositoryScannerImpl;
 import org.kie.scanner.MavenRepository;
 
 import javax.management.ObjectName;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +41,6 @@ import static org.kie.scanner.MavenRepository.getMavenRepository;
 public class KieScannerMBeanTest extends AbstractKieCiTest {
     
     private FileManager fileManager;
-    private File kPom;
 
     @Before
     public void setUp() throws Exception {
@@ -36,8 +48,6 @@ public class KieScannerMBeanTest extends AbstractKieCiTest {
         System.setProperty(MBeanUtils.MBEANS_PROPERTY, "enabled");
         this.fileManager = new FileManager();
         this.fileManager.setUp();
-        ReleaseId releaseId = KieServices.Factory.get().newReleaseId("org.kie", "scanner-mbean-test", "1.0-SNAPSHOT");
-        kPom = createKPom(fileManager, releaseId);
     }
 
     @After
@@ -56,7 +66,7 @@ public class KieScannerMBeanTest extends AbstractKieCiTest {
         KieContainer kieContainer = ks.newKieContainer(releaseId);
 
         MavenRepository repository = getMavenRepository();
-        repository.deployArtifact(releaseId, kJar1, kPom);
+        repository.installArtifact(releaseId, kJar1, createKPom(fileManager, releaseId));
 
         // create a ksesion and check it works as expected
         KieSession ksession = kieContainer.newKieSession("KSession1");
@@ -83,7 +93,7 @@ public class KieScannerMBeanTest extends AbstractKieCiTest {
         // create a new kjar
         InternalKieModule kJar2 = createKieJar(ks, releaseId, "rule2", "rule3");
         // deploy it on maven
-        repository.deployArtifact(releaseId, kJar2, kPom);
+        repository.installArtifact(releaseId, kJar2, createKPom(fileManager, releaseId));
         
         MBeanUtils.invoke(mbeanName, "scanNow", new Object[] {}, new String[] {} );
         

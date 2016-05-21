@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,6 @@
 
 package org.drools.core.common;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.facttemplates.Fact;
 import org.drools.core.impl.InternalKnowledgeBase;
@@ -30,41 +25,43 @@ import org.drools.core.reteoo.ObjectTypeConf;
 import org.drools.core.rule.EntryPointId;
 import org.drools.core.spi.Activation;
 
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
 public class ObjectTypeConfigurationRegistry implements Serializable {
     private static final long serialVersionUID = 510l;
-    
-    private InternalKnowledgeBase kBase;
-    private ConcurrentMap<Object, ObjectTypeConf> typeConfMap;
-    
 
-    
+    private final ConcurrentMap<Object, ObjectTypeConf> typeConfMap = new ConcurrentHashMap<Object, ObjectTypeConf>();
+
+    private final InternalKnowledgeBase kBase;
+
     public ObjectTypeConfigurationRegistry(InternalKnowledgeBase kBase ) {
-        super();
         this.kBase = kBase;
-        this.typeConfMap = new ConcurrentHashMap<Object, ObjectTypeConf>();
     }
-
-
 
     /**
      * Returns the ObjectTypeConfiguration object for the given object or
      * creates a new one if none is found in the cache
-     * 
-     * @param object
-     * @return
      */
     public ObjectTypeConf getObjectTypeConf(EntryPointId entrypoint,
                                             Object object) {
         
         // first see if it's a ClassObjectTypeConf        
-        ObjectTypeConf objectTypeConf = null;
-        Class<?> cls = (object instanceof Activation) ? ClassObjectType.Match_ObjectType.getClassType() : object.getClass();
-        Object key = ( object instanceof Fact ) ? ((Fact) object).getFactTemplate().getName() : cls;
-        objectTypeConf = this.typeConfMap.get( key );
+        Object key;
+        if (object instanceof Activation) {
+            key = ClassObjectType.Match_ObjectType.getClassType();
+        } else if (object instanceof Fact) {
+            key = ((Fact) object).getFactTemplate().getName();
+        } else {
+            key = object.getClass();
+        }
+        ObjectTypeConf objectTypeConf = this.typeConfMap.get( key );
         
         // it doesn't exist, so create it.
         if ( objectTypeConf == null ) {
-            if ( object instanceof Fact ) {;
+            if ( object instanceof Fact ) {
                 objectTypeConf = new FactTemplateTypeConf( entrypoint,
                                                            ((Fact) object).getFactTemplate(),
                                                            this.kBase );
@@ -73,16 +70,19 @@ public class ObjectTypeConfigurationRegistry implements Serializable {
                                                           (Class<?>) key,
                                                           this.kBase );
             }
-        }
-        ObjectTypeConf existing = this.typeConfMap.putIfAbsent( key, objectTypeConf );
-        if ( existing != null ) {
-            // Raced, take the (now) existing.
-            objectTypeConf = existing;
+            ObjectTypeConf existing = this.typeConfMap.putIfAbsent( key, objectTypeConf );
+            if ( existing != null ) {
+                // Raced, take the (now) existing.
+                objectTypeConf = existing;
+            }
         }
         return objectTypeConf;
     }
 
-    
+    public ObjectTypeConf getObjectTypeConfByClass(Class<?> cls) {
+        return typeConfMap.get(cls);
+    }
+
     public Collection<ObjectTypeConf> values() {
         return this.typeConfMap.values();
     }

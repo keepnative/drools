@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 package org.drools.core.base;
 
+import org.drools.core.base.evaluators.Operator;
+import org.drools.core.spi.Evaluator;
+import org.drools.core.time.Interval;
+
 import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-
-import org.drools.core.base.evaluators.Operator;
-import org.drools.core.spi.Evaluator;
-import org.drools.core.time.Interval;
 
 /**
  * BaseEvaluator is an Object Comparator that is operator aware
@@ -75,8 +75,7 @@ public abstract class BaseEvaluator
     }
     
     public Interval getInterval() {
-        // returns an open bound interval
-        return new Interval();
+        throw new UnsupportedOperationException();
     }
 
     public boolean equals(final Object object) {

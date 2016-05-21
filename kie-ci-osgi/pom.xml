@@ -3,9 +3,9 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <parent>
-    <artifactId>drools-multiproject</artifactId>
+    <artifactId>drools</artifactId>
     <groupId>org.drools</groupId>
-    <version>6.2.0-SNAPSHOT</version>
+    <version>6.4.0.Final</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -34,6 +34,10 @@
     <dependency>
       <groupId>org.kie</groupId>
       <artifactId>kie-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-internal</artifactId>
     </dependency>
 
     <dependency>
@@ -102,6 +106,7 @@
               org.kie.api.builder,
               org.kie.api.builder.model,
               org.kie.api.runtime,
+              org.kie.internal.utils,
               org.osgi.framework,
               org.slf4j,
               org.slf4j.spi,

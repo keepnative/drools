@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 JBoss Inc
+ * Copyright 2006 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import org.drools.core.base.mvel.MVELCompilationUnit;
 import org.drools.core.base.mvel.MVELReturnValueExpression;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.MVELDialectRuntimeData;
-import org.drools.core.rule.Pattern;
 import org.drools.core.rule.ReturnValueRestriction;
 import org.drools.core.spi.KnowledgeHelper;
 
@@ -48,10 +47,6 @@ public class MVELReturnValueBuilder
         try {
             MVELDialect dialect = (MVELDialect) context.getDialect( context.getDialect().getId() );
             
-            Map< String , Class<?> > declIds = context.getDeclarationResolver().getDeclarationClasses(context.getRule());
-            
-            Pattern p = ( Pattern ) context.getBuildStack().peek();
-            
             context.setTypesafe( ((MVELAnalysisResult)analysis).isTypesafe() );
             MVELCompilationUnit unit = dialect.getMVELCompilationUnit((String) returnValueRestrictionDescr.getContent(), 
                                                                       analysis,  
@@ -61,7 +56,8 @@ public class MVELReturnValueBuilder
                                                                       context,
                                                                       "drools",
                                                                       KnowledgeHelper.class,
-                                                                      false );
+                                                                      false,
+                                                                      MVELCompilationUnit.Scope.EXPRESSION );
     
             MVELReturnValueExpression expr = new MVELReturnValueExpression( unit,
                                                                             context.getDialect().getId() );

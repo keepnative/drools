@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,14 @@ import org.drools.core.impl.InternalKnowledgeBase;
 import java.io.Serializable;
 
 public class ReteAgendaFactory implements AgendaFactory, Serializable {
+
+    private static final AgendaFactory INSTANCE = new ReteAgendaFactory();
+
+    public static AgendaFactory getInstance() {
+        return INSTANCE;
+    }
+
+    private ReteAgendaFactory() { }
 
     public InternalAgenda createAgenda(InternalKnowledgeBase kBase, boolean initMain) {
         return new ReteAgenda( kBase, initMain );

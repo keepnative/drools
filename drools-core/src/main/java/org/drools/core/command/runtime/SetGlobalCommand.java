@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public class SetGlobalCommand
 
     @XmlAttribute(name="out-identifier")
     private String  outIdentifier;
-    
+
     public SetGlobalCommand() {
     }
 
@@ -66,13 +66,15 @@ public class SetGlobalCommand
 
         ksession.setGlobal( this.identifier,
                             this.object );
-        return object;
+
+        // returning the object is necessary for drools-simulator
+        return this.object;
     }
 
     public String getIdentifier() {
         return this.identifier;
     }
-    
+
     public void setIdentifier(String identifier) {
         this.identifier = identifier;
     }
@@ -80,7 +82,7 @@ public class SetGlobalCommand
     public Object getObject() {
         return this.object;
     }
-    
+
     public void setObject( Object object ) {
         this.object = object;
     }

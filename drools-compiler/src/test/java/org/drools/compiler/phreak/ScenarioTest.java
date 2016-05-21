@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.phreak;
 
 import org.drools.core.RuleBaseConfiguration;
@@ -134,43 +149,33 @@ public class ScenarioTest {
     public void testEmptyResultDelete() throws IntrospectionException {
         setupJoinNode();
 
-        try {
-            // @formatter:off
-            test().left().insert( a0, a1 )
-                  .right().insert( b0, b1 )
-                  .result()
-                  .run();
-            
-            test().left().delete( a0 )                  
-                  .result().delete(   )
-                  .run();   
-            // @formatter:on            
-            fail("Should not reach here");
-        } catch ( AssertionError e ) {
-            assertTrue( e.getMessage().contains( "delete existed" ) );
-        }
-    }    
+        // @formatter:off
+        test().left().insert( a0, a1 )
+              .right().insert( b0, b1 )
+              .result()
+              .run();
+
+        test().left().delete( a0 )
+              .result().delete(   )
+              .run();
+        // @formatter:on
+    }
     
     @Test
     public void testMissingResultDelete() throws IntrospectionException {
         setupJoinNode();     
         
-        try {
-            // @formatter:off
-            test().left().insert( a0, a1 )
-                  .right().insert( b0, b1 )
-                  .result()
-                  .run();
-            
-            test().left().delete( a0, a1 )                  
-                  .result().delete( t(a0, b1) )
-                  .run();   
-            // @formatter:on            
-            fail("Should not reach here");
-        } catch ( AssertionError e ) {
-            assertTrue( e.getMessage().contains( "Delete excpected more" ) );
-        }
-    }  
+        // @formatter:off
+        test().left().insert( a0, a1 )
+              .right().insert( b0, b1 )
+              .result()
+              .run();
+
+        test().left().delete( a0, a1 )
+              .result().delete( )
+              .run();
+        // @formatter:on
+    }
     
     @Test
     public void testIncorrecResultDelete() throws IntrospectionException {
@@ -484,47 +489,37 @@ public class ScenarioTest {
     public void testEmptyPreStagedDelete() throws IntrospectionException {
         setupJoinNode();
 
-        try {
-            // @formatter:off            
-            test().left().insert( a0, a1 )
-                  .right().insert( b0, b1 )
-                  .run();
-            
-            test().left().delete( a0 )
-                  .run();         
-            
-            test().left().delete( a1 )
-                  .preStaged(smem0).delete(  )
-                  .run();               
-            // @formatter:on
-            fail("Should not reach here");
-        } catch ( AssertionError e ) {
-            assertTrue( e.getMessage().contains( "delete existed" ) );
-        }
-    }   
+        // @formatter:off
+        test().left().insert( a0, a1 )
+              .right().insert( b0, b1 )
+              .run();
+
+        test().left().delete( a0 )
+              .run();
+
+        test().left().delete( a1 )
+              .preStaged(smem0).delete(  )
+              .run();
+        // @formatter:on
+    }
     
     @Test
     public void testMissingPreStagedDelete() throws IntrospectionException {
         setupJoinNode();
 
-        try {
-            // @formatter:off            
-            test().left().insert( a0, a1, a2, a3 )
-                  .right().insert( b0, b1 )
-                  .run();
-            
-            test().left().delete( a0, a1 )
-                  .run();         
-            
-            test().left().delete( a2 )
-                  .preStaged(smem0).delete( t(a0, b1) )
-                  .run();               
-            // @formatter:on
-            fail("Should not reach here");
-        } catch ( AssertionError e ) {
-            assertTrue( e.getMessage().contains( "Delete excpected more" ) );
-        }
-    }  
+        // @formatter:off
+        test().left().insert( a0, a1, a2, a3 )
+              .right().insert( b0, b1 )
+              .run();
+
+        test().left().delete( a0, a1 )
+              .run();
+
+        test().left().delete( a2 )
+              .preStaged(smem0).delete( )
+              .run();
+        // @formatter:on
+    }
     
     @Test
     public void testIncorrectPreStagedDelete() throws IntrospectionException {
@@ -639,21 +634,16 @@ public class ScenarioTest {
     public void testMissingPostStagedDelete() throws IntrospectionException {
         setupJoinNode();
               
-        try {
-            // @formatter:off            
-            test().left().insert( a0, a1, a2 )
-                  .right().insert( b0, b1 )
-                  .run();
-            
-            test().left().delete( a0, a1 )
-                  .postStaged(smem0).delete( t(a0, b1) )
-                  .run();            
-            // @formatter:on            
-            fail("Should not reach here");
-        } catch ( AssertionError e ) {
-            assertTrue( e.getMessage().contains( "Delete excpected more" ) );
-        }
-    }   
+        // @formatter:off
+        test().left().insert( a0, a1, a2 )
+              .right().insert( b0, b1 )
+              .run();
+
+        test().left().delete( a0, a1 )
+              .postStaged(smem0).delete( )
+              .run();
+        // @formatter:on
+    }
     
     @Test
     public void testIncorrectPostStagedDelete() throws IntrospectionException {

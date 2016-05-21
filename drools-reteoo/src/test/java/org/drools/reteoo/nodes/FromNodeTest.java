@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@
 
 package org.drools.reteoo.nodes;
 
-import org.kie.api.runtime.rule.FactHandle;
 import org.drools.core.RuleBaseConfiguration;
-import org.drools.core.WorkingMemory;
 import org.drools.core.base.ClassFieldAccessorCache;
 import org.drools.core.base.ClassFieldAccessorStore;
 import org.drools.core.base.ClassFieldReader;
@@ -27,19 +25,18 @@ import org.drools.core.base.FieldFactory;
 import org.drools.core.common.BetaConstraints;
 import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.InternalFactHandle;
+import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.PropagationContextFactory;
 import org.drools.core.common.SingleBetaConstraints;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.reteoo.FromNode;
+import org.drools.core.reteoo.FromNode.FromMemory;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.LeftTupleImpl;
 import org.drools.core.reteoo.MockLeftTupleSink;
 import org.drools.core.reteoo.MockTupleSource;
 import org.drools.core.reteoo.ReteooBuilder;
 import org.drools.core.reteoo.RightTuple;
-import org.drools.core.test.model.Cheese;
-import org.drools.core.reteoo.FromNode.FromMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.From;
@@ -50,9 +47,10 @@ import org.drools.core.spi.AlphaNodeFieldConstraint;
 import org.drools.core.spi.DataProvider;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.spi.Tuple;
+import org.drools.core.test.model.Cheese;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.kie.api.runtime.rule.FactHandle;
 import org.kie.internal.KnowledgeBaseFactory;
 
 import java.util.ArrayList;
@@ -60,13 +58,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
+import static org.junit.Assert.*;
 
-@Ignore
 public class FromNodeTest {
     ClassFieldAccessorStore store = new ClassFieldAccessorStore();
     private InternalKnowledgeBase kBase;
@@ -90,8 +83,7 @@ public class FromNodeTest {
         final StatefulKnowledgeSessionImpl workingMemory = new StatefulKnowledgeSessionImpl(1L, kBase);
 
         final ClassFieldReader extractor = store.getReader(Cheese.class,
-                                                           "type",
-                                                           getClass().getClassLoader());
+                                                           "type");
 
         final MvelConstraint constraint = new MvelConstraintTestUtil("type == \"stilton\"",
                                                                      FieldFactory.getInstance().getFieldValue("stilton"),
@@ -112,7 +104,7 @@ public class FromNodeTest {
         From fromCe = new From(dataProvider);
         fromCe.setResultPattern(pattern );
 
-        final FromNode from = new FromNode( 3,
+        final ReteFromNode from = new ReteFromNode( 3,
                                             dataProvider,
                                             new MockTupleSource( 80 ),
                                             new AlphaNodeFieldConstraint[]{constraint},
@@ -154,9 +146,9 @@ public class FromNodeTest {
                       asserted.size() );
         Tuple tuple = (Tuple) ((Object[]) asserted.get( 0 ))[0];
         assertSame( person2,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese1,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
 
         cheese2.setType( "stilton" );
         final Person person3 = new Person( "xxx2",
@@ -173,14 +165,14 @@ public class FromNodeTest {
                       asserted.size() );
         tuple = (Tuple) ((Object[]) asserted.get( 1 ))[0];
         assertSame( person3,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese1,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
         tuple = (Tuple) ((Object[]) asserted.get( 2 ))[0];
         assertSame( person3,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese2,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
 
         assertNotSame( cheese1,
                        cheese2 );
@@ -193,12 +185,10 @@ public class FromNodeTest {
         final StatefulKnowledgeSessionImpl workingMemory = new StatefulKnowledgeSessionImpl( 1L, (InternalKnowledgeBase) KnowledgeBaseFactory.newKnowledgeBase() );
 
         final ClassFieldReader priceExtractor = store.getReader( Cheese.class,
-                                                                 "price",
-                                                                 getClass().getClassLoader() );
+                                                                 "price" );
 
         final ClassFieldReader ageExtractor = store.getReader( Person.class,
-                                                               "age",
-                                                               getClass().getClassLoader() );
+                                                               "age" );
 
         final Pattern pattern = new Pattern( 0,
                                              new ClassObjectType( Person.class ) );
@@ -228,7 +218,7 @@ public class FromNodeTest {
         fromCe.setResultPattern( new Pattern( 0,
                                               new ClassObjectType( Cheese.class ) ) );
 
-        final FromNode from = new FromNode( 3,
+        final ReteFromNode from = new ReteFromNode( 3,
                                             dataProvider,
                                             new MockTupleSource( 40 ),
                                             new AlphaNodeFieldConstraint[0],
@@ -270,9 +260,9 @@ public class FromNodeTest {
                       asserted.size() );
         Tuple tuple = (Tuple) ((Object[]) asserted.get( 0 ))[0];
         assertSame( person2,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese1,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
 
         cheese2.setPrice( 30 );
         final Person person3 = new Person( "xxx2",
@@ -289,14 +279,14 @@ public class FromNodeTest {
                       asserted.size() );
         tuple = (Tuple) ((Object[]) asserted.get( 1 ))[0];
         assertSame( person3,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese1,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
         tuple = (Tuple) ((Object[]) asserted.get( 2 ))[0];
         assertSame( person3,
-                    tuple.toFactHandles()[0].getObject() );
+                    tuple.getObject(0) );
         assertSame( cheese2,
-                    tuple.toFactHandles()[1].getObject() );
+                    tuple.getObject(1) );
 
         assertNotSame( cheese1,
                        cheese2 );
@@ -307,8 +297,7 @@ public class FromNodeTest {
         final PropagationContext context = pctxFactory.createPropagationContext(0, PropagationContext.INSERTION, null, null, null);
         final StatefulKnowledgeSessionImpl workingMemory = new StatefulKnowledgeSessionImpl( 1L, (InternalKnowledgeBase) KnowledgeBaseFactory.newKnowledgeBase() );
         final ClassFieldReader extractor = store.getReader( Cheese.class,
-                                                            "type",
-                                                            getClass().getClassLoader() );
+                                                            "type" );
 
         final MvelConstraint constraint = new MvelConstraintTestUtil( "type == \"stilton\"",
                                                                       FieldFactory.getInstance().getFieldValue("stilton"),
@@ -325,11 +314,11 @@ public class FromNodeTest {
         
         final Pattern pattern = new Pattern( 0,
                                              new ClassObjectType( Cheese.class ) );
-        
+
         From fromCe = new From(dataProvider);
         fromCe.setResultPattern( pattern );        
 
-        final FromNode from = new FromNode( 3,
+        final ReteFromNode from = new ReteFromNode( 3,
                                             dataProvider,
                                             new MockTupleSource( 30 ),
                                             new AlphaNodeFieldConstraint[]{constraint},
@@ -357,12 +346,12 @@ public class FromNodeTest {
 
         final FromMemory memory = (FromMemory) workingMemory.getNodeMemory( from );
         assertEquals( 1,
-                      memory.betaMemory.getLeftTupleMemory().size() );
-        assertNull( memory.betaMemory.getRightTupleMemory() );
+                      memory.getBetaMemory().getLeftTupleMemory().size() );
+        assertNull( memory.getBetaMemory().getRightTupleMemory() );
         RightTuple rightTuple2 = tuple.getFirstChild().getRightParent();
-        RightTuple rightTuple1 = tuple.getFirstChild().getLeftParentNext().getRightParent();
+        RightTuple rightTuple1 = ( (LeftTuple) tuple.getFirstChild().getHandleNext() ).getRightParent();
         assertFalse( rightTuple1.equals( rightTuple2 ) );
-        assertNull( tuple.getFirstChild().getLeftParentNext().getLeftParentNext() );
+        assertNull( tuple.getFirstChild().getHandleNext().getHandleNext() );
 
         final InternalFactHandle handle2 = rightTuple2.getFactHandle();
         final InternalFactHandle handle1 = rightTuple1.getFactHandle();
@@ -375,8 +364,8 @@ public class FromNodeTest {
                                context,
                                workingMemory );
         assertEquals( 0,
-                      memory.betaMemory.getLeftTupleMemory().size() );
-        assertNull( memory.betaMemory.getRightTupleMemory() );
+                      memory.getBetaMemory().getLeftTupleMemory().size() );
+        assertNull( memory.getBetaMemory().getRightTupleMemory() );
     }
     
     @Test
@@ -417,7 +406,7 @@ public class FromNodeTest {
         From fromCe = new From(dataProvider);
         fromCe.setResultPattern( pattern ); 
 
-        final FromNode from = new FromNode( 3,
+        final ReteFromNode from = new ReteFromNode( 3,
                                             dataProvider,
                                             new MockTupleSource( 90 ),
                                             new AlphaNodeFieldConstraint[]{},
@@ -442,7 +431,7 @@ public class FromNodeTest {
         int countPerson = 0;
         int countMan = 0;
         for ( int i = 0; i < 4; i++ ) {
-            Object o = ((LeftTuple) ((Object[]) asserted.get( i ))[0]).getLastHandle().getObject();
+            Object o = ((LeftTuple) ((Object[]) asserted.get( i ))[0]).getFactHandle().getObject();
             if ( o.getClass() ==  Human.class ) {
                 countHuman++;
             } else if ( o.getClass() == Person.class ) {
@@ -474,7 +463,7 @@ public class FromNodeTest {
         }
 
         public Iterator getResults(final Tuple tuple,
-                                   final WorkingMemory wm,
+                                   final InternalWorkingMemory wm,
                                    final PropagationContext ctx,
                                    final Object providerContext) {
             return this.collection.iterator();

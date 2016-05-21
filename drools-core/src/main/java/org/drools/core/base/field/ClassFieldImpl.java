@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.drools.core.base.field;
 
+import org.drools.core.common.DroolsObjectInput;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.spi.FieldValue;
 
@@ -50,7 +51,9 @@ public class ClassFieldImpl implements FieldValue, Externalizable {
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
         className = in.readUTF();
         try {
-            type = Class.forName(className);
+            type = in instanceof DroolsObjectInput ?
+                   Class.forName( className, false, ( (DroolsObjectInput) in ).getClassLoader() ) :
+                   Class.forName( className );
         } catch (ClassNotFoundException e) { }
     }
 

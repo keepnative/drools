@@ -1,14 +1,31 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.phreak;
 
 import org.drools.core.base.DroolsQuery;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.common.LeftTupleSets;
+import org.drools.core.common.TupleSets;
 import org.drools.core.reteoo.LeftTuple;
+import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.PathMemory;
 import org.drools.core.reteoo.QueryElementNode.QueryElementNodeMemory;
 import org.drools.core.reteoo.QueryTerminalNode;
 import org.drools.core.reteoo.RuleTerminalNode;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.LinkedList;
 
 import java.util.List;
@@ -23,7 +40,7 @@ import java.util.List;
 public class PhreakQueryTerminalNode {
     public void doNode(QueryTerminalNode qtnNode,
                        InternalWorkingMemory wm,
-                       LeftTupleSets srcLeftTuples,
+                       TupleSets<LeftTuple> srcLeftTuples,
                        LinkedList<StackEntry> stack) {
         if (srcLeftTuples.getDeleteFirst() != null) {
             doLeftDeletes(qtnNode, wm, srcLeftTuples, stack);
@@ -42,7 +59,7 @@ public class PhreakQueryTerminalNode {
 
     public void doLeftInserts(QueryTerminalNode qtnNode,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
+                              TupleSets<LeftTuple> srcLeftTuples,
                               LinkedList<StackEntry> stack) {
 
         for (LeftTuple leftTuple = srcLeftTuples.getInsertFirst(); leftTuple != null; ) {
@@ -53,9 +70,9 @@ public class PhreakQueryTerminalNode {
                                                                                         leftTuple.getPropagationContext());
 
             // find the DroolsQuery object
-            LeftTuple rootEntry = leftTuple.getRootLeftTuple();
+            Tuple rootEntry = leftTuple.getRootTuple();
 
-            DroolsQuery dquery = (DroolsQuery) rootEntry.getLastHandle().getObject();
+            DroolsQuery dquery = (DroolsQuery) rootEntry.getFactHandle().getObject();
             dquery.setQuery(qtnNode.getQuery());
             if (dquery.getStackEntry() != null) {
                 checkAndTriggerQueryReevaluation(wm, stack, rootEntry, dquery);
@@ -74,7 +91,7 @@ public class PhreakQueryTerminalNode {
 
     public void doLeftUpdates(QueryTerminalNode qtnNode,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
+                              TupleSets<LeftTuple> srcLeftTuples,
                               LinkedList<StackEntry> stack) {
 
         for (LeftTuple leftTuple = srcLeftTuples.getUpdateFirst(); leftTuple != null; ) {
@@ -90,7 +107,7 @@ public class PhreakQueryTerminalNode {
             while (rootEntry.getParent() != null) {
                 rootEntry = rootEntry.getParent();
             }
-            DroolsQuery dquery = (DroolsQuery) rootEntry.getLastHandle().getObject();
+            DroolsQuery dquery = (DroolsQuery) rootEntry.getFactHandle().getObject();
             dquery.setQuery(qtnNode.getQuery());
             if (dquery.getStackEntry() != null) {
                 checkAndTriggerQueryReevaluation(wm, stack, rootEntry, dquery);
@@ -109,7 +126,7 @@ public class PhreakQueryTerminalNode {
 
     public void doLeftDeletes(QueryTerminalNode qtnNode,
                               InternalWorkingMemory wm,
-                              LeftTupleSets srcLeftTuples,
+                              TupleSets<LeftTuple> srcLeftTuples,
                               LinkedList<StackEntry> stack) {
 
         for (LeftTuple leftTuple = srcLeftTuples.getDeleteFirst(); leftTuple != null; ) {
@@ -126,7 +143,7 @@ public class PhreakQueryTerminalNode {
             while (rootEntry.getParent() != null) {
                 rootEntry = rootEntry.getParent();
             }
-            DroolsQuery dquery = (DroolsQuery) rootEntry.getLastHandle().getObject();
+            DroolsQuery dquery = (DroolsQuery) rootEntry.getFactHandle().getObject();
             dquery.setQuery(qtnNode.getQuery());
 
             if (dquery.getStackEntry() != null) {
@@ -145,14 +162,15 @@ public class PhreakQueryTerminalNode {
     }
 
 
-    public static void checkAndTriggerQueryReevaluation(InternalWorkingMemory wm, LinkedList<StackEntry> stack, LeftTuple rootEntry, DroolsQuery dquery) {
+    public static void checkAndTriggerQueryReevaluation(InternalWorkingMemory wm, LinkedList<StackEntry> stack, Tuple rootEntry, DroolsQuery dquery) {
         StackEntry stackEntry = dquery.getStackEntry();
         if (!isAdded(stack, stackEntry)) {
             // Ignore unless stackEntry is not added to stack
 
             // node must be marked as dirty
             ((QueryElementNodeMemory)stackEntry.getNodeMem()).setNodeDirtyWithoutNotify();
-            if (stackEntry.getLiaNode()== rootEntry.getLeftTupleSink().getLeftTupleSource()) {
+
+            if (stackEntry.getRmem().getPathEndNode().getPathNodes()[0] == ((LeftTupleSink)rootEntry.getTupleSink()).getLeftTupleSource()) {
                 // query is recursive, so just re-add the stack entry to the current stack. This happens for reactive queries, triggered by a beta node right input
                 stack.add(stackEntry);
             } else {

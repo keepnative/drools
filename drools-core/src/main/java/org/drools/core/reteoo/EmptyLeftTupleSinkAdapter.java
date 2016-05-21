@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,21 @@
 
 package org.drools.core.reteoo;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-
 import org.drools.core.common.BaseNode;
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.RuleBasePartitionId;
 import org.drools.core.spi.PropagationContext;
 
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+
 public class EmptyLeftTupleSinkAdapter extends AbstractLeftTupleSinkAdapter {
 
     private static final EmptyLeftTupleSinkAdapter instance = new EmptyLeftTupleSinkAdapter();
+
+    private static final LeftTupleSink[] sinks = new LeftTupleSink[]{};
 
     public static final EmptyLeftTupleSinkAdapter getInstance() {
         return instance;
@@ -87,7 +89,7 @@ public class EmptyLeftTupleSinkAdapter extends AbstractLeftTupleSinkAdapter {
     }
 
     public LeftTupleSink[] getSinks() {
-        return new LeftTupleSink[]{};
+        return sinks;
     }
     
     public LeftTupleSinkNode getFirstLeftTupleSink() {
@@ -160,11 +162,6 @@ public class EmptyLeftTupleSinkAdapter extends AbstractLeftTupleSinkAdapter {
                                               RightTuple rightTuple,
                                               boolean leftTupleMemoryEnabled,
                                               boolean linkRightTuple) {
-    }
-
-    public void modifyChildLeftTuplesforQuery(RightTuple rightTuple,
-                                              PropagationContext context,
-                                              InternalWorkingMemory workingMemory) {
     }
 
     public void byPassModifyToLeftTupleSink(ModifyPreviousTuples modifyPreviousTuples) {

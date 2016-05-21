@@ -1,36 +1,52 @@
-package org.drools.compiler.rule.builder.dialect.mvel;
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
 
-import java.util.HashMap;
-import java.util.Map;
+package org.drools.compiler.rule.builder.dialect.mvel;
 
 import org.drools.compiler.Cheese;
 import org.drools.compiler.builder.impl.KnowledgeBuilderConfigurationImpl;
 import org.drools.compiler.builder.impl.KnowledgeBuilderImpl;
 import org.drools.compiler.compiler.DialectCompiletimeRegistry;
-import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.definitions.InternalKnowledgePackage;
-import org.drools.core.definitions.impl.KnowledgePackageImpl;
-import org.drools.core.impl.InternalKnowledgeBase;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.junit.Before;
-import org.junit.Test;
-import static org.junit.Assert.*;
-
+import org.drools.compiler.lang.descr.EvalDescr;
+import org.drools.compiler.lang.descr.RuleDescr;
+import org.drools.compiler.reteoo.MockLeftTupleSink;
+import org.drools.compiler.rule.builder.RuleBuildContext;
 import org.drools.core.base.ClassFieldAccessorCache;
 import org.drools.core.base.ClassFieldAccessorStore;
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.base.mvel.MVELEvalExpression;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.compiler.lang.descr.EvalDescr;
-import org.drools.compiler.lang.descr.RuleDescr;
+import org.drools.core.definitions.InternalKnowledgePackage;
+import org.drools.core.definitions.impl.KnowledgePackageImpl;
+import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.reteoo.LeftTupleImpl;
-import org.drools.compiler.reteoo.MockLeftTupleSink;
 import org.drools.core.rule.Declaration;
 import org.drools.core.rule.EvalCondition;
 import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.rule.Pattern;
 import org.drools.core.spi.InternalReadAccessor;
+import org.junit.Before;
+import org.junit.Test;
 import org.kie.internal.KnowledgeBaseFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class MVELEvalBuilderTest {
 
@@ -52,17 +68,16 @@ public class MVELEvalBuilderTest {
         DialectCompiletimeRegistry dialectRegistry = pkgBuilder.getPackageRegistry( pkg.getName() ).getDialectCompiletimeRegistry();
         MVELDialect mvelDialect = ( MVELDialect ) dialectRegistry.getDialect( "mvel" );
 
-        final InstrumentedBuildContent context = new InstrumentedBuildContent( pkgBuilder,
-                                                                               ruleDescr,
-                                                                               dialectRegistry,
-                                                                               pkg,                                                                               
-                                                                               mvelDialect );
+        final RuleBuildContext context = new RuleBuildContext( pkgBuilder,
+                                                               ruleDescr,
+                                                               dialectRegistry,
+                                                               pkg,
+                                                               mvelDialect );
 
         final InstrumentedDeclarationScopeResolver declarationResolver = new InstrumentedDeclarationScopeResolver();
 
         final InternalReadAccessor extractor = store.getReader( Cheese.class,
-                                                             "price",
-                                                             getClass().getClassLoader() );
+                                                             "price" );
 
         final Pattern pattern = new Pattern( 0,
                                              new ClassObjectType( int.class ) );

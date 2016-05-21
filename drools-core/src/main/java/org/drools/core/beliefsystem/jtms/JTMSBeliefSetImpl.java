@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.core.beliefsystem.jtms;
 
 import org.drools.core.beliefsystem.BeliefSystem;
@@ -8,6 +23,8 @@ import org.drools.core.util.FastIterator;
 import org.drools.core.util.LinkedList;
 import org.drools.core.spi.PropagationContext;
 
+import java.util.List;
+
 public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> implements JTMSBeliefSet<M> {
 
     private BeliefSystem<M> beliefSystem;
@@ -15,8 +32,6 @@ public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> impl
     private WorkingMemoryAction wmAction;
 
     private InternalFactHandle rootHandle;
-    private InternalFactHandle positiveFactHandle;
-    private InternalFactHandle negativeFactHandle;
 
     private int posCounter = 0;
     private int negCounter = 0;
@@ -24,22 +39,6 @@ public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> impl
     public JTMSBeliefSetImpl(BeliefSystem<M> beliefSystem, InternalFactHandle rootHandle) {
         this.beliefSystem = beliefSystem;
         this.rootHandle = rootHandle;
-    }
-
-    public InternalFactHandle getPositiveFactHandle() {
-        return positiveFactHandle;
-    }
-
-    public void setPositiveFactHandle(InternalFactHandle positiveFactHandle) {
-        this.positiveFactHandle = positiveFactHandle;
-    }
-
-    public InternalFactHandle getNegativeFactHandle() {
-        return negativeFactHandle;
-    }
-
-    public void setNegativeFactHandle(InternalFactHandle negativeFactHandle) {
-        this.negativeFactHandle = negativeFactHandle;
     }
 
     public void add( M node ) {
@@ -51,7 +50,6 @@ public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> impl
             negCounter++;
         } else {
             super.addFirst( node ); // we add positied to start
-            //ld.setValue( MODE.POSITIVE.getId() ); // user may not have explicitely set MODE, so implicitely it's positive
             posCounter++;
         }
     }
@@ -85,8 +83,8 @@ public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> impl
     }
 
     @Override
-    public boolean isUndecided() {
-        return isConflicting();
+    public boolean isDecided() {
+        return !isConflicting();
     }
 
     @Override
@@ -148,8 +146,6 @@ public class JTMSBeliefSetImpl<M extends JTMSMode<M>> extends LinkedList<M> impl
         final LogicalDependency node = last.getLogicalDependency();
         node.getJustifier().getLogicalDependencies().remove( node );
         beliefSystem.delete( node, this, context );
-        positiveFactHandle = null;
-        negativeFactHandle = null;
     }
     
     public void clear(PropagationContext context) { 

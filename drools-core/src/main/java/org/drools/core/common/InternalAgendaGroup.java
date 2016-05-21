@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ public interface InternalAgendaGroup extends AgendaGroup {
 
     void removeNodeInstance(Long processInstanceId, String nodeInstanceId);
 
-    public Activation[] getActivations();
+    Activation[] getActivations();
 
     Map<Long, String> getNodeInstances();
 
@@ -70,10 +70,9 @@ public interface InternalAgendaGroup extends AgendaGroup {
 
     InternalWorkingMemory getWorkingMemory();
 
-
     void hasRuleFlowListener(boolean hasRuleFlowLister);
 
     boolean isRuleFlowListener();
 
-    public boolean isSequential();
+    boolean isSequential();
 }

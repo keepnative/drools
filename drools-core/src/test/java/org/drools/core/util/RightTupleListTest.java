@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,24 @@
 
 package org.drools.core.util;
 
-import org.junit.Test;
-import static org.junit.Assert.*;
-
 import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.test.model.Cheese;
-import org.drools.core.util.index.RightTupleList;
 import org.drools.core.reteoo.LeftTupleImpl;
+import org.drools.core.test.model.Cheese;
+import org.drools.core.util.index.TupleList;
+import org.junit.Test;
+
+import static org.junit.Assert.assertNull;
 
 public class RightTupleListTest {
     @Test
     public void testEmptyIterator() {
-        final RightTupleList map = new RightTupleList();
+        final TupleList map = new TupleList();
         final Cheese stilton1 = new Cheese( "stilton",
                                             35 );
         final InternalFactHandle h1 = new DefaultFactHandle( 1,
                                                              stilton1 );
         
-        assertNull( map.getFirst( new LeftTupleImpl( h1, null,
-                                                 true ), null, null ) );
+        assertNull( map.getFirst( new LeftTupleImpl( h1, null, true ) ) );
     }
 }

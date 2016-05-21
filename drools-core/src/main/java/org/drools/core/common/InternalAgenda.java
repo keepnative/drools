@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,25 +16,27 @@
 
 package org.drools.core.common;
 
-import org.drools.core.WorkingMemory;
 import org.drools.core.beliefsystem.ModedAssertion;
 import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.core.phreak.ExecutableEntry;
 import org.drools.core.phreak.RuleAgendaItem;
 import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.reteoo.PathMemory;
+import org.drools.core.reteoo.RuleTerminalNodeLeftTuple;
 import org.drools.core.reteoo.TerminalNode;
 import org.drools.core.spi.Activation;
-import org.drools.core.spi.InternalActivationGroup;
 import org.drools.core.spi.AgendaGroup;
 import org.drools.core.spi.ConsequenceException;
+import org.drools.core.spi.InternalActivationGroup;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.spi.RuleFlowGroup;
+import org.drools.core.spi.Tuple;
 import org.kie.api.runtime.rule.Agenda;
 import org.kie.api.runtime.rule.AgendaFilter;
-import org.kie.internal.runtime.beliefs.Mode;
 
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 public interface InternalAgenda
     extends
@@ -45,7 +47,7 @@ public interface InternalAgenda
      * @return
      *      The WorkingMemory
      */
-    WorkingMemory getWorkingMemory();
+    InternalWorkingMemory getWorkingMemory();
 
     /**
      * Sets the Agenda's focus to the specified AgendaGroup
@@ -117,7 +119,7 @@ public interface InternalAgenda
      * Clears all Activations from an Agenda Group. Any Activations that are also in an Xor Group are removed the
      * the Xor Group.
      */
-    void clearAndCancelAgendaGroup(AgendaGroup agendaGroup);
+    void clearAndCancelAgendaGroup(InternalAgendaGroup agendaGroup);
 
     /**
      * Clears all Activations from an Activation-Group. Any Activations that are also in an Agenda Group are removed
@@ -148,7 +150,9 @@ public interface InternalAgenda
 
     void fireActivation(final Activation activation) throws ConsequenceException;
 
-    boolean fireTimedActivation(final Activation activation, boolean saveForLater ) throws ConsequenceException;
+    void fireConsequenceEvent(Activation activation, String consequenceName) throws ConsequenceException;
+
+    boolean fireTimedActivation(final Activation activation) throws ConsequenceException;
 
     void removeScheduleItem(final ScheduledAgendaItem item);
 
@@ -158,28 +162,22 @@ public interface InternalAgenda
 
     void scheduleItem(final ScheduledAgendaItem item, InternalWorkingMemory workingMemory);
 
-    AgendaItem createAgendaItem(final LeftTuple tuple,
-                                       final int salience,
-                                       final PropagationContext context,
-                                       final TerminalNode rtn,
-                                       RuleAgendaItem ruleAgendaItem,
-                                       InternalAgendaGroup agendaGroup);
+    AgendaItem createAgendaItem(RuleTerminalNodeLeftTuple rtnLeftTuple,
+                                int salience,
+                                PropagationContext context,
+                                RuleAgendaItem ruleAgendaItem,
+                                InternalAgendaGroup agendaGroup);
 
-    ScheduledAgendaItem createScheduledAgendaItem(final LeftTuple tuple,
-                                                         final PropagationContext context,
-                                                         final TerminalNode rtn,
-                                                         InternalAgendaGroup agendaGroup);
+    boolean createActivation(final Tuple tuple,
+                             final PropagationContext context,
+                             final InternalWorkingMemory workingMemory,
+                             final TerminalNode rtn );
 
-    boolean createActivation(final LeftTuple tuple,
-                                    final PropagationContext context,
-                                    final InternalWorkingMemory workingMemory,
-                                    final TerminalNode rtn );
-
-    void cancelActivation(final LeftTuple leftTuple,
-                                 final PropagationContext context,
-                                 final InternalWorkingMemory workingMemory,
-                                 final Activation activation,
-                                 final TerminalNode rtn );
+    void cancelActivation(final Tuple leftTuple,
+                          final PropagationContext context,
+                          final InternalWorkingMemory workingMemory,
+                          final Activation activation,
+                          final TerminalNode rtn );
 
     /**
      * Adds the activation to the agenda. Depending on the mode the agenda is running,
@@ -236,8 +234,6 @@ public interface InternalAgenda
      */
     void halt();
 
-    void notifyHalt();
-
     /**
      * Keeps firing activations until a halt is called. If in a given moment, there is
      * no activation to fire, it will wait for an activation to be added to an active
@@ -284,7 +280,13 @@ public interface InternalAgenda
 
     RuleAgendaItem peekNextRule();
 
-    boolean continueFiring(int fireLimit);
+    boolean isFiring();
+    void executeTask( ExecutableEntry executable );
+    <T> T executeCallable( Callable<T> callable );
+
+    void activate();
+    void deactivate();
+    boolean tryDeactivate();
 
     void insertAndStageActivation(AgendaItem activation);
 
@@ -296,16 +298,12 @@ public interface InternalAgenda
     void addQueryAgendaItem(final RuleAgendaItem item);
     void removeQueryAgendaItem(final RuleAgendaItem item);
 
-    long getNextActivationCounter();
-
     /*
          * (non-Javadoc)
          *
          * @see org.kie.common.AgendaI#setFocus(org.kie.spi.AgendaGroup)
          */
     boolean setFocus(AgendaGroup agendaGroup);
-
-    boolean isFireUntilHalt();
 
     void stageLeftTuple(RuleAgendaItem ruleAgendaItem, AgendaItem justified);
 
@@ -330,6 +328,4 @@ public interface InternalAgenda
     boolean createPostponedActivation(LeftTuple postponedTuple, PropagationContext propagationContext, InternalWorkingMemory workingMemory, TerminalNode terminalNode);
 
     boolean isRuleActiveInRuleFlowGroup(String ruleflowGroupName, String ruleName, long processInstanceId);
-
-    GarbageCollector getGarbageCollector();
 }

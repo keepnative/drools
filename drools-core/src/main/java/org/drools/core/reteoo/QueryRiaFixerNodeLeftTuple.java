@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ public class QueryRiaFixerNodeLeftTuple extends BaseLeftTuple {
     // Constructors
     // ------------------------------------------------------------
     public QueryRiaFixerNodeLeftTuple(final InternalFactHandle factHandle,
-                                      final LeftTupleSink sink,
+                                      final Sink sink,
                                       final boolean leftTupleMemoryEnabled) {
         super( factHandle, 
                sink, 
@@ -38,7 +38,7 @@ public class QueryRiaFixerNodeLeftTuple extends BaseLeftTuple {
     }
 
     public QueryRiaFixerNodeLeftTuple(final LeftTuple leftTuple,
-                                      final LeftTupleSink sink,
+                                      final Sink sink,
                                       final PropagationContext pctx,
                                       final boolean leftTupleMemoryEnabled) {
         super( leftTuple, 
@@ -49,7 +49,7 @@ public class QueryRiaFixerNodeLeftTuple extends BaseLeftTuple {
 
     public QueryRiaFixerNodeLeftTuple(final LeftTuple leftTuple,
                                       final RightTuple rightTuple,
-                                      final LeftTupleSink sink) {
+                                      final Sink sink) {
         super( leftTuple, 
                rightTuple, 
                sink );
@@ -57,7 +57,7 @@ public class QueryRiaFixerNodeLeftTuple extends BaseLeftTuple {
 
     public QueryRiaFixerNodeLeftTuple(final LeftTuple leftTuple,
                                       final RightTuple rightTuple,
-                                      final LeftTupleSink sink,
+                                      final Sink sink,
                                       final boolean leftTupleMemoryEnabled) {
         this( leftTuple,
               rightTuple,
@@ -71,7 +71,7 @@ public class QueryRiaFixerNodeLeftTuple extends BaseLeftTuple {
                                       final RightTuple rightTuple,
                                       final LeftTuple currentLeftChild,
                                       final LeftTuple currentRightChild,
-                                      final LeftTupleSink sink,
+                                      final Sink sink,
                                       final boolean leftTupleMemoryEnabled) {
         super( leftTuple, 
                rightTuple, 

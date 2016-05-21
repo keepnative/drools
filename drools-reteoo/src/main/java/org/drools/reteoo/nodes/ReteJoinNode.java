@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.nodes;
 
 import org.drools.core.base.DroolsQuery;
@@ -7,7 +22,6 @@ import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.JoinNode;
 import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.LeftTupleMemory;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.LeftTupleSource;
 import org.drools.core.reteoo.LeftTupleSourceUtils;
@@ -15,13 +29,15 @@ import org.drools.core.reteoo.ModifyPreviousTuples;
 import org.drools.core.reteoo.ObjectSource;
 import org.drools.core.reteoo.ReteooBuilder;
 import org.drools.core.reteoo.RightTuple;
-import org.drools.core.reteoo.RightTupleMemory;
 import org.drools.core.reteoo.RuleRemovalContext;
+import org.drools.core.reteoo.TupleMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.ContextEntry;
 import org.drools.core.spi.PropagationContext;
+import org.drools.core.spi.Tuple;
 import org.drools.core.util.FastIterator;
 import org.drools.core.util.Iterator;
+import org.drools.core.util.index.TupleIndexHashTable;
 
 public class ReteJoinNode extends JoinNode {
 
@@ -42,8 +58,8 @@ public class ReteJoinNode extends JoinNode {
         ReteBetaNodeUtils.attach(this, context);
     }
 
-    public void doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
-        ReteBetaNodeUtils.doRemove(this, context, builder, workingMemories);
+    public boolean doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
+        return ReteBetaNodeUtils.doRemove(this, context, builder, workingMemories);
     }
 
     public void modifyObject(InternalFactHandle factHandle, ModifyPreviousTuples modifyPreviousTuples, PropagationContext context, InternalWorkingMemory workingMemory) {
@@ -63,7 +79,7 @@ public class ReteJoinNode extends JoinNode {
                                  final InternalWorkingMemory workingMemory ) {
         final BetaMemory memory = (BetaMemory) workingMemory.getNodeMemory( this );
 
-        RightTupleMemory rightMemory = memory.getRightTupleMemory();
+        TupleMemory rightMemory = memory.getRightTupleMemory();
 
         ContextEntry[] contextEntry = memory.getContext();
         boolean useLeftMemory = true;
@@ -109,14 +125,14 @@ public class ReteJoinNode extends JoinNode {
             return;
         }
 
-        LeftTupleMemory leftMemory = memory.getLeftTupleMemory();
+        TupleMemory leftMemory = memory.getLeftTupleMemory();
 
         this.constraints.updateFromFactHandle( memory.getContext(),
                                                workingMemory,
                                                rightTuple.getFactHandle() );
 
         FastIterator it = getLeftIterator( leftMemory );
-        for ( LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, context, it ); leftTuple != null; leftTuple = (LeftTuple) it.next( leftTuple ) ) {
+        for ( LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, it ); leftTuple != null; leftTuple = (LeftTuple) it.next( leftTuple ) ) {
             propagateFromRight( rightTuple, leftTuple, memory, context, workingMemory );
         }
 
@@ -202,13 +218,13 @@ public class ReteJoinNode extends JoinNode {
             return;
         }
 
-        LeftTuple childLeftTuple = rightTuple.firstChild;
+        LeftTuple childLeftTuple = rightTuple.getFirstChild();
 
-        LeftTupleMemory leftMemory = memory.getLeftTupleMemory();
+        TupleMemory leftMemory = memory.getLeftTupleMemory();
 
 
         FastIterator it = getLeftIterator( leftMemory );
-        LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, context, it );
+        LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, it );
 
         this.constraints.updateFromFactHandle( memory.getContext(),
                                                workingMemory,
@@ -288,7 +304,7 @@ public class ReteJoinNode extends JoinNode {
                                           leftTuple );
         LeftTuple childLeftTuple = leftTuple.getFirstChild();
 
-        RightTupleMemory rightMemory = memory.getRightTupleMemory();
+        TupleMemory rightMemory = memory.getRightTupleMemory();
 
         FastIterator it = getRightIterator( rightMemory );
 
@@ -378,7 +394,7 @@ public class ReteJoinNode extends JoinNode {
             this.constraints.updateFromTuple( memory.getContext(),
                                               workingMemory,
                                               leftTuple );
-            for ( RightTuple rightTuple = memory.getRightTupleMemory().getFirst( leftTuple, (InternalFactHandle) context.getFactHandle(), it );
+            for ( RightTuple rightTuple = (RightTuple) memory.getRightTupleMemory().getFirst( leftTuple );
                   rightTuple != null; rightTuple = (RightTuple) it.next( rightTuple ) ) {
                 if ( this.constraints.isAllowedCachedLeft( memory.getContext(),
                                                            rightTuple.getFactHandle() ) ) {
@@ -397,5 +413,17 @@ public class ReteJoinNode extends JoinNode {
         }
     }
 
-
+    @Override
+    public RightTuple getFirstRightTuple(final Tuple leftTuple,
+                                         final TupleMemory memory,
+                                         final InternalFactHandle factHandle,
+                                         final FastIterator it) {
+        if ( !this.indexedUnificationJoin ) {
+            return memory instanceof TupleIndexHashTable ?
+                   (RightTuple) ((TupleIndexHashTable)memory).getFirst( leftTuple, factHandle ) :
+                   (RightTuple) memory.getFirst(leftTuple);
+        } else {
+            return (RightTuple) it.next( null );
+        }
+    }
 }

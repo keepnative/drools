@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,18 +44,20 @@ public class PatternExtractor extends BaseObjectClassFieldReader
         this.objectType = objectType;
         if (objectType instanceof ClassObjectType) {
             setClassObjectType((ClassObjectType) objectType);
-        } else {
-            this.objectType = objectType;
         }
     }
 
     public void readExternal(ObjectInput in) throws IOException,
                                             ClassNotFoundException {
         objectType = (ObjectType) in.readObject();
+        setIndex( in.readInt() );
+        setFieldType( ((ClassObjectType) objectType).getClassType() );
+        setValueType( objectType.getValueType() );
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
         out.writeObject( objectType );
+        out.writeInt( getIndex() );
     }
     
     public void setClassObjectType(ClassObjectType objectType) {
@@ -84,13 +86,9 @@ public class PatternExtractor extends BaseObjectClassFieldReader
     }
 
     public String getExtractToClassName() {
-        Class<?> clazz = null;
-        // @todo : this is a bit nasty, but does the trick
-        if ( this.objectType instanceof ClassObjectType ) {
-            clazz = ((ClassObjectType) this.objectType).getClassType();
-        } else {
-            clazz = Fact.class;
-        }
+        Class<?> clazz = this.objectType instanceof ClassObjectType ?
+                         ((ClassObjectType) this.objectType).getClassType() :
+                         Fact.class;
         return ClassUtils.canonicalName( clazz );
     }
 

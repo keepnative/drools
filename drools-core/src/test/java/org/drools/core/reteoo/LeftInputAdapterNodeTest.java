@@ -1,5 +1,5 @@
 /*
- * Copyright 2005 JBoss Inc
+ * Copyright 2005 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,23 @@
 
 package org.drools.core.reteoo;
 
-import java.util.List;
-
 import org.drools.core.base.ClassObjectType;
 import org.drools.core.common.DefaultFactHandle;
 import org.drools.core.common.PropagationContextFactory;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.impl.StatefulKnowledgeSessionImpl;
-import org.drools.core.test.model.DroolsTestCase;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.spi.PropagationContext;
-import org.drools.core.spi.Tuple;
+import org.drools.core.test.model.DroolsTestCase;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.kie.internal.KnowledgeBaseFactory;
 
-import static org.junit.Assert.*;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 
 @Ignore("phreak")
 public class LeftInputAdapterNodeTest extends DroolsTestCase {
@@ -69,11 +69,11 @@ public class LeftInputAdapterNodeTest extends DroolsTestCase {
         assertEquals( 23,
                       liaNode.getId() );
 
-        assertEquals( 0,
-                      objectTypeNode.getSinkPropagator().getSinks().length );
+        assertEquals                                                             ( 0,
+                      objectTypeNode.getObjectSinkPropagator().getSinks().length );
         liaNode.attach(context);
-        assertEquals( 1,
-                      objectTypeNode.getSinkPropagator().getSinks().length );
+        assertEquals                                                             ( 1,
+                      objectTypeNode.getObjectSinkPropagator().getSinks().length );
     }
 
     /**
@@ -120,7 +120,7 @@ public class LeftInputAdapterNodeTest extends DroolsTestCase {
         final List asserted = sink.getAsserted();
         assertLength( 1,
                       asserted );
-        final Tuple tuple0 = (Tuple) ((Object[]) asserted.get( 0 ))[0];
+        final LeftTuple tuple0 = (LeftTuple) ((Object[]) asserted.get( 0 ))[0];
         assertSame( string1,
                     workingMemory.getObject( tuple0.get( 0 ) ) );
 

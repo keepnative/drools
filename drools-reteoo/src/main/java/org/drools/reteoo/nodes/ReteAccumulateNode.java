@@ -1,22 +1,34 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.reteoo.nodes;
 
 import org.drools.core.base.DroolsQuery;
 import org.drools.core.common.BetaConstraints;
 import org.drools.core.common.InternalFactHandle;
-import org.drools.core.common.InternalKnowledgeRuntime;
 import org.drools.core.common.InternalWorkingMemory;
 import org.drools.core.common.PropagationContextFactory;
-import org.drools.core.definitions.rule.impl.RuleImpl;
-import org.drools.reteoo.common.RetePropagationContext;
 import org.drools.core.common.WorkingMemoryAction;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
+import org.drools.core.definitions.rule.impl.RuleImpl;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
 import org.drools.core.marshalling.impl.MarshallerWriteContext;
 import org.drools.core.marshalling.impl.ProtobufMessages.ActionQueue.Action;
+import org.drools.core.phreak.PropagationEntry;
 import org.drools.core.reteoo.AccumulateNode;
 import org.drools.core.reteoo.BetaMemory;
 import org.drools.core.reteoo.LeftTuple;
-import org.drools.core.reteoo.LeftTupleMemory;
 import org.drools.core.reteoo.LeftTupleSink;
 import org.drools.core.reteoo.LeftTupleSource;
 import org.drools.core.reteoo.LeftTupleSourceUtils;
@@ -24,18 +36,17 @@ import org.drools.core.reteoo.ModifyPreviousTuples;
 import org.drools.core.reteoo.ObjectSource;
 import org.drools.core.reteoo.ReteooBuilder;
 import org.drools.core.reteoo.RightTuple;
-import org.drools.core.reteoo.RightTupleMemory;
 import org.drools.core.reteoo.RuleRemovalContext;
+import org.drools.core.reteoo.TupleMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.rule.Accumulate;
 import org.drools.core.spi.AlphaNodeFieldConstraint;
 import org.drools.core.spi.PropagationContext;
 import org.drools.core.util.FastIterator;
 import org.drools.core.util.Iterator;
+import org.drools.reteoo.common.RetePropagationContext;
 
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 
 public class ReteAccumulateNode extends AccumulateNode {
 
@@ -52,7 +63,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                                 PropagationContext context,
                                 InternalWorkingMemory workingMemory) {
         LeftTupleSourceUtils.doModifyLeftTuple(factHandle, modifyPreviousTuples, context, workingMemory,
-                                               (LeftTupleSink) this, getLeftInputOtnId(), getLeftInferredMask());
+                                               this, getLeftInputOtnId(), getLeftInferredMask());
     }
 
     public void assertObject( final InternalFactHandle factHandle,
@@ -65,8 +76,10 @@ public class ReteAccumulateNode extends AccumulateNode {
         ReteBetaNodeUtils.attach(this, context);
     }
 
-    public void doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
-        ReteBetaNodeUtils.doRemove(this, context, builder, workingMemories);
+    public void doRemove(InternalWorkingMemory workingMemory, AccumulateMemory object) { }
+
+    public boolean doRemove(RuleRemovalContext context, ReteooBuilder builder, InternalWorkingMemory[] workingMemories) {
+        return ReteBetaNodeUtils.doRemove(this, context, builder, workingMemories);
     }
 
     public void modifyObject(InternalFactHandle factHandle, ModifyPreviousTuples modifyPreviousTuples, PropagationContext context, InternalWorkingMemory workingMemory) {
@@ -102,15 +115,15 @@ public class ReteAccumulateNode extends AccumulateNode {
         boolean useLeftMemory = true;
         if ( !this.tupleMemoryEnabled ) {
             // This is a hack, to not add closed DroolsQuery objects
-            Object object = ((InternalFactHandle) leftTuple.get( 0 )).getObject();
+            Object object = leftTuple.get( 0 ).getObject();
             if ( !(object instanceof DroolsQuery) || !((DroolsQuery) object).isOpen() ) {
                 useLeftMemory = false;
             }
         }
 
         if ( useLeftMemory ) {
-            memory.betaMemory.getLeftTupleMemory().add( leftTuple );
-            leftTuple.setObject(accresult);
+            memory.getBetaMemory().getLeftTupleMemory().add( leftTuple );
+            leftTuple.setContextObject( accresult );
         }
 
         accresult.context = this.accumulate.createContext();
@@ -120,10 +133,10 @@ public class ReteAccumulateNode extends AccumulateNode {
                              leftTuple,
                              workingMemory);
 
-        this.constraints.updateFromTuple( memory.betaMemory.getContext(),
+        this.constraints.updateFromTuple( memory.getBetaMemory().getContext(),
                                           workingMemory,
                                           leftTuple );
-        RightTupleMemory rightMemory = memory.betaMemory.getRightTupleMemory();
+        TupleMemory rightMemory = memory.getBetaMemory().getRightTupleMemory();
 
         FastIterator rightIt = getRightIterator( rightMemory );
 
@@ -132,7 +145,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                                                           (InternalFactHandle) context.getFactHandle(),
                                                           rightIt ); rightTuple != null; rightTuple = (RightTuple) rightIt.next( rightTuple ) ) {
             InternalFactHandle handle = rightTuple.getFactHandle();
-            if ( this.constraints.isAllowedCachedLeft( memory.betaMemory.getContext(),
+            if ( this.constraints.isAllowedCachedLeft( memory.getBetaMemory().getContext(),
                                                        handle ) ) {
 
                 // add a match
@@ -147,7 +160,7 @@ public class ReteAccumulateNode extends AccumulateNode {
             }
         }
 
-        this.constraints.resetTuple( memory.betaMemory.getContext() );
+        this.constraints.resetTuple( memory.getBetaMemory().getContext() );
 
         if ( accresult.getAction() == null ) {
             evaluateResultConstraints( ActivitySource.LEFT,
@@ -173,14 +186,14 @@ public class ReteAccumulateNode extends AccumulateNode {
         final AccumulateMemory memory = (AccumulateMemory) workingMemory.getNodeMemory( this );
 
 
-        ((BetaMemory) memory.getBetaMemory()).getLeftTupleMemory().remove( leftTuple );
+        memory.getBetaMemory().getLeftTupleMemory().remove( leftTuple );
 
-        final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+        final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
         if ( accctx.getAction() != null ) {
             // there is a scheduled activation, we must cancel it
             context.removeInsertAction( accctx.getAction() );
         }
-        leftTuple.setObject( null );
+        leftTuple.setContextObject( null );
 
         removePreviousMatchesForLeftTuple( leftTuple,
                                            workingMemory,
@@ -211,26 +224,26 @@ public class ReteAccumulateNode extends AccumulateNode {
                                   final InternalWorkingMemory workingMemory ) {
         final AccumulateMemory memory = (AccumulateMemory) workingMemory.getNodeMemory( this );
 
-        memory.betaMemory.getRightTupleMemory().add( rightTuple );
+        memory.getBetaMemory().getRightTupleMemory().add( rightTuple );
 
-        if ( memory.betaMemory.getLeftTupleMemory() == null || memory.betaMemory.getLeftTupleMemory().size() == 0 ) {
+        if ( memory.getBetaMemory().getLeftTupleMemory() == null || memory.getBetaMemory().getLeftTupleMemory().size() == 0 ) {
             // do nothing here, as we know there are no left tuples at this stage in sequential mode or for a query.
             // unless it's an "Open Query" and thus that will have left memory, so continue as normal
             return;
         }
 
-        this.constraints.updateFromFactHandle( memory.betaMemory.getContext(),
+        this.constraints.updateFromFactHandle( memory.getBetaMemory().getContext(),
                                                workingMemory,
                                                rightTuple.getFactHandle() );
 
-        LeftTupleMemory leftMemory =  memory.betaMemory.getLeftTupleMemory();
+        TupleMemory leftMemory =  memory.getBetaMemory().getLeftTupleMemory();
 
         FastIterator leftIt = getLeftIterator( leftMemory );
 
-        for ( LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, context, leftIt ); leftTuple != null; leftTuple = (LeftTuple) leftIt.next( leftTuple ) ) {
-            if ( this.constraints.isAllowedCachedRight( memory.betaMemory.getContext(),
+        for ( LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, leftIt ); leftTuple != null; leftTuple = (LeftTuple) leftIt.next( leftTuple ) ) {
+            if ( this.constraints.isAllowedCachedRight( memory.getBetaMemory().getContext(),
                                                         leftTuple ) ) {
-                final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+                final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
                 addMatch( leftTuple,
                           rightTuple,
                           null,
@@ -257,7 +270,7 @@ public class ReteAccumulateNode extends AccumulateNode {
             }
         }
 
-        this.constraints.resetFactHandle( memory.betaMemory.getContext() );
+        this.constraints.resetFactHandle( memory.getBetaMemory().getContext() );
     }
 
     /**
@@ -274,7 +287,7 @@ public class ReteAccumulateNode extends AccumulateNode {
 
         BetaMemory bm = memory.getBetaMemory();
 
-        final InternalFactHandle origin = (InternalFactHandle) pctx.getFactHandleOrigin();
+        final InternalFactHandle origin = (InternalFactHandle) pctx.getFactHandle();
         if ( pctx.getType() == PropagationContext.EXPIRATION ) {
             ((RetePropagationContext) pctx).setFactHandle(null);
         }
@@ -285,7 +298,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                                             pctx,
                                             workingMemory,
                                             memory,
-                                            rightTuple.firstChild );
+                                            rightTuple.getFirstChild() );
 
         if ( pctx.getType() == PropagationContext.EXPIRATION ) {
             ((RetePropagationContext) pctx).setFactHandle( origin );
@@ -298,9 +311,9 @@ public class ReteAccumulateNode extends AccumulateNode {
                                  PropagationContext context,
                                  InternalWorkingMemory workingMemory ) {
         final AccumulateMemory memory = (AccumulateMemory) workingMemory.getNodeMemory( this );
-        final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+        final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
 
-        BetaMemory bm = memory.betaMemory;
+        BetaMemory bm = memory.getBetaMemory();
 
         // Add and remove to make sure we are in the right bucket and at the end
         // this is needed to fix for indexing and deterministic iteration
@@ -313,7 +326,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                                                   accctx,
                                                   false );
 
-        RightTupleMemory rightMemory = bm.getRightTupleMemory();
+        TupleMemory rightMemory = bm.getRightTupleMemory();
 
         FastIterator rightIt = getRightIterator( rightMemory );
 
@@ -374,12 +387,12 @@ public class ReteAccumulateNode extends AccumulateNode {
                                       true );
                         } else {
                             // we must re-add this to ensure deterministic iteration
-                            LeftTuple temp = childLeftTuple.getLeftParentNext();
+                            LeftTuple temp = childLeftTuple.getHandleNext();
                             childLeftTuple.reAddRight();
                             childLeftTuple = temp;
                         }
                     } else if ( childLeftTuple != null && childLeftTuple.getRightParent() == rightTuple ) {
-                        LeftTuple temp = childLeftTuple.getLeftParentNext();
+                        LeftTuple temp = childLeftTuple.getHandleNext();
                         // remove the match
                         removeMatch( rightTuple,
                                      childLeftTuple,
@@ -405,7 +418,7 @@ public class ReteAccumulateNode extends AccumulateNode {
             }
         }
 
-        this.constraints.resetTuple( memory.betaMemory.getContext() );
+        this.constraints.resetTuple( memory.getBetaMemory().getContext() );
         if ( accctx.getAction() == null ) {
             evaluateResultConstraints( ActivitySource.LEFT,
                                        leftTuple,
@@ -422,7 +435,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                                   InternalWorkingMemory workingMemory ) {
         final AccumulateMemory memory = (AccumulateMemory) workingMemory.getNodeMemory( this );
 
-        BetaMemory bm = memory.betaMemory;
+        BetaMemory bm = memory.getBetaMemory();
 
 
         // Add and remove to make sure we are in the right bucket and at the end
@@ -434,13 +447,13 @@ public class ReteAccumulateNode extends AccumulateNode {
             return;
         }
 
-        LeftTuple childLeftTuple = rightTuple.firstChild;
+        LeftTuple childLeftTuple = rightTuple.getFirstChild();
 
-        LeftTupleMemory leftMemory = bm.getLeftTupleMemory();
+        TupleMemory leftMemory = bm.getLeftTupleMemory();
 
         FastIterator leftIt = getLeftIterator( leftMemory );
 
-        LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, context, leftIt );
+        LeftTuple leftTuple = getFirstLeftTuple( rightTuple, leftMemory, leftIt );
 
         this.constraints.updateFromFactHandle( bm.getContext(),
                                                workingMemory,
@@ -466,7 +479,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                 for ( ; leftTuple != null; leftTuple = ( LeftTuple ) leftIt.next( leftTuple ) ) {
                     if ( this.constraints.isAllowedCachedRight( bm.getContext(),
                                                                 leftTuple ) ) {
-                        final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+                        final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
                         // add a new match
                         addMatch( leftTuple,
                                   rightTuple,
@@ -498,7 +511,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                 for ( ; leftTuple != null; leftTuple = (LeftTuple) leftIt.next( leftTuple ) ) {
                     if ( this.constraints.isAllowedCachedRight( bm.getContext(),
                                                                 leftTuple ) ) {
-                        final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+                        final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
                         LeftTuple temp = null;
                         if ( childLeftTuple != null && childLeftTuple.getLeftParent() == leftTuple ) {
                             temp = childLeftTuple.getRightParentNext();
@@ -542,7 +555,7 @@ public class ReteAccumulateNode extends AccumulateNode {
                     } else if ( childLeftTuple != null && childLeftTuple.getLeftParent() == leftTuple ) {
 
                         LeftTuple temp = childLeftTuple.getRightParentNext();
-                        final AccumulateContext accctx = (AccumulateContext)leftTuple.getObject();
+                        final AccumulateContext accctx = (AccumulateContext)leftTuple.getContextObject();
                         // remove the match
                         removeMatch( rightTuple,
                                      childLeftTuple,
@@ -610,11 +623,10 @@ public class ReteAccumulateNode extends AccumulateNode {
         }
 
         // First alpha node filters
-        boolean isAllowed = result != null;
+        boolean isAllowed = true;
         for ( int i = 0, length = this.resultConstraints.length; isAllowed && i < length; i++ ) {
             if ( !this.resultConstraints[i].isAllowed( accctx.result.getFactHandle(),
-                                                       workingMemory,
-                                                       memory.alphaContexts[i] ) ) {
+                                                       workingMemory ) ) {
                 isAllowed = false;
             }
         }
@@ -629,7 +641,7 @@ public class ReteAccumulateNode extends AccumulateNode {
             this.resultBinder.resetTuple( memory.resultsContext );
         }
 
-        if ( accctx.propagated == true ) {
+        if ( accctx.propagated ) {
             // temporarily break the linked list to avoid wrong interactions
             LeftTuple[] matchings = splitList( leftTuple,
                                                accctx,
@@ -689,9 +701,9 @@ public class ReteAccumulateNode extends AccumulateNode {
                             final InternalWorkingMemory workingMemory ) {
         final AccumulateMemory memory = (AccumulateMemory) workingMemory.getNodeMemory( this );
 
-        final Iterator tupleIter = memory.betaMemory.getLeftTupleMemory().iterator();
+        final Iterator tupleIter = memory.getBetaMemory().getLeftTupleMemory().iterator();
         for ( LeftTuple leftTuple = (LeftTuple) tupleIter.next(); leftTuple != null; leftTuple = (LeftTuple) tupleIter.next() ) {
-            AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+            AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
             if ( accctx.propagated ) {
                 // temporarily break the linked list to avoid wrong interactions
                 LeftTuple[] matchings = splitList( leftTuple,
@@ -757,11 +769,9 @@ public class ReteAccumulateNode extends AccumulateNode {
         // save the matching tuple
         LeftTuple leftTuple = match.getLeftParent();
 
-        if ( match != null ) {
-            // removing link between left and right
-            match.unlinkFromLeftParent();
-            match.unlinkFromRightParent();
-        }
+        // removing link between left and right
+        match.unlinkFromLeftParent();
+        match.unlinkFromRightParent();
 
         // if there is a subnetwork, we need to unwrap the object from inside the tuple
         InternalFactHandle handle = rightTuple.getFactHandle();
@@ -800,12 +810,12 @@ public class ReteAccumulateNode extends AccumulateNode {
                               workingMemory );
         for ( LeftTuple childMatch = getFirstMatch( leftTuple,
                                                     accctx,
-                                                    false ); childMatch != null; childMatch = childMatch.getLeftParentNext() ) {
+                                                    false ); childMatch != null; childMatch = childMatch.getHandleNext() ) {
             InternalFactHandle childHandle = childMatch.getRightParent().getFactHandle();
             LeftTuple tuple = leftTuple;
             if ( this.unwrapRightObject ) {
                 tuple = (LeftTuple) childHandle.getObject();
-                childHandle = tuple.getLastHandle();
+                childHandle = tuple.getFactHandle();
             }
             this.accumulate.accumulate( memory.workingMemoryContext,
                                         accctx.context,
@@ -823,7 +833,7 @@ public class ReteAccumulateNode extends AccumulateNode {
         LeftTuple[] matchings = splitList( leftTuple,
                                            accctx,
                                            false );
-        for ( LeftTuple match = matchings[0]; match != null; match = match.getLeftParentNext() ) {
+        for ( LeftTuple match = matchings[0]; match != null; match = match.getHandleNext() ) {
             // can't unlink from the left parent as it was already unlinked during the splitList call above
             match.unlinkFromRightParent();
         }
@@ -842,7 +852,7 @@ public class ReteAccumulateNode extends AccumulateNode {
         for ( LeftTuple match = firstChild; match != null; ) {
             final LeftTuple tmp = match.getRightParentNext();
             final LeftTuple parent = match.getLeftParent();
-            final AccumulateContext accctx = (AccumulateContext) parent.getObject();
+            final AccumulateContext accctx = (AccumulateContext) parent.getContextObject();
             removeMatch( rightTuple,
                          match,
                          workingMemory,
@@ -884,10 +894,10 @@ public class ReteAccumulateNode extends AccumulateNode {
             if ( parent.getFirstChild() == matchings[0] ) {
                 parent.setFirstChild( null );
             }
-            parent.setLastChild( matchings[0].getLeftParentPrevious() );
+            parent.setLastChild( (LeftTuple) matchings[0].getHandlePrevious() );
             if ( parent.getLastChild() != null ) {
-                parent.getLastChild().setLeftParentNext( null );
-                matchings[0].setLeftParentPrevious( null );
+                parent.getLastChild().setHandleNext( null );
+                matchings[0].setHandlePrevious( null );
             }
         }
 
@@ -901,8 +911,8 @@ public class ReteAccumulateNode extends AccumulateNode {
             parent.setFirstChild( matchings[0] );
             parent.setLastChild( matchings[1] );
         } else if ( matchings[0] != null ) {
-            parent.getLastChild().setLeftParentNext( matchings[0] );
-            matchings[0].setLeftParentPrevious( parent.getLastChild() );
+            parent.getLastChild().setHandleNext( matchings[0] );
+            matchings[0].setHandlePrevious( parent.getLastChild() );
             parent.setLastChild( matchings[1] );
         }
     }
@@ -910,10 +920,6 @@ public class ReteAccumulateNode extends AccumulateNode {
     /**
      * Skips the propagated tuple handles and return the first handle
      * in the list that correspond to a match
-     *
-     * @param leftTuple
-     * @param accctx
-     * @return
      */
     public LeftTuple getFirstMatch( final LeftTuple leftTuple,
                                     final AccumulateContext accctx,
@@ -925,15 +931,15 @@ public class ReteAccumulateNode extends AccumulateNode {
             // To do that, we need to skip the first N children that are in fact the propagated tuples
             int target = isUpdatingSink ? this.sink.size() - 1 : this.sink.size();
             for ( int i = 0; i < target; i++ ) {
-                child = child.getLeftParentNext();
+                child = child.getHandleNext();
             }
         }
         return child;
     }
 
     public static class EvaluateResultConstraints
-            implements
-            WorkingMemoryAction {
+            extends PropagationEntry.AbstractPropagationEntry
+            implements WorkingMemoryAction {
 
         private ActivitySource        source;
         private LeftTuple             leftTuple;
@@ -970,16 +976,12 @@ public class ReteAccumulateNode extends AccumulateNode {
             throw new UnsupportedOperationException("Should not be present in network on serialisation");
         }
 
-        public void write(MarshallerWriteContext context) throws IOException {
-            throw new UnsupportedOperationException("Should not be present in network on serialisation");
-        }
-
         public Action serialize(MarshallerWriteContext context) {
             throw new UnsupportedOperationException("Should not be present in network on serialisation");
         }
 
         public void execute(InternalWorkingMemory workingMemory) {
-            final AccumulateContext accctx = (AccumulateContext) leftTuple.getObject();
+            final AccumulateContext accctx = (AccumulateContext) leftTuple.getContextObject();
             accctx.setAction(null);
             node.evaluateResultConstraints(source,
                                            leftTuple,
@@ -988,10 +990,6 @@ public class ReteAccumulateNode extends AccumulateNode {
                                            memory,
                                            accctx,
                                            useLeftMemory);
-        }
-
-        public void execute(InternalKnowledgeRuntime kruntime) {
-            execute(((StatefulKnowledgeSessionImpl) kruntime).getInternalWorkingMemory());
         }
 
         public ActivitySource getSource() {
@@ -1004,13 +1002,6 @@ public class ReteAccumulateNode extends AccumulateNode {
 
         public String toString() {
             return "[ResumeInsertAction leftTuple=" + leftTuple + "]\n";
-        }
-
-        public void writeExternal(ObjectOutput out) throws IOException {
-        }
-
-        public void readExternal(ObjectInput in) throws IOException,
-                ClassNotFoundException {
         }
     }
 }

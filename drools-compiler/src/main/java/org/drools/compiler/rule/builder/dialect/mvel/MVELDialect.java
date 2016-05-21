@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.rule.builder.dialect.mvel;
 
 import org.drools.compiler.builder.impl.KnowledgeBuilderConfigurationImpl;
@@ -95,7 +110,6 @@ public class MVELDialect
     protected static final SalienceBuilder               SALIENCE_BUILDER           = new MVELSalienceBuilder();
     protected static final EnabledBuilder                ENABLED_BUILDER            = new MVELEnabledBuilder();
     protected static final MVELEvalBuilder               EVAL_BUILDER               = new MVELEvalBuilder();
-    protected static final MVELPredicateBuilder          PREDICATE_BUILDER          = new MVELPredicateBuilder();
     protected static final MVELReturnValueBuilder        RETURN_VALUE_BUILDER       = new MVELReturnValueBuilder();
     protected static final MVELConsequenceBuilder        CONSEQUENCE_BUILDER        = new MVELConsequenceBuilder();
 
@@ -519,8 +533,6 @@ public class MVELDialect
                                        final String text,
                                        final BoundIdentifiers availableIdentifiers) {
         return analyzeBlock( context,
-                             descr,
-                             null,
                              text,
                              availableIdentifiers,
                              null,
@@ -529,8 +541,6 @@ public class MVELDialect
     }
 
     public AnalysisResult analyzeBlock(final PackageBuildContext context,
-                                       final BaseDescr descr,
-                                       final Map interceptors,
                                        final String text,
                                        final BoundIdentifiers availableIdentifiers,
                                        final Map<String, Class< ? >> localTypes,
@@ -552,28 +562,9 @@ public class MVELDialect
                                                       final Map<String, Class< ? >> otherInputVariables,
                                                       final PackageBuildContext context,
                                                       String contextIndeifier,
-                                                      Class kcontextClass) {
-
-        return getMVELCompilationUnit( expression,
-                                       analysis,
-                                       previousDeclarations,
-                                       localDeclarations,
-                                       otherInputVariables,
-                                       context,
-                                       contextIndeifier,
-                                       kcontextClass,
-                                       false );
-    }
-
-    public MVELCompilationUnit getMVELCompilationUnit(final String expression,
-                                                      final AnalysisResult analysis,
-                                                      Declaration[] previousDeclarations,
-                                                      Declaration[] localDeclarations,
-                                                      final Map<String, Class< ? >> otherInputVariables,
-                                                      final PackageBuildContext context,
-                                                      String contextIndeifier,
                                                       Class kcontextClass,
-                                                      boolean readLocalsFromTuple) {
+                                                      boolean readLocalsFromTuple,
+                                                      MVELCompilationUnit.Scope scope) {
         Map<String, Class> resolvedInputs = new LinkedHashMap<String, Class>();
         List<String> ids = new ArrayList<String>();
 
@@ -589,9 +580,12 @@ public class MVELDialect
         ids.add( "kcontext" );
         resolvedInputs.put( "kcontext",
                             kcontextClass );
-        ids.add( "rule" );
-        resolvedInputs.put( "rule",
-                            Rule.class );
+
+        if (scope.hasRule()) {
+            ids.add( "rule" );
+            resolvedInputs.put( "rule",
+                                Rule.class );
+        }
 
         List<String> strList = new ArrayList<String>();
         for ( Entry<String, Class< ? >> e : analysis.getBoundIdentifiers().getGlobals().entrySet() ) {
@@ -617,7 +611,7 @@ public class MVELDialect
                 if ( analysis.getBoundIdentifiers().getDeclrClasses().containsKey( decl.getIdentifier() ) ) {
                     ids.add( decl.getIdentifier() );
                     resolvedInputs.put( decl.getIdentifier(),
-                                        decl.getExtractor().getExtractToClass() );
+                                        decl.getDeclarationClass() );
                 }
             }
         }
@@ -627,7 +621,7 @@ public class MVELDialect
                 if ( analysis.getBoundIdentifiers().getDeclrClasses().containsKey( decl.getIdentifier() ) ) {
                     ids.add( decl.getIdentifier() );
                     resolvedInputs.put( decl.getIdentifier(),
-                                        decl.getExtractor().getExtractToClass() );
+                                        decl.getDeclarationClass() );
                 }
             }
         }
@@ -720,11 +714,7 @@ public class MVELDialect
     }
 
     public PredicateBuilder getPredicateBuilder() {
-        return PREDICATE_BUILDER;
-    }
-
-    public PredicateBuilder getExpressionPredicateBuilder() {
-        return PREDICATE_BUILDER;
+        throw new RuntimeException( "mvel PredicateBuilder is no longer in use" );
     }
 
     public SalienceBuilder getSalienceBuilder() {

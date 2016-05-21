@@ -1,3 +1,18 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.impl;
 
 import com.sun.tools.xjc.Options;
@@ -9,6 +24,7 @@ import org.drools.builder.KnowledgeBuilderConfiguration;
 import org.drools.builder.KnowledgeBuilderFactoryService;
 import org.drools.compiler.builder.impl.KnowledgeBuilderConfigurationImpl;
 import org.drools.core.impl.InternalKnowledgeBase;
+import org.drools.impl.adapters.KnowledgeBaseAdapter;
 import org.drools.impl.adapters.KnowledgeBuilderConfigurationAdapter;
 
 import java.util.Properties;
@@ -36,7 +52,9 @@ public class KnowledgeBuilderFactoryServiceImpl implements KnowledgeBuilderFacto
     }
 
     public KnowledgeBuilder newKnowledgeBuilder(KnowledgeBase kbase) {
-        if ( kbase != null ) {
+        if (kbase instanceof KnowledgeBaseAdapter ) {
+            return new KnowledgeBuilderImpl( (InternalKnowledgeBase) ( (KnowledgeBaseAdapter) kbase ).getDelegate() );
+        } else if ( kbase != null ) {
             return new KnowledgeBuilderImpl( (InternalKnowledgeBase) kbase );
         } else {
             return new KnowledgeBuilderImpl( );

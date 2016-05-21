@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,23 @@
  */
 
 package org.drools.core.definitions.rule.impl;
+
+import java.io.Externalizable;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.io.Serializable;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedExceptionAction;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import org.drools.core.WorkingMemory;
 import org.drools.core.base.EnabledBoolean;
@@ -42,31 +59,14 @@ import org.drools.core.spi.Wireable;
 import org.drools.core.time.impl.Timer;
 import org.drools.core.util.StringUtils;
 import org.kie.api.definition.rule.Query;
-import org.kie.api.definition.rule.Rule;
 import org.kie.api.io.Resource;
+import org.kie.internal.definition.rule.InternalRule;
 import org.kie.internal.security.KiePolicyHelper;
-
-import java.io.Externalizable;
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.io.Serializable;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
 
 public class RuleImpl implements Externalizable,
                                  Wireable,
                                  Dialectable,
-                                 Rule,
+                                 InternalRule,
                                  Query {
 
     private static final int NO_LOOP_BIT =              1 << 0;
@@ -76,6 +76,7 @@ public class RuleImpl implements Externalizable,
     private static final int SEMANTICALLY_VALID_BIT =   1 << 4;
     private static final int EAGER_BIT =                1 << 5;
     private static final int DATA_DRIVEN_BIT =          1 << 6;
+    private static final int ALL_MATCHES_BIT =          1 << 7;
 
     public static final String DEFAULT_CONSEQUENCE_NAME = "default";
 
@@ -361,6 +362,10 @@ public class RuleImpl implements Externalizable,
         return this.name;
     }
 
+    public String getFullyQualifiedName() {
+        return getPackageName() + "." + getName();
+    }
+
     /**
      * Retrieve the <code>Rule</code> salience.
      *
@@ -369,7 +374,25 @@ public class RuleImpl implements Externalizable,
     public Salience getSalience() {
         return this.salience;
     }
-
+    
+    /**
+     * Retrieve the <code>Rule</code> salience value.
+     * 
+     * @return The salience value.
+     */
+    public int getSalienceValue() {
+    	return getSalience().getValue();
+    }
+    
+    /**
+	 * Returns <code>true</code> if the rule uses dynamic salience, <code>false</code> otherwise.
+	 * 
+	 * @return <code>true</code> if the rule uses dynamic salience, else <code>false</code>.
+	 */
+    public boolean isSalienceDynamic() {
+    	return getSalience().isDynamic();
+    }
+    
     /**
      * Set the <code>Rule<code> salience.
      *
@@ -705,6 +728,14 @@ public class RuleImpl implements Externalizable,
 
     public void setDataDriven(boolean dataDriven) {
         set(DATA_DRIVEN_BIT, dataDriven);
+    }
+
+    public boolean isAllMatches() {
+        return isSet(ALL_MATCHES_BIT);
+    }
+
+    public void setAllMatches(boolean allMatches) {
+        set(ALL_MATCHES_BIT, allMatches);
     }
 
     public String toString() {

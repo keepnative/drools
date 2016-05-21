@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ import org.drools.builder.conf.KnowledgeBuilderOptionsConfiguration;
  * The Java dialect supports the following configurations:
  * <ul>
  * <li>drools.dialect.java.compiler = &lt;ECLIPSE|JANINO&gt;</li>
- * <li>drools.dialect.java.lngLevel = &lt;1.5|1.6&gt;</li>
+ * <li>drools.dialect.java.compiler.lnglevel = &lt;1.5|1.6&gt;</li>
  * </ul>
  * 
  * And MVEL supports the following configurations:

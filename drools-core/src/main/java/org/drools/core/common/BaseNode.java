@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,16 @@
 package org.drools.core.common;
 
 import org.drools.core.reteoo.EntryPointNode;
-import org.drools.core.reteoo.NodeTypeEnums;
-import org.drools.core.reteoo.PathMemory;
 import org.drools.core.reteoo.ReteooBuilder;
 import org.drools.core.reteoo.RuleRemovalContext;
-import org.drools.core.reteoo.SegmentMemory;
 import org.drools.core.reteoo.builder.BuildContext;
 import org.drools.core.spi.RuleComponent;
+import org.drools.core.util.Bag;
 import org.kie.api.definition.rule.Rule;
 
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * The base class for all Rete nodes.
@@ -42,8 +38,10 @@ public abstract class BaseNode
     protected int                      id;
     protected RuleBasePartitionId      partitionId;
     protected boolean                  partitionsEnabled;
-    protected Map<Rule, RuleComponent> associations;
-    protected boolean                  streamMode;
+    protected Bag<Rule>                associations;
+    private   boolean                  streamMode;
+
+    protected int hashcode;
 
     public BaseNode() {
 
@@ -62,7 +60,7 @@ public abstract class BaseNode
         this.id = id;
         this.partitionId = partitionId;
         this.partitionsEnabled = partitionsEnabled;
-        this.associations = new HashMap<Rule, RuleComponent>();
+        this.associations = new Bag<Rule>();
     }
 
     @SuppressWarnings("unchecked")
@@ -71,8 +69,9 @@ public abstract class BaseNode
         id = in.readInt();
         partitionId = (RuleBasePartitionId) in.readObject();
         partitionsEnabled = in.readBoolean();
-        associations = (Map<Rule, RuleComponent>) in.readObject();
+        associations = (Bag<Rule>) in.readObject();
         streamMode = in.readBoolean();
+        hashcode = in.readInt();
     }
 
     public void writeExternal(ObjectOutput out) throws IOException {
@@ -81,6 +80,7 @@ public abstract class BaseNode
         out.writeBoolean( partitionsEnabled );
         out.writeObject( associations );
         out.writeBoolean( streamMode );
+        out.writeInt(hashcode);
     }
 
     /* (non-Javadoc)
@@ -98,8 +98,8 @@ public abstract class BaseNode
         return this.streamMode;
     }
 
-    public void attach() {
-        attach(null);
+    protected void setStreamMode(boolean streamMode) {
+        this.streamMode = streamMode;
     }
 
     /**
@@ -115,38 +115,27 @@ public abstract class BaseNode
      */
     public abstract void networkUpdated(UpdateContext updateContext);
 
-    public void remove(RuleRemovalContext context,
+    public boolean remove(RuleRemovalContext context,
                        ReteooBuilder builder,
                        InternalWorkingMemory[] workingMemories) {
-        this.removeAssociation( context.getRule() );
-        doRemove( context,
-                  builder,
-                  workingMemories );
+        boolean removed = doRemove( context, builder, workingMemories );
         if ( !this.isInUse() && !(this instanceof EntryPointNode) ) {
             builder.getIdGenerator().releaseId( this.getId() );
         }
+        return removed;
     }
 
     /**
      * Removes the node from teh network. Usually from the parent <code>ObjectSource</code> or <code>TupleSource</code>
-     * @param builder 
      */
-    protected abstract void doRemove(RuleRemovalContext context,
-                                     ReteooBuilder builder,
-                                     InternalWorkingMemory[] workingMemories);
+    protected abstract boolean doRemove(RuleRemovalContext context,
+                                        ReteooBuilder builder,
+                                        InternalWorkingMemory[] workingMemories);
 
     /**
      * Returns true in case the current node is in use (is referenced by any other node)
-     * @return
      */
     public abstract boolean isInUse();
-
-    /**
-     * The hashCode return is simply the unique id of the node. It is expected that base classes will also implement equals(Object object).
-     */
-    public int hashCode() {
-        return this.id;
-    }
 
     public String toString() {
         return "[" + this.getClass().getSimpleName() + "(" + this.id + ")]";
@@ -154,8 +143,6 @@ public abstract class BaseNode
 
     /**
      * Returns the partition ID for which this node belongs to
-     * 
-     * @return
      */
     public RuleBasePartitionId getPartitionId() {
         return this.partitionId;
@@ -163,55 +150,54 @@ public abstract class BaseNode
 
     /**
      * Sets the partition this node belongs to
-     * 
-     * @param partitionId
      */
     public void setPartitionId(final RuleBasePartitionId partitionId) {
         this.partitionId = partitionId;
     }
 
     /**
-     * Creates an association between this node and the rule + rule component
-     * that caused the creation of this node. Since nodes might be shared,
-     * there might be more than one source for each node.
-     * 
-     * @param rule The rule source
-     * @param component
+     * Associates this node with the give rule
      */
-    public void addAssociation( Rule rule, RuleComponent component ) {
-        this.associations.put( rule, component );
+    public void addAssociation( Rule rule ) {
+        this.associations.add( rule );
     }
-    
-    /**
-     * Returns the map of associations for this node
-     * 
-     * @return
-     */
-    public Map<Rule, RuleComponent> getAssociations() {
-        return this.associations;
+
+    public void addAssociation( Rule rule, RuleComponent ruleComponent ) {
+        addAssociation( rule );
     }
-    
+
     /**
      * Removes the association to the given rule from the
      * associations map.
-     *  
-     * @param rule
      */
-    public void removeAssociation( Rule rule ) {
-        this.associations.remove( rule );
+    public boolean removeAssociation( Rule rule ) {
+        return this.associations.removeKey(rule);
     }
 
-    protected static void registerUnlinkedPaths(InternalWorkingMemory wm, SegmentMemory smem, boolean stagedDeleteWasEmpty) {
-        GarbageCollector garbageCollector = ((InternalAgenda)wm.getAgenda()).getGarbageCollector();
-        garbageCollector.increaseDeleteCounter();
-        if (stagedDeleteWasEmpty) {
-            synchronized (garbageCollector) {
-                for (PathMemory pmem : smem.getPathMemories()) {
-                    if (pmem.getNodeType() == NodeTypeEnums.RuleTerminalNode && !pmem.isRuleLinked()) {
-                        garbageCollector.add(pmem.getOrCreateRuleAgendaItem(wm));
-                    }
-                }
-            }
-        }
+    public int getAssociationsSize() {
+        return this.associations.size();
+    }
+
+    public int getAssociatedRuleSize() {
+        return this.associations.getKeySize();
+    }
+
+    public int getAssociationsSize(Rule rule) {
+        return this.associations.sizeFor(rule);
+    }
+
+    public boolean isAssociatedWith( Rule rule ) {
+        return this.associations.contains( rule );
+    }
+
+    public boolean thisNodeEquals(final Object object) {
+        return this == object || internalEquals( object );
+    }
+
+    protected abstract boolean internalEquals( Object object );
+
+    @Override
+    public final int hashCode() {
+        return hashcode;
     }
 }

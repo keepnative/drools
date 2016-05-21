@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +74,8 @@ public class Scenario implements HasImports {
     private String packageName;
 
     private Imports imports = new Imports();
+
+    private ArrayList<String> ksessions = new ArrayList<String>();
 
     public Scenario() {
     }
@@ -457,6 +459,10 @@ public class Scenario implements HasImports {
 
     public String getPackageName() {
         return packageName;
+    }
+
+    public List<String> getKSessions() {
+        return ksessions;
     }
 
     public void setPackageName( String packageName ) {

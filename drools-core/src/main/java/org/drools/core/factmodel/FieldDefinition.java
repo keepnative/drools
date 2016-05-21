@@ -1,5 +1,5 @@
 /*
- * Copyright 2008 JBoss Inc
+ * Copyright 2008 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@ public class FieldDefinition
     private String             type       = null;
     private boolean            key        = false;
     private boolean            inherited  = false;
+    private String             overriding = null;
     private int                index      = -1;
     private int                priority   = -1;
     private int                declIndex  = -1;
@@ -97,6 +98,7 @@ public class FieldDefinition
         this.accessor = (ClassFieldAccessor) in.readObject();
         this.annotations = (List<AnnotationDefinition>) in.readObject();
         this.inherited = in.readBoolean();
+        this.overriding = (String) in.readObject();
         this.index = in.readInt();
         this.declIndex = in.readInt();
         this.priority = in.readInt();
@@ -111,6 +113,7 @@ public class FieldDefinition
         out.writeObject( this.accessor );
         out.writeObject( this.annotations );
         out.writeBoolean( this.inherited );
+        out.writeObject( this.overriding );
         out.writeInt( this.index );
         out.writeInt( this.declIndex );
         out.writeInt( this.priority );
@@ -514,4 +517,17 @@ public class FieldDefinition
     public void setRecursive(boolean recursive) {
         this.recursive = recursive;
     }
+
+    public boolean hasOverride() {
+        return overriding != null;
+    }
+
+    public String getOverriding() {
+        return overriding;
+    }
+
+    public void setOverriding( String overriding ) {
+        this.overriding = overriding;
+    }
+
 }

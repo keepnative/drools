@@ -1,5 +1,5 @@
 /*
- * Copyright 2010 JBoss Inc
+ * Copyright 2010 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@
 
 package org.drools.core.spi;
 
-import java.io.Externalizable;
-
 import org.drools.core.common.InternalFactHandle;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.reteoo.LeftTuple;
 import org.drools.core.rule.ContextEntry;
 import org.drools.core.rule.Declaration;
+
+import java.io.Externalizable;
 
 public interface Restriction
     extends
@@ -38,7 +37,7 @@ public interface Restriction
     public boolean isAllowedCachedLeft(ContextEntry context,
                                        InternalFactHandle handle);
 
-    public boolean isAllowedCachedRight(LeftTuple tuple,
+    public boolean isAllowedCachedRight(Tuple tuple,
                                         ContextEntry context);
 
     public ContextEntry createContextEntry();

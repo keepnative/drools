@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 JBoss Inc
+ * Copyright 2012 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,8 @@ import org.drools.workbench.models.datamodel.workitems.PortableObjectParameterDe
 import org.drools.workbench.models.datamodel.workitems.PortableParameterDefinition;
 import org.drools.workbench.models.datamodel.workitems.PortableStringParameterDefinition;
 import org.drools.workbench.models.datamodel.workitems.PortableWorkDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.drools.core.util.StringUtils.*;
 import static org.drools.workbench.models.commons.backend.rule.RuleModelPersistenceHelper.*;
@@ -134,6 +136,8 @@ public class RuleModelDRLPersistenceImpl
     private static final String WORKITEM_PREFIX = "wi";
 
     private static final RuleModelPersistence INSTANCE = new RuleModelDRLPersistenceImpl();
+
+    private static final Logger log = LoggerFactory.getLogger( RuleModelDRLPersistenceImpl.class );
 
     //This is the default dialect for rules not specifying one explicitly
     protected DRLConstraintValueBuilder constraintValueBuilder = DRLConstraintValueBuilder.getBuilder( DRLConstraintValueBuilder.DEFAULT_DIALECT );
@@ -1177,7 +1181,8 @@ public class RuleModelDRLPersistenceImpl
                                                buf );
                     break;
                 case BaseSingleFieldConstraint.TYPE_TEMPLATE:
-                    buildTemplateFieldValue( type,
+                    buildTemplateFieldValue( operator,
+                                             type,
                                              fieldType,
                                              value,
                                              buf );
@@ -1249,10 +1254,10 @@ public class RuleModelDRLPersistenceImpl
             buf.append( " " );
         }
 
-        private void populateValueList( final StringBuilder buf,
-                                        final int type,
-                                        final String fieldType,
-                                        final String value ) {
+        protected void populateValueList( final StringBuilder buf,
+                                          final int type,
+                                          final String fieldType,
+                                          final String value ) {
             String workingValue = value.trim();
             if ( workingValue.startsWith( "(" ) ) {
                 workingValue = workingValue.substring( 1 );
@@ -1293,16 +1298,26 @@ public class RuleModelDRLPersistenceImpl
             }
         }
 
-        protected void buildTemplateFieldValue( final int type,
+        protected void buildTemplateFieldValue( final String operator,
+                                                final int type,
                                                 final String fieldType,
                                                 final String value,
                                                 final StringBuilder buf ) {
-            buf.append( " " );
-            constraintValueBuilder.buildLHSFieldValue( buf,
-                                                       type,
-                                                       fieldType,
-                                                       "@{removeDelimitingQuotes(" + value + ")}" );
-            buf.append( " " );
+            if ( OperatorsOracle.operatorRequiresList( operator ) ) {
+                buf.append( " " );
+                constraintValueBuilder.buildLHSFieldValue( buf,
+                                                           type,
+                                                           DataType.TYPE_COLLECTION,
+                                                           "@{makeValueList(" + value + ")}" );
+                buf.append( " " );
+            } else {
+                buf.append( " " );
+                constraintValueBuilder.buildLHSFieldValue( buf,
+                                                           type,
+                                                           fieldType,
+                                                           "@{removeDelimitingQuotes(" + value + ")}" );
+                buf.append( " " );
+            }
         }
 
         private void buildEnumFieldValue( final String operator,
@@ -1812,10 +1827,16 @@ public class RuleModelDRLPersistenceImpl
         if ( str == null || str.isEmpty() ) {
             return new RuleModel();
         }
-        return getRuleModel( preprocessDRL( str,
-                                            false ).registerGlobals( dmo,
-                                                                     globals ),
-                             dmo );
+        try {
+            return getRuleModel( preprocessDRL( str,
+                                                false ).registerGlobals( dmo,
+                                                                         globals ),
+                                 dmo );
+
+        } catch ( Exception e ) {
+            log.info( "Unable to parse source Drl. Falling back to simple parser. \n" + str );
+            return getSimpleRuleModel( str );
+        }
     }
 
     public RuleModel unmarshalUsingDSL( final String str,
@@ -1825,11 +1846,17 @@ public class RuleModelDRLPersistenceImpl
         if ( str == null || str.isEmpty() ) {
             return new RuleModel();
         }
-        return getRuleModel( parseDSLs( preprocessDRL( str,
-                                                       true ),
-                                        dsls ).registerGlobals( dmo,
-                                                                globals ),
-                             dmo );
+        try {
+            return getRuleModel( parseDSLs( preprocessDRL( str,
+                                                           true ),
+                                            dsls ).registerGlobals( dmo,
+                                                                    globals ),
+                                 dmo );
+
+        } catch ( Exception e ) {
+            log.info( "Unable to parse source Drl. Falling back to simple parser. \n" + str );
+            return getSimpleRuleModel( str );
+        }
     }
 
     private ExpandedDRLInfo parseDSLs( final ExpandedDRLInfo expandedDRLInfo,
@@ -1931,7 +1958,7 @@ public class RuleModelDRLPersistenceImpl
     private ExpandedDRLInfo preprocessDRL( final String str,
                                            final boolean hasDsl ) {
         StringBuilder drl = new StringBuilder();
-        String thenLine = null;
+        String thenLine = "";
         List<String> lhsStatements = new ArrayList<String>();
         List<String> rhsStatements = new ArrayList<String>();
 
@@ -1940,6 +1967,9 @@ public class RuleModelDRLPersistenceImpl
         int lhsParenthesisBalance = 0;
 
         for ( String line : lines ) {
+            if ( line.trim().length() == 0 ) {
+                continue;
+            }
             if ( ruleSection == RuleSection.HEADER ) {
                 drl.append( line ).append( "\n" );
                 if ( isLHSStartMarker( line ) ) {
@@ -2041,6 +2071,8 @@ public class RuleModelDRLPersistenceImpl
                     expandedDRLInfo.dslStatementsInRhs.put( lineCounter,
                                                             trimmed );
                 }
+            } else {
+                drl.append( "end" );
             }
         }
 
@@ -2070,11 +2102,11 @@ public class RuleModelDRLPersistenceImpl
         drl.append( thenLine ).append( "\n" );
 
         expandedDRLInfo.consequence = "";
-        lineCounter = -1;
         for ( String statement : rhsStatements ) {
             String trimmed = statement.trim();
             if ( trimmed.endsWith( "end" ) ) {
-                trimmed = trimmed.substring( 0, trimmed.length() - 3 );
+                trimmed = trimmed.substring( 0,
+                                             trimmed.length() - 3 ).trim();
             }
             if ( trimmed.length() > 0 ) {
                 expandedDRLInfo.consequence += ( trimmed + "\n" );
@@ -2088,7 +2120,22 @@ public class RuleModelDRLPersistenceImpl
 
     private boolean isValidLHSStatement( final String lhs ) {
         // TODO: How to identify a non valid (free form) lhs statement?
-        return ( lhs.indexOf( '(' ) >= 0 || lhs.indexOf( ':' ) >= 0 ) && lhs.indexOf( "//" ) == -1;
+        return ( lhs.indexOf( '(' ) >= 0 || lhs.indexOf( ':' ) >= 0 ) && !containsComment( lhs );
+    }
+
+    private boolean containsComment( final String lhs ) {
+        //Check if there are any comments not inside Strings. Comments are ignored by the DrlParser
+        //and hence lines containing comments will be "lost" unless we handle such lines as
+        //FreeFormLines when unmarshalling DRL.
+        String _lhs = lhs;
+        Pattern pattern = Pattern.compile( "\"([^\"]*)\"" );
+        Matcher matcher = pattern.matcher( lhs );
+        while ( matcher.find() ) {
+            final String text = matcher.group( 1 );
+            final int index = _lhs.indexOf( text );
+            _lhs = _lhs.substring( 0, index ) + _lhs.substring( index + text.length() );
+        }
+        return _lhs.indexOf( "//" ) > -1;
     }
 
     private enum RuleSection {HEADER, LHS, RHS}
@@ -2171,6 +2218,9 @@ public class RuleModelDRLPersistenceImpl
         PackageDescr packageDescr;
         try {
             packageDescr = drlParser.parse( true, expandedDRLInfo.plainDrl );
+            if ( drlParser.hasErrors() ) {
+                throw new RuleModelUnmarshallingException();
+            }
         } catch ( DroolsParserException e ) {
             throw new RuntimeException( e );
         }
@@ -2479,10 +2529,12 @@ public class RuleModelDRLPersistenceImpl
                                          type );
                 } else {
                     ModelField modelField = null;
-                    for ( ModelField field : fields ) {
-                        if ( field.getName().equals( sourcePart ) ) {
-                            modelField = field;
-                            break;
+                    if ( fields != null ) {
+                        for ( ModelField field : fields ) {
+                            if ( field.getName().equals( sourcePart ) ) {
+                                modelField = field;
+                                break;
+                            }
                         }
                     }
                     if ( modelField == null ) {
@@ -2714,9 +2766,12 @@ public class RuleModelDRLPersistenceImpl
                 String type = getStatementType( fact,
                                                 factsType );
                 if ( type != null ) {
+                    boundParams.put( fact,
+                                     type );
                     ActionInsertLogicalFact action = new ActionInsertLogicalFact( type );
                     m.addRhsItem( action );
                     if ( factsType.containsKey( fact ) ) {
+                        action.setBoundName( fact );
                         addSettersToAction( setStatements,
                                             fact,
                                             action,
@@ -2732,6 +2787,8 @@ public class RuleModelDRLPersistenceImpl
                 String type = getStatementType( fact,
                                                 factsType );
                 if ( type != null ) {
+                    boundParams.put( fact,
+                                     type );
                     ActionInsertFact action = new ActionInsertFact( type );
                     m.addRhsItem( action );
                     if ( factsType.containsKey( fact ) ) {
@@ -3120,7 +3177,7 @@ public class RuleModelDRLPersistenceImpl
 
     private ActionFieldValue buildFieldValue( final boolean isJavaDialect,
                                               String field,
-                                              final String value,
+                                              String value,
                                               final String dataType,
                                               final Map<String, String> boundParams ) {
         if ( value.contains( "wiWorkItem.getResult" ) ) {
@@ -3153,6 +3210,8 @@ public class RuleModelDRLPersistenceImpl
             }
         }
 
+        value = removeNumericSuffix( value,
+                                     dataType );
         final int fieldNature = inferFieldNature( dataType,
                                                   value,
                                                   boundParams,
@@ -3165,6 +3224,9 @@ public class RuleModelDRLPersistenceImpl
                 break;
             case FieldNatureType.TYPE_VARIABLE:
                 paramValue = "=" + paramValue;
+                break;
+            case FieldNatureType.TYPE_TEMPLATE:
+                paramValue = unwrapTemplateKey( value );
                 break;
             default:
                 paramValue = adjustParam( dataType,
@@ -3239,6 +3301,9 @@ public class RuleModelDRLPersistenceImpl
                             final boolean isJavaDialect,
                             final Map<String, String> boundParams,
                             final PackageDataModelOracle dmo ) {
+        if ( expr.startsWith( "eval(" ) ) {
+            return new EvalExpr( unwrapParenthesis( expr ) );
+        }
         List<String> splittedExpr = splitExpression( expr );
         if ( splittedExpr.size() == 1 ) {
             String singleExpr = splittedExpr.get( 0 );
@@ -3482,7 +3547,8 @@ public class RuleModelDRLPersistenceImpl
                                           fieldConstraint.getFieldName() );
 
             if ( field != null && ( fieldConstraint.getFieldType() == null || fieldConstraint.getFieldType().trim().length() == 0 ) ) {
-                fieldConstraint.setFieldType( field.getType() );
+                fieldConstraint.setFieldType( getSimpleFactType( field.getType(),
+                                                                 dmo ) );
             }
             return fieldConstraint;
         }
@@ -3620,9 +3686,8 @@ public class RuleModelDRLPersistenceImpl
                 } else if ( isBoundParam ) {
                     ModelField currentFact = findFact( dmo.getProjectModelFields(),
                                                        factType );
-                    expression.appendPart( new ExpressionVariable( expressionPart,
-                                                                   currentFact.getClassName(),
-                                                                   currentFact.getType() ) );
+
+                    expression.appendPart( getExpressionPart( expressionPart, currentFact ) );
                     isBoundParam = false;
 
                 } else {
@@ -3809,7 +3874,7 @@ public class RuleModelDRLPersistenceImpl
                     for ( ModelField field : fields ) {
                         if ( field.getName().equals( fieldName ) ) {
                             boundParams.put( fieldBinding,
-                                             field.getType() );
+                                             field.getClassName() );
                         }
                     }
                 }
@@ -3866,11 +3931,16 @@ public class RuleModelDRLPersistenceImpl
                                              final BaseSingleFieldConstraint con,
                                              String value ) {
             String type = null;
-            if ( value.startsWith( "\"" ) ) {
+            if ( value.contains( "@{" ) ) {
+                con.setConstraintValueType( BaseSingleFieldConstraint.TYPE_TEMPLATE );
+                con.setValue( unwrapTemplateKey( value ) );
+
+            } else if ( value.startsWith( "\"" ) ) {
                 type = DataType.TYPE_STRING;
                 con.setConstraintValueType( SingleFieldConstraint.TYPE_LITERAL );
                 con.setValue( value.substring( 1,
                                                value.length() - 1 ) );
+
             } else if ( value.startsWith( "(" ) ) {
                 if ( operator != null && operator.contains( "in" ) ) {
                     value = unwrapParenthesis( value );
@@ -3881,6 +3951,7 @@ public class RuleModelDRLPersistenceImpl
                     con.setConstraintValueType( SingleFieldConstraint.TYPE_RET_VALUE );
                     con.setValue( unwrapParenthesis( value ) );
                 }
+
             } else {
                 if ( !Character.isDigit( value.charAt( 0 ) ) ) {
                     if ( value.equals( "true" ) || value.equals( "false" ) ) {
@@ -3963,6 +4034,21 @@ public class RuleModelDRLPersistenceImpl
         }
     }
 
+    /**
+     * If the bound type is not in the DMO it probably hasn't been imported.
+     * So we have little option than to fall back to keeping the value as Text.
+     */
+    private static ExpressionPart getExpressionPart( String expressionPart,
+                                                     ModelField currentFact ) {
+        if ( currentFact == null ) {
+            return new ExpressionText( expressionPart );
+        } else {
+            return new ExpressionVariable( expressionPart,
+                                           currentFact.getClassName(),
+                                           currentFact.getType() );
+        }
+    }
+
     private static class ComplexExpr implements Expr {
 
         private final List<Expr> subExprs = new ArrayList<Expr>();
@@ -4020,6 +4106,54 @@ public class RuleModelDRLPersistenceImpl
             return this.drl;
         }
 
+    }
+
+    //Exception to indicate the DrlParser encountered a problem parsing the DRL. This fails-fast the unmarshalling.
+    public static class RuleModelUnmarshallingException extends RuntimeException {
+
+    }
+
+    //Simple fall-back parser of DRL
+    public RuleModel getSimpleRuleModel( final String drl ) {
+        final RuleModel rm = new RuleModel();
+        rm.setPackageName( PackageNameParser.parsePackageName( drl ) );
+        rm.setImports( ImportsParser.parseImports( drl ) );
+
+        final Pattern rulePattern = Pattern.compile( "\\s?rule\\s+(.+?)\\s+.*",
+                                                     Pattern.DOTALL );
+        final Pattern lhsPattern = Pattern.compile( ".*\\s+when\\s+(.+?)\\s+then.*",
+                                                    Pattern.DOTALL );
+        final Pattern rhsPattern = Pattern.compile( ".*\\s+then\\s+(.+?)\\s+end.*",
+                                                    Pattern.DOTALL );
+
+        final Matcher ruleMatcher = rulePattern.matcher( drl );
+        if ( ruleMatcher.matches() ) {
+            String name = ruleMatcher.group( 1 );
+            if ( name.startsWith( "\"" ) ) {
+                name = name.substring( 1 );
+            }
+            if ( name.endsWith( "\"" ) ) {
+                name = name.substring( 0,
+                                       name.length() - 1 );
+            }
+            rm.name = name;
+        }
+
+        final Matcher lhsMatcher = lhsPattern.matcher( drl );
+        if ( lhsMatcher.matches() ) {
+            final FreeFormLine lhs = new FreeFormLine();
+            lhs.setText( lhsMatcher.group( 1 ) == null ? "" : lhsMatcher.group( 1 ).trim() );
+            rm.addLhsItem( lhs );
+        }
+
+        final Matcher rhsMatcher = rhsPattern.matcher( drl );
+        if ( rhsMatcher.matches() ) {
+            final FreeFormLine rhs = new FreeFormLine();
+            rhs.setText( rhsMatcher.group( 1 ) == null ? "" : rhsMatcher.group( 1 ).trim() );
+            rm.addRhsItem( rhs );
+        }
+
+        return rm;
     }
 
 }

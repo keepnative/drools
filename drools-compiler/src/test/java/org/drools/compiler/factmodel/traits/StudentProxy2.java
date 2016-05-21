@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 JBoss Inc
+ * Copyright 2011 Red Hat, Inc. and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ public class StudentProxy2 extends TraitProxy implements IStudent {
         return false;
     }
 
-    public String getTraitName() {
+    public String _getTraitName() {
         return traitType;
     }
 

@@ -1,10 +1,19 @@
+/*
+ * Copyright 2015 Red Hat, Inc. and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * 
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 package org.drools.compiler.integrationtests;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import org.junit.Assert;
 
 import org.drools.compiler.Cell;
 import org.drools.compiler.Cheese;
@@ -20,9 +29,9 @@ import org.drools.compiler.Pet;
 import org.drools.compiler.TotalHolder;
 import org.drools.core.common.InternalAgenda;
 import org.drools.core.common.InternalWorkingMemory;
-import org.drools.core.impl.StatefulKnowledgeSessionImpl;
 import org.drools.core.phreak.RuleAgendaItem;
 import org.drools.core.spi.AgendaGroup;
+import org.junit.Assert;
 import org.junit.Test;
 import org.kie.api.KieBase;
 import org.kie.api.event.rule.AfterMatchFiredEvent;
@@ -30,9 +39,11 @@ import org.kie.api.event.rule.AgendaEventListener;
 import org.kie.api.event.rule.DefaultAgendaEventListener;
 import org.kie.api.event.rule.MatchCancelledEvent;
 import org.kie.api.event.rule.MatchCreatedEvent;
+import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
 import org.kie.api.runtime.rule.FactHandle;
 import org.kie.internal.builder.conf.RuleEngineOption;
+import org.kie.internal.utils.KieHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -324,6 +335,7 @@ public class ExecutionFlowControlTest extends CommonTestMethodBase {
         // AgendaGroup "group1" is not active, so should receive activation
         final Cheese brie12 = new Cheese( "brie", 12 );
         ksession.insert( brie12 );
+        ((InternalWorkingMemory)ksession).flushPropagations();
         InternalAgenda agenda = ((InternalAgenda) ksession.getAgenda());
         final AgendaGroup group1 = agenda.getAgendaGroup( "group1" );
         assertEquals( 1, group1.size() );
@@ -438,7 +450,8 @@ public class ExecutionFlowControlTest extends CommonTestMethodBase {
         ksession.insert( mic );
         ksession.insert( mark );
 
-        InternalWorkingMemory wm = ( InternalWorkingMemory )((StatefulKnowledgeSessionImpl) ksession).getInternalWorkingMemory();
+        InternalWorkingMemory wm = ( InternalWorkingMemory )ksession;
+        wm.flushPropagations();
 
         final InternalAgenda agenda = (InternalAgenda) ksession.getAgenda();
         final AgendaGroup group1 = agenda.getAgendaGroup( "group1" );
@@ -1126,5 +1139,43 @@ public class ExecutionFlowControlTest extends CommonTestMethodBase {
 
         assertEquals( 3, ruleList.get(6));
         assertEquals( 3, ruleList.get(7));
+    }
+
+    @Test
+    public void testActivationGroupWithNots() {
+        // BZ-1318052
+        String drl =
+                "global java.util.List list;\n" +
+                "rule R1 activation-group \"fatal\" when\n" +
+                "    $s : String()\n" +
+                "    not Integer( this.toString() == $s )\n" +
+                "then\n" +
+                "    list.add(\"R1\");\n" +
+                "end\n" +
+                "rule R2 activation-group \"fatal\" when\n" +
+                "    $s : String()\n" +
+                "    not Long( this.toString() == $s )\n" +
+                "then\n" +
+                "    list.add(\"R2\");\n" +
+                "end\n" +
+                "rule R3 activation-group \"fatal\" when\n" +
+                "    Long( )\n" +
+                "then\n" +
+                "    list.add(\"R3\");\n" +
+                "end\n";
+
+        KieSession ksession = new KieHelper().addContent( drl, ResourceType.DRL )
+                                             .build()
+                                             .newKieSession();
+
+        List<String> list = new ArrayList<String>();
+        ksession.setGlobal( "list", list );
+
+        ksession.insert( "1" );
+        ksession.insert( 2 );
+        ksession.insert( 3L );
+
+        ksession.fireAllRules();
+        assertEquals( 1, list.size() );
     }
 }

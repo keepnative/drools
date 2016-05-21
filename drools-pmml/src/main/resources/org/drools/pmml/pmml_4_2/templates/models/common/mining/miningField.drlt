@@ -1,6 +1,6 @@
 @comment{
 
-  Copyright 2011 JBoss Inc
+  Copyright 2011 Red Hat, Inc. and/or its affiliates.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -55,6 +55,16 @@ then
         input.setValid(false);
         input.setContext( "@{model}" );
     insertLogical( input );
+end
+
+rule "RemoveMissing_@{model}_@{name}"
+@includeNamed{ 'rule_meta.drlt'; attributes=attributes }
+salience 1000
+when
+    $val : @{name}( context == "@{model}", missing == false )
+    $mis : @{name}( context == "@{model}", missing == true )
+then
+    delete( $mis );
 end
 
 @end{}
