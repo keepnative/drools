@@ -16,33 +16,44 @@
 
 package org.drools.persistence.jpa.marshaller;
 
-import java.io.Serializable;
-import javax.persistence.Column;
+import org.hibernate.annotations.*;
+
+import javax.persistence.*;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Version;
+import javax.persistence.Table;
+import java.io.Serializable;
 
 @Entity
-@SequenceGenerator(name="mappedVarIdSeq", sequenceName="MAPPED_VAR_ID_SEQ")
+@Table(name = "SOUPE_XP_MAPPED_VARIABLE")
 public class MappedVariable implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator="mappedVarIdSeq")
+    @GeneratedValue(generator = "sequenceStyleGenerator")
+    @GenericGenerator(
+            name = "sequenceStyleGenerator",
+            strategy = "org.hibernate.id.enhanced.SequenceStyleGenerator",
+            parameters = {
+                    @org.hibernate.annotations.Parameter(name = "sequence_name", value = "S_SOUPE_XP_MAPPED_VARIABLE")
+            }
+    )
+    @Column(name = "ID")
     private Long   mappedVarId;
 
     @Version
-    @Column(name = "OPTLOCK")
+    @Column(name = "VERSION")
     private int    version;
 
+    @Column(name = "VARIABLE_ID")
     private Long variableId;
 
+    @Column(name = "VARIABLE_TYPE")
     private String variableType;
 
+    @Column(name = "PROCESS_INSTANCE_ID")
     private Long processInstanceId;
+    @Column(name = "TASK_ID")
     private Long taskId;
+    @Column(name = "WORK_ITEM_ID")
     private Long workItemId;
 
     public MappedVariable() {
