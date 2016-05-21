@@ -14,6 +14,7 @@
   <groupId>org.drools</groupId>
   <!-- TODO rename to drools once parent pom has been moved -->
   <artifactId>drools-multiproject</artifactId>
+  <version>6.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Drools multiproject</name>
@@ -35,6 +36,19 @@
       <snapshots>
         <enabled>true</enabled>
         <updatePolicy>daily</updatePolicy>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>soupe-snapshots</id>
+      <name>Soupe Snapshots Repository</name>
+      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
   </repositories>
@@ -66,6 +80,33 @@
     <module>drools-workbench-models</module>
     <module>knowledge-api-legacy5-adapter</module>
   </modules>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <configuration>
+            <skip>true</skip>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <distributionManagement>
+    <repository>
+      <id>soupe-releases</id>
+      <name>Soupe Releases Repository</name>
+      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>soupe-snapshots</id>
+      <name>Soupe Snapshots Repository</name>
+      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <profiles>
     <profile>

@@ -1,36 +1,48 @@
 package org.drools.persistence.info;
 
-import java.util.Date;
+import com.bmit.platform.soupe.data.core.model.AbstractBaseEntityWithDomainNoAuditing;
+import org.drools.persistence.SessionMarshallingHelper;
+import org.drools.persistence.Transformable;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Lob;
-import javax.persistence.SequenceGenerator;
+import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.Version;
-
-import org.drools.persistence.SessionMarshallingHelper;
-import org.drools.persistence.Transformable;
+import java.util.Date;
 
 @Entity
-@SequenceGenerator(name="sessionInfoIdSeq", sequenceName="SESSIONINFO_ID_SEQ")
-public class SessionInfo implements Transformable {
-    
-    private @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator="sessionInfoIdSeq")
-    Long                        id;
+@Table(name = "SOUPE_XP_SESSION")
+public class SessionInfo extends AbstractBaseEntityWithDomainNoAuditing implements Transformable {
+
+    @Id
+    @GeneratedValue(generator = "sequenceStyleGenerator")
+    @GenericGenerator(
+            name = "sequenceStyleGenerator",
+            strategy = "org.hibernate.id.enhanced.SequenceStyleGenerator",
+            parameters = {
+                    @Parameter(name = "sequence_name", value = "S_SOUPE_XP_SESSION")
+            }
+    )
+    @Column(name = "ID")
+    private Long                        id;
 
     @Version
-    @Column(name = "OPTLOCK")     
+    @Column(name = "VERSION")
     private int                version;
 
+    @Column(name = "START_DATE")
     private Date               startDate;
+    @Column(name = "LAST_MODIFICATION_DATE")
     private Date               lastModificationDate;
     
     @Lob
-    @Column(length=2147483647)
+    @Column(name = "RULES_BYTE_ARRAY", length=2147483647)
     private byte[]             rulesByteArray;
 
     @Transient

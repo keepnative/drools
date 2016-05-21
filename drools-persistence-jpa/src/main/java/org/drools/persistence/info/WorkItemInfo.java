@@ -1,19 +1,6 @@
 package org.drools.persistence.info;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.Date;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Lob;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Transient;
-import javax.persistence.Version;
-
+import com.bmit.platform.soupe.data.core.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.marshalling.impl.InputMarshaller;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
@@ -22,31 +9,58 @@ import org.drools.core.marshalling.impl.ProtobufInputMarshaller;
 import org.drools.core.marshalling.impl.ProtobufOutputMarshaller;
 import org.drools.core.process.instance.WorkItem;
 import org.drools.persistence.Transformable;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.kie.api.runtime.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Lob;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+import javax.persistence.Version;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Date;
+
 @Entity
-@SequenceGenerator(name="workItemInfoIdSeq", sequenceName="WORKITEMINFO_ID_SEQ")
-public class WorkItemInfo implements Transformable {
+@Table(name = "SOUPE_XP_WORK_ITEM")
+public class WorkItemInfo extends AbstractBaseEntityWithDomainNoAuditing implements Transformable {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkItemInfo.class);
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator="workItemInfoIdSeq")
+    @GeneratedValue(generator = "sequenceStyleGenerator")
+    @GenericGenerator(
+            name = "sequenceStyleGenerator",
+            strategy = "org.hibernate.id.enhanced.SequenceStyleGenerator",
+            parameters = {
+                    @Parameter(name = "sequence_name", value = "S_SOUPE_XP_WORK_ITEM")
+            }
+    )
+    @Column(name = "ID")
     private Long   workItemId;
 
     @Version
-    @Column(name = "OPTLOCK")
+    @Column(name = "VERSION")
     private int    version;
 
+    @Column(name = "NAME")
     private String name;
+    @Column(name = "CREATION_DATE")
     private Date   creationDate;
+    @Column(name = "PROCESS_INSTANCE_ID")
     private long   processInstanceId;
+    @Column(name = "STATE")
     private long   state;
     
     @Lob
-    @Column(length=2147483647)
+    @Column(name = "WORK_ITEM_BYTE_ARRAY",length=2147483647)
     private byte[] workItemByteArray;
     
     private @Transient
