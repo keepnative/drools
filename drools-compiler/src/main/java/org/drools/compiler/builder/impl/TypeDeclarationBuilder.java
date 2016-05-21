@@ -34,7 +34,6 @@ import org.drools.core.rule.TypeDeclaration;
 import org.kie.api.io.Resource;
 import org.kie.internal.builder.ResourceChange;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;

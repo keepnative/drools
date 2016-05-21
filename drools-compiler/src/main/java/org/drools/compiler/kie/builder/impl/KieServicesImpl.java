@@ -205,10 +205,6 @@ public class KieServicesImpl implements InternalKieServices {
         return new SessionConfigurationImpl(properties, classLoader);
     }
 
-    public KieSessionConfiguration newKieSessionConfiguration(Properties properties, ClassLoader classLoader) {
-        return new SessionConfiguration(properties, classLoader);
-    }
-
     public Environment newEnvironment() {
         return EnvironmentFactory.newEnvironment();
     }

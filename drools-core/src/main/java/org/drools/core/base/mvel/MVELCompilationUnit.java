@@ -27,7 +27,6 @@ import org.drools.core.spi.GlobalResolver;
 import org.drools.core.spi.KnowledgeHelper;
 import org.drools.core.spi.Tuple;
 import org.kie.api.definition.rule.Rule;
-import org.kie.api.runtime.rule.FactHandle;
 import org.mvel2.DataConversion;
 import org.mvel2.MVEL;
 import org.mvel2.ParserConfiguration;

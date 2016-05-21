@@ -30,8 +30,6 @@ import org.drools.core.rule.MVELDialectRuntimeData;
 import org.drools.core.rule.ReturnValueRestriction;
 import org.drools.core.spi.KnowledgeHelper;
 
-import java.util.Map;
-
 public class MVELReturnValueBuilder
     implements
         ReturnValueBuilder {

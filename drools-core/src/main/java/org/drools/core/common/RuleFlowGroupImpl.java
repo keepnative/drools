@@ -422,9 +422,4 @@ public class RuleFlowGroupImpl
     public boolean isSequential() {
         return agendaGroup.isSequential();
     }
-
-    @Override
-    public boolean isSequential() {
-        return agendaGroup.isSequential();
-    }
 }
