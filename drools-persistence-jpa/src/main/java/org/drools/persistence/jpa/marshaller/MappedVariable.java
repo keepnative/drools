@@ -16,6 +16,7 @@
 
 package org.drools.persistence.jpa.marshaller;
 
+import com.bmit.platform.soupe.data.core.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.hibernate.annotations.*;
 
 import javax.persistence.*;
@@ -25,7 +26,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "SOUPE_XP_MAPPED_VARIABLE")
-public class MappedVariable implements Serializable {
+public class MappedVariable extends AbstractBaseEntityWithDomainNoAuditing implements Serializable {
 
     @Id
     @GeneratedValue(generator = "sequenceStyleGenerator")
@@ -37,11 +38,11 @@ public class MappedVariable implements Serializable {
             }
     )
     @Column(name = "ID")
-    private Long   mappedVarId;
+    private Long mappedVarId;
 
     @Version
     @Column(name = "VERSION")
-    private int    version;
+    private int version;
 
     @Column(name = "VARIABLE_ID")
     private Long variableId;
