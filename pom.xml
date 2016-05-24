@@ -102,12 +102,12 @@
     <repository>
       <id>soupe-releases</id>
       <name>Soupe Releases Repository</name>
-      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-releases</url>
+      <url>http://ci.mittop.io:8081/nexus/content/repositories/soupe-releases</url>
     </repository>
     <snapshotRepository>
       <id>soupe-snapshots</id>
       <name>Soupe Snapshots Repository</name>
-      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-snapshots</url>
+      <url>http://ci.mittop.io:8081/nexus/content/repositories/soupe-snapshots</url>
     </snapshotRepository>
   </distributionManagement>
 
