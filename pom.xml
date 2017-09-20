@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
   <parent>
@@ -13,6 +12,7 @@
 
   <groupId>org.drools</groupId>
   <artifactId>drools</artifactId>
+  <version>6.4.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Drools Multiproject</name>
@@ -38,6 +38,19 @@
       <snapshots>
         <enabled>true</enabled>
         <updatePolicy>daily</updatePolicy>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>soupe-snapshots</id>
+      <name>Soupe Snapshots Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
   </repositories>
@@ -75,16 +88,27 @@
       <plugins>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-surefire-plugin</artifactId>
+          <artifactId>maven-enforcer-plugin</artifactId>
           <configuration>
-            <forkCount>${surefire.forkCount}</forkCount>
-            <reuseForks>true</reuseForks>
-            <runOrder>hourly</runOrder>
+            <skip>true</skip>
           </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
   </build>
+
+  <distributionManagement>
+    <repository>
+      <id>soupe-releases</id>
+      <name>Soupe Releases Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>soupe-snapshots</id>
+      <name>Soupe Snapshots Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <profiles>
     <profile>
