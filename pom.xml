@@ -41,8 +41,8 @@
       </snapshots>
     </repository>
     <repository>
-      <id>soupe-snapshots</id>
-      <name>Soupe Snapshots Repository</name>
+      <id>keepnative-snapshots</id>
+      <name>KeepNative Snapshots Repository</name>
       <url>http://repository.keepnative.io/repository/maven-snapshots</url>
       <releases>
         <enabled>false</enabled>
@@ -99,13 +99,13 @@
 
   <distributionManagement>
     <repository>
-      <id>soupe-releases</id>
-      <name>Soupe Releases Repository</name>
+      <id>keepnative-releases</id>
+      <name>KeepNative Releases Repository</name>
       <url>http://repository.keepnative.io/repository/maven-releases</url>
     </repository>
     <snapshotRepository>
-      <id>soupe-snapshots</id>
-      <name>Soupe Snapshots Repository</name>
+      <id>keepnative-snapshots</id>
+      <name>KeepNative Snapshots Repository</name>
       <url>http://repository.keepnative.io/repository/maven-snapshots</url>
     </snapshotRepository>
   </distributionManagement>
