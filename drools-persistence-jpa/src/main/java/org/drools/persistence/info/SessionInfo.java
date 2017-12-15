@@ -15,7 +15,7 @@
 
 package org.drools.persistence.info;
 
-import com.bmit.platform.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
+import io.keepnative.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.drools.persistence.SessionMarshallingHelper;
 import org.drools.persistence.Transformable;
 import org.hibernate.annotations.GenericGenerator;

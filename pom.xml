@@ -12,7 +12,7 @@
 
   <groupId>org.drools</groupId>
   <artifactId>drools</artifactId>
-  <version>6.4.1-SNAPSHOT</version>
+  <version>6.4.2-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Drools Multiproject</name>
@@ -41,9 +41,22 @@
       </snapshots>
     </repository>
     <repository>
-      <id>soupe-snapshots</id>
-      <name>Soupe Snapshots Repository</name>
-      <url>http://202.85.222.225:8081/nexus/content/repositories/soupe-snapshots</url>
+      <id>keepnative-releases</id>
+      <name>KeepNative Releases Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-releases</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+        <updatePolicy>never</updatePolicy>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>keepnative-snapshots</id>
+      <name>KeepNative Snapshots Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-snapshots</url>
       <releases>
         <enabled>false</enabled>
         <updatePolicy>never</updatePolicy>
@@ -99,14 +112,14 @@
 
   <distributionManagement>
     <repository>
-      <id>soupe-releases</id>
-      <name>Soupe Releases Repository</name>
-      <url>http://ci.mittop.io:8081/nexus/content/repositories/soupe-releases</url>
+      <id>keepnative-releases</id>
+      <name>KeepNative Releases Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-releases</url>
     </repository>
     <snapshotRepository>
-      <id>soupe-snapshots</id>
-      <name>Soupe Snapshots Repository</name>
-      <url>http://ci.mittop.io:8081/nexus/content/repositories/soupe-snapshots</url>
+      <id>keepnative-snapshots</id>
+      <name>KeepNative Snapshots Repository</name>
+      <url>http://repository.keepnative.io/repository/maven-snapshots</url>
     </snapshotRepository>
   </distributionManagement>
 

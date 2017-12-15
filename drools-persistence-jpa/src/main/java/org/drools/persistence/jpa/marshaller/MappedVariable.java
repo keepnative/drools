@@ -16,7 +16,7 @@
 
 package org.drools.persistence.jpa.marshaller;
 
-import com.bmit.platform.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
+import io.keepnative.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.hibernate.annotations.*;
 
 import javax.persistence.*;
