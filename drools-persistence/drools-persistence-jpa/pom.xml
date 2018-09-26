@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.drools</groupId>
     <artifactId>drools-persistence</artifactId>
-    <version>7.11.0.Final</version>
+    <version>7.11.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>drools-persistence-jpa</artifactId>
@@ -23,12 +22,12 @@
     <maven.hibernate.dialect>org.hibernate.dialect.H2Dialect</maven.hibernate.dialect>
     <maven.datasource.classname>org.h2.jdbcx.JdbcDataSource</maven.datasource.classname>
     <maven.jdbc.driver.class>org.h2.Driver</maven.jdbc.driver.class>
-    <maven.jdbc.db.name/>
-    <maven.jdbc.db.port/>
-    <maven.jdbc.db.server/>
-    <maven.jdbc.driver.jar/>
-    <maven.jdbc.username/>
-    <maven.jdbc.password/>
+    <maven.jdbc.db.name />
+    <maven.jdbc.db.port />
+    <maven.jdbc.db.server />
+    <maven.jdbc.driver.jar />
+    <maven.jdbc.username />
+    <maven.jdbc.password />
     <maven.jdbc.url>jdbc:h2:mem:test</maven.jdbc.url>
     <maven.jdbc.schema>public</maven.jdbc.schema>
   </properties>
@@ -46,6 +45,27 @@
     </testResources>
     
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>no-managed-deps</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>initialize</phase>
+            <configuration>
+              <rules>
+                <requireManagedDeps implementation="org.commonjava.maven.enforcer.rule.EnforceManagedDepsRule">
+                  <checkProfiles>true</checkProfiles>
+                  <failOnViolation>false</failOnViolation>
+                </requireManagedDeps>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
@@ -71,7 +91,7 @@
             <Export-Package>
               org.drools.persistence.*
             </Export-Package>
-            <Private-Package/>
+            <Private-Package />
             <Bundle-Activator>org.drools.persistence.osgi.Activator</Bundle-Activator>
           </instructions>
         </configuration>
@@ -172,7 +192,13 @@
     <dependency>
       <groupId>org.hibernate</groupId>
       <artifactId>hibernate-core</artifactId>
-    <scope>test</scope>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.keepnative.soupe</groupId>
+      <artifactId>soupe-model</artifactId>
+      <scope>provided</scope>
     </dependency>
 
     <!-- Logging -->
