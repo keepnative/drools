@@ -16,7 +16,6 @@
 
 package org.drools.persistence.jpa.marshaller;
 
-import io.keepnative.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.hibernate.annotations.*;
 
 import javax.persistence.*;
@@ -26,7 +25,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "SOUPE_XP_MAPPED_VARIABLE")
-public class MappedVariable extends AbstractBaseEntityWithDomainNoAuditing implements Serializable {
+public class MappedVariable implements Serializable {
 
     @Id
     @GeneratedValue(generator = "S_SOUPE_XP_MAPPED_VARIABLE")

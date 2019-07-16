@@ -28,7 +28,6 @@ import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.Version;
 
-import io.keepnative.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.drools.persistence.api.PersistentSession;
 import org.drools.persistence.api.SessionMarshallingHelper;
 import org.drools.persistence.api.Transformable;
@@ -37,7 +36,7 @@ import org.hibernate.annotations.Parameter;
 
 @Entity
 @Table(name = "SOUPE_XP_SESSION")
-public class SessionInfo extends AbstractBaseEntityWithDomainNoAuditing implements PersistentSession {
+public class SessionInfo implements PersistentSession {
 
     @Id
     @GeneratedValue(generator = "S_SOUPE_XP_SESSION")

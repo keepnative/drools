@@ -41,32 +41,6 @@
         <updatePolicy>daily</updatePolicy>
       </snapshots>
     </repository>
-    <repository>
-      <id>keepnative-releases</id>
-      <name>KeepNative Releases Repository</name>
-      <url>http://repository.keepnative.io/repository/maven-releases</url>
-      <releases>
-        <enabled>true</enabled>
-        <updatePolicy>always</updatePolicy>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-        <updatePolicy>never</updatePolicy>
-      </snapshots>
-    </repository>
-    <repository>
-      <id>keepnative-snapshots</id>
-      <name>KeepNative Snapshots Repository</name>
-      <url>http://repository.keepnative.io/repository/maven-snapshots</url>
-      <releases>
-        <enabled>false</enabled>
-        <updatePolicy>never</updatePolicy>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-        <updatePolicy>always</updatePolicy>
-      </snapshots>
-    </repository>
   </repositories>
 
   <scm>
@@ -109,21 +83,6 @@
         <version>${version.org.kie}</version>
         <type>pom</type>
         <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>io.keepnative.soupe</groupId>
-        <artifactId>soupe-model</artifactId>
-        <version>4.0.0-SNAPSHOT</version>
-        <exclusions>
-          <exclusion>
-            <groupId>commons-logging</groupId>
-            <artifactId>commons-logging</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>log4j</groupId>
-            <artifactId>log4j</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>

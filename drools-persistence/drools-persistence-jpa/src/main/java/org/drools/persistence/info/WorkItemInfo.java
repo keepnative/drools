@@ -31,7 +31,6 @@ import javax.persistence.Table;
 import javax.persistence.Transient;
 import javax.persistence.Version;
 
-import io.keepnative.soupe.model.AbstractBaseEntityWithDomainNoAuditing;
 import org.drools.core.impl.InternalKnowledgeBase;
 import org.drools.core.marshalling.impl.InputMarshaller;
 import org.drools.core.marshalling.impl.MarshallerReaderContext;
@@ -49,7 +48,7 @@ import org.slf4j.LoggerFactory;
 
 @Entity
 @Table(name = "SOUPE_XP_WORK_ITEM")
-public class WorkItemInfo extends AbstractBaseEntityWithDomainNoAuditing implements PersistentWorkItem {
+public class WorkItemInfo implements PersistentWorkItem {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkItemInfo.class);
 
